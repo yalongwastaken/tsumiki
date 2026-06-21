@@ -5,6 +5,7 @@ import Setup from "./Setup.jsx";
 import Plan from "./Plan.jsx";
 import QuickAdd from "./QuickAdd.jsx";
 import Milestones from "./Milestones.jsx";
+import MoneyTargets from "./MoneyTargets.jsx";
 import { computeMilestones } from "./milestones.js";
 
 import Fire from "./Fire.jsx";
@@ -14,8 +15,7 @@ const Projection = lazy(() => import("./Projection.jsx"));
 const NetWorthHistory = lazy(() => import("./NetWorthHistory.jsx"));
 
 // M0 note: data model is now the unified shape from the server (SPEC.md §6).
-// Existing components are fed DERIVED views (contributions/expenses) off the
-// single `transactions` ledger, so screens keep working while the model changes.
+// Components read the unified `transactions` ledger; contributions are bucketed.
 const CATS = ["Tech / Gear", "Subscriptions", "Dining Out", "Entertainment", "Education", "Clothing", "Other"];
 const CAT_COLORS = ["#FB923C", "#F97316", "#FDBA74", "#FCD34D"];
 
@@ -29,10 +29,6 @@ const EMPTY = {
 const weekKey = (d) => { const x = new Date(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); x.setHours(0,0,0,0); return x.getTime(); };
 const WEEK = 7 * 86400000;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-
-function savedFor(goalId, contributions) {
-  return contributions.filter(c => c.goalId === goalId).reduce((s, c) => s + c.amount, 0);
-}
 
 // M5: a freeze budget bridges missed weeks so one slip doesn't reset a long run.
 function computeStreak(contributions, freezes = 0) {
@@ -77,7 +73,9 @@ function useCountUp(target, dur = 900) {
 // ─── Sankey Flow ──────────────────────────────────────────────────────────────
 // M4 (§7): real money flow for the current month — actual income on the left,
 // actual spending + contributions + leftover on the right. Honest, not planned.
-function SankeyFlow({ transactions, goals, fallbackIncome }) {
+const BUCKET_LABELS = { emergency: "Emergency", retirement: "Retirement", invest: "Invest", debt: "Debt" };
+const BUCKET_COLORS = { emergency: "#6366F1", retirement: "#8B5CF6", invest: "#10B981", debt: "#EF4444" };
+function SankeyFlow({ transactions, fallbackIncome }) {
   const W = 580, LX = 50, LW = 16, RX = 405, RW = 16, PTOP = 12, PBOT = 16, GAP = 6, MIN_H = 30, SCALE = 140;
   const ym = new Date().toISOString().slice(0, 7);
   const month = transactions.filter(t => new Date(t.date).toISOString().slice(0, 7) === ym);
@@ -89,12 +87,11 @@ function SankeyFlow({ transactions, goals, fallbackIncome }) {
   for (const t of month) if (t.type === "spending") catMap[t.cat || "Other"] = (catMap[t.cat || "Other"] || 0) + t.amount;
   const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 4);
 
-  const goalName = (id) => (id === "brokerage" ? "Brokerage" : goals.find(g => g.id === id)?.name || "Savings");
   const contribMap = {};
-  for (const t of month) if (t.type === "contribution") contribMap[t.goalId || "brokerage"] = (contribMap[t.goalId || "brokerage"] || 0) + t.amount;
+  for (const t of month) if (t.type === "contribution") { const b = BUCKET_LABELS[t.bucket] ? t.bucket : "invest"; contribMap[b] = (contribMap[b] || 0) + t.amount; }
 
   const items = [
-    ...Object.entries(contribMap).map(([id, a], i) => ({ label: goalName(id), amount: a, color: goals.find(g => g.id === id)?.color || "#10B981" })),
+    ...Object.entries(contribMap).map(([b, a]) => ({ label: BUCKET_LABELS[b], amount: a, color: BUCKET_COLORS[b] })),
     ...topCats.map(([c, a], i) => ({ label: c, amount: a, color: CAT_COLORS[i % CAT_COLORS.length] })),
   ];
   if (!income || income <= 0)
@@ -184,96 +181,6 @@ function StreakPanel({ contributions, freezes = 0 }) {
   );
 }
 
-// ─── Quick Log ──────────────────────────────────────────────────────────────
-function QuickLog({ goals, contributions, onLog }) {
-  const [goalId, setGoalId] = useState(goals[0]?.id || "brokerage");
-  const [amount, setAmount] = useState("");
-  const thisWeek = weekKey(Date.now());
-  const loggedThisWeek = contributions.some(c => weekKey(c.date) === thisWeek);
-  return (
-    <div className={`rounded-xl border p-4 transition-colors ${loggedThisWeek ? "bg-emerald-50 border-emerald-200" : "bg-white border-slate-200"}`}>
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-base">{loggedThisWeek ? "✓" : "🔥"}</span>
-        <div className="text-sm font-semibold text-slate-700">
-          {loggedThisWeek ? "Streak secured this week" : "Log a contribution to keep your streak"}
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <select value={goalId} onChange={e => setGoalId(e.target.value)}
-          className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 flex-1 min-w-0">
-          {goals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-          <option value="brokerage">Brokerage (VTI)</option>
-        </select>
-        <div className="relative" style={{ width: 110 }}>
-          <span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
-          <input type="number" placeholder="0" value={amount} onChange={e => setAmount(e.target.value)}
-            className="w-full pl-7 pr-2 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700" />
-        </div>
-        <button onClick={() => { const n = parseFloat(amount); if (n > 0) { onLog(goalId, n); setAmount(""); } }}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors">
-          Log
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Goal Card ────────────────────────────────────────────────────────────────
-function GoalCard({ goal, saved, onDeposit, onUpdate }) {
-  const [input, setInput] = useState("");
-  const pct = Math.min(100, (saved/goal.target)*100);
-  const mos = saved >= goal.target ? 0 : Math.ceil((goal.target - saved)/(goal.pledge || 1));
-
-  // M6: if a target date is set, compute the pace needed and on-track status.
-  let pace = null;
-  if (goal.targetDate && saved < goal.target) {
-    const monthsLeft = Math.max(0, (new Date(goal.targetDate) - Date.now()) / (30.44 * 86400000));
-    const required = monthsLeft > 0 ? (goal.target - saved) / monthsLeft : Infinity;
-    const onTrack = required <= (goal.pledge || 0);
-    pace = { monthsLeft, required, onTrack, past: monthsLeft <= 0 };
-  }
-  const dateVal = goal.targetDate ? new Date(goal.targetDate).toISOString().slice(0, 10) : "";
-
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="flex justify-between items-start mb-3">
-        <div><div className="font-semibold text-slate-800">{goal.name}</div>
-          <div className="text-xs text-slate-400 mt-0.5">{fmt(goal.pledge)}/month pledged</div></div>
-        <div className="text-right"><div className="text-2xl font-mono font-bold text-slate-900">{fmt(saved)}</div>
-          <div className="text-xs text-slate-400">of {fmt(goal.target)}</div></div>
-      </div>
-      <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-1.5">
-        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: goal.color }} /></div>
-      <div className="flex justify-between text-xs text-slate-400 mb-3">
-        <span>{pct.toFixed(1)}%</span><span>{pct >= 100 ? "Goal reached!" : `~${mos} months at this pace`}</span></div>
-
-      {/* target date + required pace */}
-      <div className="flex items-center justify-between gap-2 mb-3 text-xs">
-        <label className="text-slate-500">Target date</label>
-        <input type="date" value={dateVal}
-          onChange={(e) => onUpdate(goal.id, { targetDate: e.target.value ? new Date(e.target.value).toISOString() : null })}
-          className="px-2 py-1 border border-slate-200 rounded-lg bg-slate-50 text-slate-700" />
-      </div>
-      {pace && pct < 100 && (
-        <div className={`text-xs mb-4 ${pace.past ? "text-rose-500" : pace.onTrack ? "text-emerald-600" : "text-amber-600"}`}>
-          {pace.past
-            ? "Target date has passed."
-            : `Need ${fmt(pace.required)}/mo to hit by ${new Date(goal.targetDate).toLocaleDateString()} — ${pace.onTrack ? "on track ✓" : `behind (pledged ${fmt(goal.pledge)})`}`}
-        </div>
-      )}
-
-      <div className="flex gap-2">
-        <div className="relative flex-1"><span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
-          <input type="number" placeholder="Deposit" value={input} onChange={e => setInput(e.target.value)}
-            className="w-full pl-7 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700" /></div>
-        <button onClick={() => { const n = parseFloat(input); if (n > 0) { onDeposit(goal.id, n); setInput(""); } }}
-          className="px-4 py-2 text-sm font-semibold text-white rounded-lg hover:opacity-90 transition-opacity"
-          style={{ background: goal.color }}>Add</button>
-      </div>
-    </div>
-  );
-}
-
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("plan");
@@ -312,7 +219,7 @@ export default function App() {
     });
   }
 
-  const { goals, transactions, settings, accounts, snapshots, profile, debts } = data;
+  const { transactions, settings, accounts, snapshots, profile, debts } = data;
   const incomeSources = profile?.incomeSources || [];
   // derived typical monthly income = sum of sources (fallback to legacy single field)
   const income = incomeSources.length
@@ -321,10 +228,7 @@ export default function App() {
 
   // derived views off the single ledger (SPEC.md §6)
   const contributions = useMemo(
-    () => transactions.filter(t => t.type === "contribution").map(t => ({ id: t.id, goalId: t.goalId, amount: t.amount, date: t.date })),
-    [transactions]);
-  const expenses = useMemo(
-    () => transactions.filter(t => t.type === "spending").map(t => ({ id: t.id, cat: t.cat, amount: t.amount, note: t.note, date: new Date(t.date).toLocaleDateString() })),
+    () => transactions.filter(t => t.type === "contribution").map(t => ({ id: t.id, bucket: t.bucket, amount: t.amount, date: t.date })),
     [transactions]);
 
   // real net worth = sum of latest snapshot per account (SPEC.md §7)
@@ -362,8 +266,8 @@ export default function App() {
   const milestoneList = useMemo(() => computeMilestones({
     realNetWorth, investedTotal, savings: savingsBalance,
     emergencyTarget: profile?.emergencyTarget || 0, debts, streak: streakNow,
-    goals: goals.map(g => ({ id: g.id, name: g.name, target: g.target, saved: savedFor(g.id, contributions) })),
-  }), [realNetWorth, investedTotal, savingsBalance, profile, debts, streakNow, goals, contributions]);
+    userTargets: profile?.moneyTargets || [],
+  }), [realNetWorth, investedTotal, savingsBalance, profile, debts, streakNow]);
 
   // celebrate milestones newly achieved during this session — pure, no writes.
   // Baseline is captured on first load so we don't re-celebrate old wins.
@@ -399,16 +303,6 @@ export default function App() {
     return out;
   }, [snapshots]);
 
-  function updateGoal(id, patch) {
-    save({ ...data, goals: goals.map(g => g.id === id ? { ...g, ...patch } : g) });
-  }
-
-  function logContribution(goalId, amount) {
-    save({ ...data, transactions: [...transactions, { id: uid(), type: "contribution", goalId, amount, date: new Date().toISOString(), note: null, cat: null }] });
-  }
-  function addExpense(cat, amount, note) {
-    save({ ...data, transactions: [...transactions, { id: uid(), type: "spending", cat, amount, note: note || null, date: new Date().toISOString(), goalId: null }] });
-  }
   function deleteTx(id) {
     save({ ...data, transactions: transactions.filter(t => t.id !== id) });
   }
@@ -470,8 +364,6 @@ export default function App() {
         {tab === "plan" && <Plan transactions={transactions} accounts={accounts} snapshots={snapshots} profile={profile} onGoSetup={() => setTab("setup")} />}
 
         {tab === "dashboard" && <>
-          <QuickLog goals={goals} contributions={contributions} onLog={logContribution} />
-          <Milestones list={milestoneList} />
           {realityCheck && (
             <div className="bg-white rounded-xl border border-slate-200 p-4">
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Reality check</div>
@@ -485,11 +377,13 @@ export default function App() {
               </div>
             </div>
           )}
-          <StreakPanel contributions={contributions} freezes={freezes} />
           <div className="bg-white rounded-xl border border-slate-200 px-4 pt-4 pb-3">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">This month's flow — actual</div>
-            <SankeyFlow transactions={transactions} goals={goals} fallbackIncome={income} />
+            <SankeyFlow transactions={transactions} fallbackIncome={income} />
           </div>
+          {transactions.length === 0 && (
+            <div className="text-center py-8 text-slate-400 text-sm">Tap <span className="font-semibold text-indigo-500">+</span> to log income or spending — your flow and plan fill in from there.</div>
+          )}
         </>}
 
         {tab === "grow" && <>
@@ -501,12 +395,13 @@ export default function App() {
           <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
         </>}
 
-        {tab === "log" && <LogTab cats={CATS} expenses={expenses} contributions={contributions} goals={goals}
-          onAddExpense={addExpense} onDeleteExpense={deleteTx} onDeleteContribution={deleteTx} />}
+        {tab === "log" && <Ledger transactions={transactions} sources={incomeSources} onDelete={deleteTx} />}
 
-        {tab === "goals" && (goals.length ? goals.map(g => (
-          <GoalCard key={g.id} goal={g} saved={savedFor(g.id, contributions)} onDeposit={logContribution} onUpdate={updateGoal} />
-        )) : <div className="text-center py-12 text-slate-400 text-sm">No goals yet.</div>)}
+        {tab === "goals" && <>
+          <StreakPanel contributions={contributions} freezes={freezes} />
+          <Milestones list={milestoneList} />
+          <MoneyTargets targets={profile?.moneyTargets || []} onChange={(list) => save({ ...data, profile: { ...profile, moneyTargets: list } })} />
+        </>}
 
         {tab === "setup" && <Setup data={data} onSave={save} />}
       </div>
@@ -518,71 +413,44 @@ export default function App() {
         +
       </button>
       <QuickAdd open={showAdd} onClose={() => setShowAdd(false)} onLog={logTx}
-        cats={CATS} goals={goals} sources={incomeSources} transactions={transactions} />
+        cats={CATS} sources={incomeSources} transactions={transactions} />
     </div>
   );
 }
 
-function LogTab({ cats, expenses, contributions, goals, onAddExpense, onDeleteExpense, onDeleteContribution }) {
-  const [cat, setCat] = useState(cats[0]);
-  const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
-  const goalName = (id) => id === "brokerage" ? "Brokerage (VTI)" : (goals.find(g => g.id === id)?.name || id);
+// I4 — read-only ledger (logging happens via the + button). Filter + delete.
+function Ledger({ transactions, sources, onDelete }) {
+  const [filter, setFilter] = useState("all");
+  const sourceName = (id) => sources.find((s) => s.id === id)?.name || "income";
+  const bucketName = (b) => ({ emergency: "Emergency", retirement: "Retirement", invest: "Invest", debt: "Debt" }[b] || "Invest");
+  const rows = [...transactions].filter((t) => filter === "all" || t.type === filter).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const meta = (t) => t.type === "spending" ? (t.cat || "Spending") : t.type === "income" ? sourceName(t.sourceId) : bucketName(t.bucket);
+  const color = (t) => t.type === "income" ? "text-emerald-600" : t.type === "contribution" ? "text-indigo-600" : "text-slate-700";
   return <>
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Log expense</div>
-      <div className="space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <select value={cat} onChange={e => setCat(e.target.value)}
-            className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700">
-            {cats.map(c => <option key={c}>{c}</option>)}</select>
-          <div className="relative"><span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
-            <input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)}
-              className="w-full pl-7 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700" /></div>
-        </div>
-        <input type="text" placeholder="Note (optional)" value={note} onChange={e => setNote(e.target.value)}
-          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700" />
-        <button onClick={() => { const n = parseFloat(amount); if (n > 0) { onAddExpense(cat, n, note); setAmount(""); setNote(""); } }}
-          className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg transition-colors">
-          Add expense</button>
-      </div>
+    <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
+      {[["all", "All"], ["income", "Income"], ["spending", "Spending"], ["contribution", "Saved"]].map(([v, l]) => (
+        <button key={v} onClick={() => setFilter(v)}
+          className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${filter === v ? "bg-slate-100 text-slate-800" : "text-slate-500"}`}>{l}</button>
+      ))}
     </div>
-
-    {contributions.length > 0 && (
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Contributions</div>
-        <div className="divide-y divide-slate-50">
-          {[...contributions].reverse().map(c => (
-            <div key={c.id} className="flex items-center justify-between py-2.5">
-              <div><div className="text-sm text-slate-700">{goalName(c.goalId)}</div>
-                <div className="text-xs text-slate-300">{new Date(c.date).toLocaleDateString()}</div></div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-mono text-emerald-600">+{fmt(c.amount)}</span>
-                <button onClick={() => onDeleteContribution(c.id)} className="text-slate-300 hover:text-rose-400 text-xs">✕</button></div>
-            </div>))}
-        </div>
+    {rows.length === 0 ? (
+      <div className="text-center py-12 text-slate-400 text-sm">Nothing logged yet. Tap <span className="font-semibold text-indigo-500">+</span> to start.</div>
+    ) : (
+      <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-50">
+        {rows.map((t) => (
+          <div key={t.id} className="flex items-center justify-between px-4 py-2.5">
+            <div>
+              <div className="text-sm text-slate-700">{meta(t)}</div>
+              {t.note && <div className="text-xs text-slate-400">{t.note}</div>}
+              <div className="text-xs text-slate-300">{new Date(t.date).toLocaleDateString()}</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className={`text-sm font-mono ${color(t)}`}>{t.type === "spending" ? "−" : "+"}{fmt(t.amount)}</span>
+              <button onClick={() => onDelete(t.id)} className="text-slate-300 hover:text-rose-400 text-xs">✕</button>
+            </div>
+          </div>
+        ))}
       </div>
-    )}
-
-    {expenses.length > 0 && (
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Expenses</div>
-        <div className="divide-y divide-slate-50">
-          {[...expenses].reverse().map(e => (
-            <div key={e.id} className="flex items-center justify-between py-2.5">
-              <div><div className="text-sm text-slate-700">{e.cat}</div>
-                {e.note && <div className="text-xs text-slate-400">{e.note}</div>}
-                <div className="text-xs text-slate-300">{e.date}</div></div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-mono text-slate-700">{fmt(e.amount)}</span>
-                <button onClick={() => onDeleteExpense(e.id)} className="text-slate-300 hover:text-rose-400 text-xs">✕</button></div>
-            </div>))}
-        </div>
-      </div>
-    )}
-
-    {contributions.length === 0 && expenses.length === 0 && (
-      <div className="text-center py-12 text-slate-400 text-sm">Nothing logged yet.</div>
     )}
   </>;
 }

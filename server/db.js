@@ -87,6 +87,7 @@ const DEFAULT_PROFILE = {
   strategy: "balanced",
   customRules: null,
   incomeSources: [], // [{ id, name, type, typicalMonthly }] — replaces single income field
+  moneyTargets: [],  // [{ id, label, amount, metric }] — user-defined game goals (I4)
 };
 const DEFAULT_SETTINGS = { returnRate: 0.07, monthlyInvest: null, streakFreezes: 0 };
 

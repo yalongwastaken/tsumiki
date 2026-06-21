@@ -6,8 +6,11 @@ const CONTRIB_TIERS = [1000, 5000, 10000, 25000, 50000];
 const STREAK_TIERS = [4, 12, 26, 52];
 const money = (n) => "$" + Math.round(n).toLocaleString();
 
+const METRIC_VALUE = (metric, ctx) =>
+  metric === "net_worth" ? ctx.realNetWorth : metric === "emergency" ? ctx.savings : ctx.investedTotal;
+
 export function computeMilestones(ctx) {
-  const { realNetWorth = 0, investedTotal = 0, savings = 0, emergencyTarget = 0, debts = [], streak = 0, goals = [] } = ctx;
+  const { realNetWorth = 0, investedTotal = 0, savings = 0, emergencyTarget = 0, debts = [], streak = 0, userTargets = [] } = ctx;
   const m = [];
   const add = (id, label, icon, achieved, cur, target) => m.push({ id, label, icon, achieved, cur, target });
 
@@ -23,7 +26,11 @@ export function computeMilestones(ctx) {
 
   for (const t of STREAK_TIERS) add(`streak_${t}`, `${t}-week streak`, "🔥", streak >= t, streak, t);
 
-  for (const g of goals) add(`goal_${g.id}`, `Goal: ${g.name}`, "🎯", g.target > 0 && g.saved >= g.target, g.saved, g.target);
+  // user-defined money targets (the gamified "save $X" goals, I4)
+  for (const g of userTargets) {
+    const cur = METRIC_VALUE(g.metric, ctx);
+    add(`target_${g.id}`, g.label || `${money(g.amount)} target`, "🎯", g.amount > 0 && cur >= g.amount, cur, g.amount);
+  }
 
   return m;
 }

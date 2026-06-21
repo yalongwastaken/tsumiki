@@ -16,7 +16,7 @@ const BUCKETS = [
   ["debt", "Debt paydown"],
 ];
 
-export default function QuickAdd({ open, onClose, onLog, cats, goals, sources = [], transactions }) {
+export default function QuickAdd({ open, onClose, onLog, cats, sources = [], transactions }) {
   const [type, setType] = useState("spending");
   const [amount, setAmount] = useState("");
   const [cat, setCat] = useState(null);

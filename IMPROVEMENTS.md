@@ -97,13 +97,19 @@ Goals are no longer hand-funded budget buckets. They're **money-oriented, automa
 
 **✅ Minimum watch — forward-looking.** Warn when checking < floor AND project "at this spend rate you'll dip below in ~N days."
 
-**I4 — UX consolidation**
-Collapse the 3 logging surfaces into one (the quick-add FAB for entry; the ledger view is read-only history). Dashboard dissolves — its pieces redistribute. Proposed **5-tab IA** (down from 6):
-- **Plan** (home): pooled income → live allocation, plan-vs-actual per bucket, what's-left-to-allocate, checking min watch.
-- **Progress** (game): streak + milestones + auto goals + badges (the merged game layer).
-- **Money** (ledger): transaction history + the actual-flow Sankey. Entry via FAB.
-- **Grow**: projection + FIRE/Coast + net-worth-over-time (+ reality check).
-- **Setup**: profile, income sources, accounts, debts, targets.
+**I4 — UX consolidation** *(nav/tab rename deferred to a dedicated UX pass; this pass does content + consolidation only)*
+
+Proposed concrete plan (run by Anthony before building):
+
+1. **One logging path.** Remove the dashboard QuickLog and the Log-tab expense form. The **+ button is the only way to log.** (Fixes the 3-surface redundancy.)
+2. **Log tab → clean read-only ledger.** Newest-first history with a type filter (all / income / spending / contribution); each row labeled by source (income), bucket (contribution), or category (spending); delete only.
+3. **Goals tab → the "Game".** Fixes the I3 staleness (goal cards no longer fund). Move **streak + milestones** here; Dashboard keeps the money picture (reality check + Sankey). Goals tab = streak + milestone badges + next-up.
+4. *(proactive)* **User-defined money targets.** In the Game view, add your own "$X" targets (e.g. "Save $5,000") auto-tracked against a chosen metric (net worth / total contributed / emergency), earning a badge + celebration on completion — the "money-oriented, automatic, gamified goals" you described.
+5. *(proactive)* **Empty states + polish.** Friendly first-run prompts per tab; consistent card styling.
+
+Open for Anthony: which proactive bits (4, 5) to include now; whether moving streak/milestones off the Dashboard is OK pre-nav-pass.
+
+*(Deferred to dedicated UX pass: tab renames/reordering, the 5-tab IA, overall interaction model.)*
 
 **I5 — Smarter engine**
 Avalanche debt ordering (highest APR first) · YTD-aware retirement (toward annual limit) · configurable high-interest threshold · tighter match modeling · feed derived targets to I3.
