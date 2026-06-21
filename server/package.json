@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node --experimental-sqlite index.js",
     "dev": "node --experimental-sqlite --watch index.js",
-    "test": "node --test"
+    "test": "node --experimental-sqlite --test"
   },
   "engines": { "node": ">=22.5" },
   "dependencies": {

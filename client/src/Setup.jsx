@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import { X } from "lucide-react";
+import { X, Pencil } from "lucide-react";
 import { fmt } from "./format.js";
 import { importData, exportUrl } from "./api.js";
 
@@ -85,6 +85,7 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
 
   // income sources (commit immediately; keep profile.typicalIncome = derived sum)
   const [src, setSrc] = useState({ name: "", type: "salary", basis: "annual", amount: "", hours: "40" });
+  const [editingSrc, setEditingSrc] = useState(null);
   // convert any pay basis to a monthly figure
   const toMonthly = (s) => {
     const a = Number(s.amount || 0);
@@ -99,11 +100,19 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
   }
   function addSource() {
     if (!src.name.trim()) return;
-    commitSources([...incomeSources, { id: uid(), name: src.name.trim(), type: src.type, basis: src.basis, amount: Number(src.amount || 0), hours: Number(src.hours || 0), typicalMonthly: toMonthly(src) }]);
+    const fields = { name: src.name.trim(), type: src.type, basis: src.basis, amount: Number(src.amount || 0), hours: Number(src.hours || 0), typicalMonthly: toMonthly(src) };
+    commitSources(editingSrc
+      ? incomeSources.map((s) => (s.id === editingSrc ? { ...s, ...fields } : s))
+      : [...incomeSources, { id: uid(), ...fields }]);
     setSrc({ name: "", type: "salary", basis: "annual", amount: "", hours: "40" });
+    setEditingSrc(null);
+  }
+  function editSource(s) {
+    setSrc({ name: s.name, type: s.type, basis: s.basis || "monthly", amount: String(s.amount ?? s.typicalMonthly ?? ""), hours: String(s.hours || 40) });
+    setEditingSrc(s.id);
   }
   const srcDetail = (s) => s.basis === "hourly" ? `$${s.amount}/hr · ${s.hours}h/wk` : s.basis === "annual" ? `${fmt(s.amount)}/yr` : `${fmt(s.amount)}/mo`;
-  function removeSource(id) { commitSources(incomeSources.filter((s) => s.id !== id)); }
+  function removeSource(id) { commitSources(incomeSources.filter((s) => s.id !== id)); if (editingSrc === id) { setEditingSrc(null); setSrc({ name: "", type: "salary", basis: "annual", amount: "", hours: "40" }); } }
 
   // accounts
   const [acct, setAcct] = useState({ name: "", type: "checking", balance: "" });
@@ -124,6 +133,13 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
     if (!ss.length) return null;
     return ss.reduce((a, b) => (new Date(b.date) > new Date(a.date) ? b : a)).balance;
   };
+  const [balEdit, setBalEdit] = useState({ id: null, value: "" });
+  function updateBalance(id) {
+    const v = Number(balEdit.value);
+    if (Number.isNaN(v) || balEdit.value === "") return;
+    onSave({ ...data, snapshots: [...snapshots, { id: uid(), accountId: id, date: new Date().toISOString(), balance: v }] });
+    setBalEdit({ id: null, value: "" });
+  }
 
   // recurring bills (essentials — inform-only, A1/S4)
   const bills = profile.bills || [];
@@ -165,6 +181,11 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
   return (
     <>
       {section === "accounts" && (<>
+      {incomeSources.length === 0 && accounts.length === 0 && debts.length === 0 && bills.length === 0 && (
+        <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 text-sm text-brand-700">
+          Set up your money here — add your income, bank accounts, recurring bills, and any debts. The plan uses these to tell you where each paycheck should go.
+        </div>
+      )}
       {/* Income sources */}
       <div className={card}>
         <div className="flex items-baseline justify-between mb-3">
@@ -179,7 +200,10 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
                   <div className="text-sm text-slate-700">{s.name} <span className="text-xs text-slate-400">· {s.type.replace("_", " ")}</span></div>
                   <div className="text-xs text-slate-400">{s.basis ? `${srcDetail(s)} → ` : ""}~{fmt(s.typicalMonthly || 0)}/mo</div>
                 </div>
-                <button onClick={() => removeSource(s.id)} className="text-slate-300 hover:text-rose-400" aria-label="Remove"><X size={14} /></button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => editSource(s)} className="text-slate-300 hover:text-brand-600" aria-label="Edit"><Pencil size={13} /></button>
+                  <button onClick={() => removeSource(s.id)} className="text-slate-300 hover:text-rose-400" aria-label="Remove"><X size={14} /></button>
+                </div>
               </div>
             ))}
           </div>
@@ -203,7 +227,7 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
         </div>
         <div className="flex items-center justify-between gap-2">
           {src.basis === "hourly" && <span className="text-xs text-slate-400">≈ {fmt(toMonthly(src))}/mo</span>}
-          <button onClick={addSource} className="ml-auto px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add</button>
+          <button onClick={addSource} className="ml-auto px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">{editingSrc ? "Save" : "Add"}</button>
         </div>
       </div>
 
@@ -213,12 +237,23 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
         {accounts.length > 0 && (
           <div className="divide-y divide-slate-50 mb-3">
             {accounts.map((a) => (
-              <div key={a.id} className="flex items-center justify-between py-2.5">
-                <div>
-                  <div className="text-sm text-slate-700">{a.name} <span className="text-xs text-slate-400">· {a.type}</span></div>
-                  {latestBalance(a.id) != null && <div className="text-xs text-slate-400">{fmt(latestBalance(a.id))}</div>}
+              <div key={a.id} className="py-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-slate-700">{a.name} <span className="text-xs text-slate-400">· {a.type}</span></div>
+                    {latestBalance(a.id) != null && <div className="text-xs text-slate-400">{fmt(latestBalance(a.id))}</div>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setBalEdit(balEdit.id === a.id ? { id: null, value: "" } : { id: a.id, value: "" })} className="text-slate-300 hover:text-brand-600" aria-label="Update balance"><Pencil size={13} /></button>
+                    <button onClick={() => removeAccount(a.id)} className="text-slate-300 hover:text-rose-400" aria-label="Remove"><X size={14} /></button>
+                  </div>
                 </div>
-                <button onClick={() => removeAccount(a.id)} className="text-slate-300 hover:text-rose-400" aria-label="Remove"><X size={14} /></button>
+                {balEdit.id === a.id && (
+                  <div className="flex gap-2 mt-2">
+                    <div className="flex-1"><Money value={balEdit.value} onChange={(v) => setBalEdit({ id: a.id, value: v })} placeholder="New balance" /></div>
+                    <button onClick={() => updateBalance(a.id)} className="px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Save</button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

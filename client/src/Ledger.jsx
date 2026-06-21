@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { fmt } from "./format.js";
+import { bucketLabel } from "./buckets.js";
 
 // Read-only ledger (logging happens via the + button). Filter + delete.
 export default function Ledger({ transactions, sources, onDelete }) {
   const [filter, setFilter] = useState("all");
   const sourceName = (id) => sources.find((s) => s.id === id)?.name || "income";
-  const bucketName = (b) => ({ emergency: "Emergency", retirement: "Retirement", invest: "Invest", debt: "Debt" }[b] || "Invest");
   const rows = [...transactions].filter((t) => filter === "all" || t.type === filter).sort((a, b) => new Date(b.date) - new Date(a.date));
-  const meta = (t) => t.type === "spending" ? (t.cat || "Spending") : t.type === "income" ? sourceName(t.sourceId) : bucketName(t.bucket);
+  const meta = (t) => t.type === "spending" ? (t.cat || "Spending") : t.type === "income" ? sourceName(t.sourceId) : bucketLabel(t.bucket);
   const color = (t) => t.type === "income" ? "text-emerald-600" : t.type === "contribution" ? "text-brand-600" : "text-slate-700";
   return <>
     <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">

@@ -103,6 +103,11 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem("tsumiki-rail") === "1"; } catch { return false; } });
   const toggleRail = () => setCollapsed(c => { const n = !c; try { localStorage.setItem("tsumiki-rail", n ? "1" : "0"); } catch {} return n; });
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") { setMenuOpen(false); setShowAdd(false); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [derivedInvest, setDerivedInvest] = useState(null); // monthly investable per the plan (§7)
   const revRef = useRef(0);            // last server rev (optimistic concurrency)
   const saveChain = useRef(Promise.resolve()); // serialize writes so rapid saves can't self-conflict
@@ -142,11 +147,13 @@ export default function App() {
   }
 
   const { transactions, settings, accounts, snapshots, profile, debts } = data;
-  // apply theme to <html> — supports light / dark / system
+  // apply theme to <html> — supports light / dark / system (live OS updates)
   useEffect(() => {
     const t = settings?.theme;
-    const sysDark = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    document.documentElement.classList.toggle("dark", t === "dark" || (t === "system" && sysDark));
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const apply = () => document.documentElement.classList.toggle("dark", t === "dark" || (t === "system" && mq?.matches));
+    apply();
+    if (t === "system" && mq?.addEventListener) { mq.addEventListener("change", apply); return () => mq.removeEventListener("change", apply); }
   }, [settings?.theme]);
   const incomeSources = profile?.incomeSources || [];
   // typical monthly income — learned from history when available (A3)
@@ -328,6 +335,11 @@ export default function App() {
             {tab === "activity" && <Activity transactions={transactions} profile={profile} sources={incomeSources} onDelete={deleteTx} />}
 
             {tab === "grow" && <>
+              {snapshots.length === 0 && transactions.length === 0 && (
+                <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 text-sm text-brand-700">
+                  Record your net worth below and log a little income/spending — then the projection, FIRE number, and trend fill in here.
+                </div>
+              )}
               {realityCheck && (
                 <div className="bg-white rounded-xl border border-slate-200 p-4">
                   <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Reality check</div>

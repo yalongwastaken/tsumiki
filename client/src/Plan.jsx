@@ -3,24 +3,13 @@ import { Check } from "lucide-react";
 import { getPlan } from "./api.js";
 import { fmt } from "./format.js";
 import { typicalIncome } from "./income.js";
+import { BUCKETS, bucketOf } from "./buckets.js";
 
 // I3 — the living monthly plan. This month's pooled income → engine targets per
 // bucket vs your actual contributions, what's left to allocate, and a
 // forward-looking checking minimum watch. SPEC §1.5 + IMPROVEMENTS I3.
-const BUCKET_META = [
-  ["debt", "Debt paydown", "#E05656"],
-  ["emergency", "Emergency fund", "#378ADD"],
-  ["retirement", "Retirement", "#A78BFA"],
-  ["invest", "Invest", "#1D9E75"],
-];
+const BUCKET_META = BUCKETS.map((b) => [b.key, b.label, b.color]);
 const monthName = () => new Date().toLocaleDateString(undefined, { month: "long" });
-
-// where did a logged contribution actually go? (legacy goalId folds into invest)
-function bucketOf(t) {
-  const b = t.bucket;
-  if (b === "debt" || b === "emergency" || b === "retirement" || b === "invest") return b;
-  return "invest";
-}
 
 export default function Plan({ transactions = [], accounts = [], snapshots = [], profile = {}, onGoSetup }) {
   const ym = new Date().toISOString().slice(0, 7);

@@ -50,7 +50,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
         {steps[step] === "income" && (
           <div>
             <div className="text-lg font-bold text-slate-900 mb-1">What do you earn?</div>
-            <div className="text-sm text-slate-500 mb-4">Add a main income source. You can add more (and exact amounts) later in Setup.</div>
+            <div className="text-sm text-slate-500 mb-4">Add a main income source. You can add more (and exact amounts) later in Accounts.</div>
             <input value={srcName} onChange={(e) => setSrcName(e.target.value)} placeholder="e.g. Day job" className={field + " mb-2"} />
             <div className="relative">
               <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
@@ -81,7 +81,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
             <div className="space-y-3 text-sm">
               <div><span className="font-semibold text-brand-600">Plan</span> — tells you where each dollar should go this month.</div>
               <div><span className="font-semibold text-brand-600">Add button</span> — log income & spending in seconds, from any screen.</div>
-              <div><span className="font-semibold text-brand-600">Calendar</span> — your month at a glance: spending, activity, bills.</div>
+              <div><span className="font-semibold text-brand-600">Activity</span> — your month at a glance: calendar or list, spending, bills.</div>
               <div><span className="font-semibold text-brand-600">Goals</span> — streaks & milestones keep you motivated.</div>
             </div>
           </div>

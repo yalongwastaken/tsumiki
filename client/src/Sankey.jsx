@@ -1,10 +1,8 @@
 import { fmt } from "./format.js";
+import { CAT_COLORS, bucketLabel, bucketColor, bucketOf } from "./buckets.js";
 
 // Real money flow for the current month — actual income on the left, actual
 // spending + contributions + leftover on the right (SPEC §7). Honest, not planned.
-const CAT_COLORS = ["#FB923C", "#F97316", "#FDBA74", "#FCD34D"];
-const BUCKET_LABELS = { emergency: "Emergency", retirement: "Retirement", invest: "Invest", debt: "Debt" };
-const BUCKET_COLORS = { emergency: "#378ADD", retirement: "#A78BFA", invest: "#1D9E75", debt: "#E05656" };
 
 const clip = (s) => (s.length > 16 ? s.slice(0, 15) + "…" : s);
 export default function SankeyFlow({ transactions, fallbackIncome }) {
@@ -21,10 +19,10 @@ export default function SankeyFlow({ transactions, fallbackIncome }) {
   const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 4);
 
   const contribMap = {};
-  for (const t of month) if (t.type === "contribution") { const b = BUCKET_LABELS[t.bucket] ? t.bucket : "invest"; contribMap[b] = (contribMap[b] || 0) + t.amount; }
+  for (const t of month) if (t.type === "contribution") { const b = bucketOf(t); contribMap[b] = (contribMap[b] || 0) + t.amount; }
 
   const items = [
-    ...Object.entries(contribMap).map(([b, a]) => ({ label: BUCKET_LABELS[b], amount: a, color: BUCKET_COLORS[b] })),
+    ...Object.entries(contribMap).map(([b, a]) => ({ label: bucketLabel(b), amount: a, color: bucketColor(b) })),
     ...topCats.map(([c, a], i) => ({ label: c, amount: a, color: CAT_COLORS[i % CAT_COLORS.length] })),
   ];
   if (!income || income <= 0)
