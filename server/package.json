@@ -1,0 +1,15 @@
+{
+  "name": "tsumiki-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal money-coach backend (mini-PC brain). See ../SPEC.md §12.",
+  "scripts": {
+    "start": "node --experimental-sqlite index.js",
+    "dev": "node --experimental-sqlite --watch index.js"
+  },
+  "engines": { "node": ">=22.5" },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
