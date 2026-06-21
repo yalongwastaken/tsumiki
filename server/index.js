@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 import { getState, putState } from "./db.js";
 import { migrateLegacy } from "./migrate.js";
+import { buildPlan } from "./engine.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -24,6 +25,13 @@ app.put("/api/state", (req, res) => {
   } catch (e) {
     res.status(400).json({ error: String(e.message || e) });
   }
+});
+
+// the allocation engine — "where should this money go?" (SPEC §1.5)
+app.get("/api/plan", (req, res) => {
+  const state = getState();
+  const income = req.query.income != null ? Number(req.query.income) : (state.profile.typicalIncome ?? 0);
+  res.json(buildPlan(state, income));
 });
 
 // one-time import of old window.storage JSON → unified model

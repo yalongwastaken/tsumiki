@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { getState, putState } from "./api.js";
 import { fmt } from "./format.js";
 import Setup from "./Setup.jsx";
+import Plan from "./Plan.jsx";
+import QuickAdd from "./QuickAdd.jsx";
 
 // recharts is heavy and only used on the Grow tab — load it on demand.
 const Projection = lazy(() => import("./Projection.jsx"));
@@ -220,11 +222,12 @@ function GoalCard({ goal, saved, onDeposit }) {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useState("plan");
   const [data, setData] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
 
   useEffect(() => { (async () => {
     try { setData({ ...EMPTY, ...(await getState()) }); }
@@ -268,6 +271,9 @@ export default function App() {
   function deleteTx(id) {
     save({ ...data, transactions: transactions.filter(t => t.id !== id) });
   }
+  function logTx({ type, amount, cat = null, goalId = null, note = null }) {
+    save({ ...data, transactions: [...transactions, { id: uid(), type, amount, date: new Date().toISOString(), cat, goalId, note }] });
+  }
   function setNetWorth(value) {
     let acctId = accounts[0]?.id, accts = accounts;
     if (!acctId) { acctId = "primary"; accts = [{ id: acctId, name: "Net worth", type: "other", color: "#94A3B8" }]; }
@@ -300,7 +306,7 @@ export default function App() {
 
       {/* Tabs */}
       <div className="bg-white border-b border-slate-200 flex">
-        {["Dashboard","Grow","Log","Goals","Setup"].map(t => (
+        {["Plan","Dashboard","Grow","Log","Goals","Setup"].map(t => (
           <button key={t} onClick={() => setTab(t.toLowerCase())}
             className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
               tab === t.toLowerCase() ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
@@ -309,6 +315,8 @@ export default function App() {
       </div>
 
       <div className="px-4 pt-5 space-y-4 max-w-lg mx-auto">
+        {tab === "plan" && <Plan defaultIncome={profile?.typicalIncome ?? undefined} onGoSetup={() => setTab("setup")} />}
+
         {tab === "dashboard" && <>
           <QuickLog goals={goals} contributions={contributions} onLog={logContribution} />
           <StreakPanel contributions={contributions} />
@@ -334,6 +342,14 @@ export default function App() {
 
         {tab === "setup" && <Setup data={data} onSave={save} />}
       </div>
+
+      {/* always-available fast logging (SPEC §9) */}
+      <button onClick={() => setShowAdd(true)} aria-label="Log a transaction"
+        className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-3xl leading-none shadow-lg flex items-center justify-center">
+        +
+      </button>
+      <QuickAdd open={showAdd} onClose={() => setShowAdd(false)} onLog={logTx}
+        cats={CATS} goals={goals} transactions={transactions} />
     </div>
   );
 }
