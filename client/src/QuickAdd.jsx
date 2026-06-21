@@ -9,11 +9,12 @@ const TYPES = [
   ["contribution", "Contribution", "#6366F1"],
 ];
 
-export default function QuickAdd({ open, onClose, onLog, cats, goals, transactions }) {
+export default function QuickAdd({ open, onClose, onLog, cats, goals, sources = [], transactions }) {
   const [type, setType] = useState("spending");
   const [amount, setAmount] = useState("");
   const [cat, setCat] = useState(null);
   const [goalId, setGoalId] = useState(null);
+  const [sourceId, setSourceId] = useState(null);
   const [note, setNote] = useState("");
   const amountRef = useRef(null);
 
@@ -44,7 +45,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, goals, transactio
   // reset + focus when opened
   useEffect(() => {
     if (open) {
-      setType("spending"); setAmount(""); setCat(orderedCats[0] || null); setGoalId(goals[0]?.id || "brokerage"); setNote("");
+      setType("spending"); setAmount(""); setCat(orderedCats[0] || null); setGoalId(goals[0]?.id || "brokerage"); setSourceId(sources[0]?.id || null); setNote("");
       setTimeout(() => amountRef.current?.focus(), 50);
     }
   }, [open]); // eslint-disable-line
@@ -65,6 +66,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, goals, transactio
       type, amount: n, note: note || null,
       cat: type === "spending" ? cat : null,
       goalId: type === "contribution" ? goalId : null,
+      sourceId: type === "income" ? sourceId : null,
     });
     onClose();
   }
@@ -110,6 +112,17 @@ export default function QuickAdd({ open, onClose, onLog, cats, goals, transactio
                 className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${goalId === id ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-600"}`}>{name}</button>
             ))}
           </div>
+        )}
+        {type === "income" && sources.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {sources.map((s) => (
+              <button key={s.id} onClick={() => setSourceId(s.id)}
+                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${sourceId === s.id ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-200 text-slate-600"}`}>{s.name}</button>
+            ))}
+          </div>
+        )}
+        {type === "income" && sources.length === 0 && (
+          <div className="text-xs text-slate-400 mb-4">Tip: add income sources in Setup to tag where this came from.</div>
         )}
 
         <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)"

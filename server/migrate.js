@@ -54,13 +54,15 @@ export function migrateLegacy(old = {}) {
   // profile gets sensible defaults; real values come from setup (M1)
   const profile = {
     incomeType: "salary",
-    typicalIncome: 7000, // old hardcoded MONTHLY, as an estimate
+    typicalIncome: 7000, // old hardcoded MONTHLY, kept as a fallback
     checkingFloor: 0,
     emergencyTarget: 0,
     employerMatch: null,
     retirementLimits: null,
     strategy: "balanced",
     customRules: null,
+    // seed a single income source from the old single income figure (I2)
+    incomeSources: [{ id: "primary", name: "Primary income", type: "salary", typicalMonthly: 7000 }],
   };
 
   return { accounts, snapshots, goals, debts: [], transactions, profile, settings };

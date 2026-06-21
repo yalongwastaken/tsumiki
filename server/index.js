@@ -34,7 +34,11 @@ app.put("/api/state", (req, res) => {
 // the allocation engine — "where should this money go?" (SPEC §1.5)
 app.get("/api/plan", (req, res) => {
   const state = getState();
-  const income = req.query.income != null ? Number(req.query.income) : (state.profile.typicalIncome ?? 0);
+  const sources = state.profile.incomeSources || [];
+  const typical = sources.length
+    ? sources.reduce((s, x) => s + (x.typicalMonthly || 0), 0)
+    : (state.profile.typicalIncome ?? 0);
+  const income = req.query.income != null ? Number(req.query.income) : typical;
   res.json(buildPlan(state, income));
 });
 

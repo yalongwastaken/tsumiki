@@ -5,12 +5,7 @@ import { fmt } from "./format.js";
 // Single editable screen (MVP). SPEC.md §11.
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const ACCOUNT_TYPES = ["checking", "savings", "brokerage", "ira", "other"];
-const INCOME_TYPES = [
-  ["salary", "Steady salary"],
-  ["hourly", "Hourly / variable"],
-  ["irregular", "Irregular mix"],
-  ["none", "Little / none right now"],
-];
+const SOURCE_TYPES = ["salary", "hourly", "self_employed", "passive", "other"];
 const STRATEGIES = [
   ["short_term", "Safety first", "Kill debt + build a cash buffer before investing."],
   ["balanced", "Balanced", "Split between debt, safety, and investing."],
@@ -35,6 +30,8 @@ function Money({ value, onChange, placeholder }) {
 
 export default function Setup({ data, onSave }) {
   const { profile = {}, accounts = [], debts = [], transactions = [], snapshots = [] } = data;
+  const incomeSources = profile.incomeSources || [];
+  const totalTypical = incomeSources.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
 
   // smart defaults derived from logged spending (SPEC.md §11)
   const avgMonthlySpend = useMemo(() => {
@@ -49,8 +46,6 @@ export default function Setup({ data, onSave }) {
 
   // local profile form, committed with a Save button
   const [form, setForm] = useState({
-    incomeType: profile.incomeType ?? "salary",
-    typicalIncome: profile.typicalIncome ?? "",
     strategy: profile.strategy ?? "balanced",
     checkingFloor: profile.checkingFloor ?? "",
     emergencyTarget: profile.emergencyTarget ?? "",
@@ -64,8 +59,6 @@ export default function Setup({ data, onSave }) {
       ...data,
       profile: {
         ...profile,
-        incomeType: form.incomeType,
-        typicalIncome: num(form.typicalIncome),
         strategy: form.strategy,
         checkingFloor: num(form.checkingFloor) ?? 0,
         emergencyTarget: num(form.emergencyTarget) ?? 0,
@@ -74,6 +67,19 @@ export default function Setup({ data, onSave }) {
     };
     onSave(next);
   }
+
+  // income sources (commit immediately; keep profile.typicalIncome = derived sum)
+  const [src, setSrc] = useState({ name: "", type: "salary", typicalMonthly: "" });
+  function commitSources(list) {
+    const total = list.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
+    onSave({ ...data, profile: { ...profile, incomeSources: list, typicalIncome: total } });
+  }
+  function addSource() {
+    if (!src.name.trim()) return;
+    commitSources([...incomeSources, { id: uid(), name: src.name.trim(), type: src.type, typicalMonthly: Number(src.typicalMonthly || 0) }]);
+    setSrc({ name: "", type: "salary", typicalMonthly: "" });
+  }
+  function removeSource(id) { commitSources(incomeSources.filter((s) => s.id !== id)); }
 
   // accounts
   const [acct, setAcct] = useState({ name: "", type: "checking", balance: "" });
@@ -111,20 +117,41 @@ export default function Setup({ data, onSave }) {
 
   return (
     <>
+      {/* Income sources */}
+      <div className={card}>
+        <div className="flex items-baseline justify-between mb-3">
+          <div className={label}>Income sources</div>
+          <div className="text-xs text-slate-400">~{fmt(totalTypical)}/mo total</div>
+        </div>
+        {incomeSources.length > 0 && (
+          <div className="divide-y divide-slate-50 mb-3">
+            {incomeSources.map((s) => (
+              <div key={s.id} className="flex items-center justify-between py-2.5">
+                <div>
+                  <div className="text-sm text-slate-700">{s.name} <span className="text-xs text-slate-400">· {s.type.replace("_", " ")}</span></div>
+                  <div className="text-xs text-slate-400">~{fmt(s.typicalMonthly || 0)}/mo</div>
+                </div>
+                <button onClick={() => removeSource(s.id)} className="text-slate-300 hover:text-rose-400 text-xs">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <input value={src.name} onChange={(e) => setSrc({ ...src, name: e.target.value })} placeholder="Source name" className={field} />
+          <select value={src.type} onChange={(e) => setSrc({ ...src, type: e.target.value })} className={field}>
+            {SOURCE_TYPES.map((t) => <option key={t} value={t}>{t.replace("_", " ")}</option>)}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <div className="flex-1"><Money value={src.typicalMonthly} onChange={(v) => setSrc({ ...src, typicalMonthly: v })} placeholder="Typical / mo (optional)" /></div>
+          <button onClick={addSource} className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add</button>
+        </div>
+      </div>
+
       {/* Profile */}
       <div className={card}>
         <div className={label + " mb-3"}>Your profile</div>
         <div className="space-y-3">
-          <div>
-            <div className="text-sm text-slate-600 mb-1">Income type</div>
-            <select value={form.incomeType} onChange={(e) => set("incomeType")(e.target.value)} className={field}>
-              {INCOME_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-          <div>
-            <div className="text-sm text-slate-600 mb-1">Typical monthly income (estimate)</div>
-            <Money value={form.typicalIncome} onChange={set("typicalIncome")} placeholder="e.g. 7000" />
-          </div>
           <div>
             <div className="text-sm text-slate-600 mb-1">Strategy</div>
             <div className="grid grid-cols-2 gap-2">

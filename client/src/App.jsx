@@ -313,7 +313,11 @@ export default function App() {
   }
 
   const { goals, transactions, settings, accounts, snapshots, profile, debts } = data;
-  const income = profile?.typicalIncome || 7000;
+  const incomeSources = profile?.incomeSources || [];
+  // derived typical monthly income = sum of sources (fallback to legacy single field)
+  const income = incomeSources.length
+    ? incomeSources.reduce((s, x) => s + (x.typicalMonthly || 0), 0)
+    : (profile?.typicalIncome || 0);
 
   // derived views off the single ledger (SPEC.md §6)
   const contributions = useMemo(
@@ -408,8 +412,8 @@ export default function App() {
   function deleteTx(id) {
     save({ ...data, transactions: transactions.filter(t => t.id !== id) });
   }
-  function logTx({ type, amount, cat = null, goalId = null, note = null }) {
-    save({ ...data, transactions: [...transactions, { id: uid(), type, amount, date: new Date().toISOString(), cat, goalId, note }] });
+  function logTx({ type, amount, cat = null, goalId = null, sourceId = null, note = null }) {
+    save({ ...data, transactions: [...transactions, { id: uid(), type, amount, date: new Date().toISOString(), cat, goalId, sourceId, note }] });
   }
   function setNetWorth(value) {
     let acctId = accounts[0]?.id, accts = accounts;
@@ -514,7 +518,7 @@ export default function App() {
         +
       </button>
       <QuickAdd open={showAdd} onClose={() => setShowAdd(false)} onLog={logTx}
-        cats={CATS} goals={goals} transactions={transactions} />
+        cats={CATS} goals={goals} sources={incomeSources} transactions={transactions} />
     </div>
   );
 }
