@@ -23,13 +23,16 @@ async function call(method, path, body) {
 }
 
 export const getState = () => call("GET", "/api/state");
-export const getPlan = (income, strategy) => {
+export const getPlan = (income, strategy, { windfall } = {}) => {
   const q = new URLSearchParams();
   if (income != null) {
     q.set("income", income);
   }
   if (strategy) {
     q.set("strategy", strategy);
+  }
+  if (windfall) {
+    q.set("windfall", "1");
   }
   const s = q.toString();
   return call("GET", `/api/plan${s ? `?${s}` : ""}`);

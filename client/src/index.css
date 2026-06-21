@@ -112,7 +112,8 @@ body {
 .dark .text-brand-600 {
   color: #b9a8fc !important;
 }
-.dark .text-emerald-700 {
+.dark .text-emerald-700,
+.dark .text-emerald-800 {
   color: #6ee7b7 !important;
 }
 .dark .text-amber-700,
@@ -134,6 +135,9 @@ body {
 }
 .dark .border-amber-200 {
   border-color: rgba(245, 158, 11, 0.4) !important;
+}
+.dark .border-emerald-200 {
+  border-color: rgba(16, 185, 129, 0.4) !important;
 }
 .dark .text-brand-800 {
   color: #c4b5fd !important;

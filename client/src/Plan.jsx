@@ -60,12 +60,13 @@ export default function Plan({
 
   const [plan, setPlan] = useState(null);
   const [err, setErr] = useState("");
+  const [applyWindfall, setApplyWindfall] = useState(false); // confirm-first, per-session
   useEffect(() => {
     const n = Number.isFinite(Number(amount)) ? Number(amount) : 0;
-    getPlan(n, preview)
+    getPlan(n, preview, { windfall: applyWindfall })
       .then(setPlan)
       .catch((e) => setErr(String(e.message || e)));
-  }, [amount, preview]);
+  }, [amount, preview, applyWindfall]);
 
   // actuals this month, by bucket
   const actual = useMemo(() => {
@@ -197,6 +198,33 @@ export default function Plan({
           )}
         </div>
       ) : null}
+
+      {/* windfall — detected when income is well above typical; aggressive split is opt-in */}
+      {plan?.windfall?.detected && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3 flex-wrap">
+          <span className="text-xs text-emerald-800 flex-1">
+            {plan.windfall.applied ? (
+              <>
+                Windfall mode on — the extra <b>{fmt(plan.windfall.amount)}</b> above your ~
+                {fmt(plan.windfall.typical)} typical is going aggressive (finish savings, then
+                invest).
+              </>
+            ) : (
+              <>
+                Looks like a <b>{fmt(plan.windfall.amount)}</b> windfall above your ~
+                {fmt(plan.windfall.typical)} typical. Split the extra aggressively toward savings +
+                investing?
+              </>
+            )}
+          </span>
+          <button
+            onClick={() => setApplyWindfall(!applyWindfall)}
+            className={`text-xs font-medium rounded-lg px-2.5 py-1 ${plan.windfall.applied ? "text-emerald-700 hover:text-emerald-900" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
+          >
+            {plan.windfall.applied ? "Use normal split" : "Use windfall split"}
+          </button>
+        </div>
+      )}
 
       {err && (
         <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3">

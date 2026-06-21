@@ -215,6 +215,37 @@ test("emergency-aware taper: a funded safety net shifts savings toward investing
   );
 });
 
+test("windfall: detected always, but only tilts the split when opted in", () => {
+  const state = {
+    accounts: [acct("chk", "checking"), acct("sav", "savings")],
+    snapshots: [snap("chk", 5000), snap("sav", 5000)],
+    debts: [],
+    profile: {
+      checkingFloor: 3000,
+      emergencyTarget: 0,
+      strategy: "balanced",
+      incomeSources: [{ id: "s", typicalMonthly: 6000 }], // typical = 6000
+    },
+    transactions: [],
+  };
+  const amt = (p, k) => p.steps.filter((s) => s.key === k).reduce((a, s) => a + s.amount, 0);
+
+  const base = buildPlan(state, 11000); // $5k windfall, not applied
+  const applied = buildPlan(state, 11000, { windfall: true }); // applied
+  assert.equal(base.windfall.detected, true);
+  assert.equal(base.windfall.applied, false);
+  assert.equal(base.windfall.amount, 5000);
+  // opting in pushes the extra toward investing and out of idle checking
+  assert.ok(applied.windfall.applied);
+  assert.ok(amt(applied, "brokerage") > amt(base, "brokerage"), "more invested");
+  assert.ok(amt(applied, "checking_flex") < amt(base, "checking_flex"), "less idle cash");
+  // both still allocate the whole paycheck
+  assert.equal(applied.allocated + applied.leftover, 11000);
+  // no false positive at typical income, and the opt-in flag is a no-op then
+  assert.equal(buildPlan(state, 6000).windfall.detected, false);
+  assert.equal(buildPlan(state, 6000, { windfall: true }).windfall.applied, false);
+});
+
 test("preview: strategyOverride changes the split without touching profile", () => {
   const state = {
     accounts: [acct("chk", "checking"), acct("sav", "savings")],

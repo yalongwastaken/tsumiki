@@ -60,7 +60,8 @@ app.post("/api/transactions", (req, res) => {
 app.get("/api/plan", (req, res) => {
   const state = getState();
   const income = req.query.income != null ? Number(req.query.income) : typicalIncome(state);
-  res.json(buildPlan(state, income, { strategy: req.query.strategy }));
+  const windfall = req.query.windfall === "1" || req.query.windfall === "true";
+  res.json(buildPlan(state, income, { strategy: req.query.strategy, windfall }));
 });
 
 // data export (download the whole dataset) + import (validated full replace)

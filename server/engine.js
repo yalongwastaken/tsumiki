@@ -58,6 +58,20 @@ function splitWeights(profile, strategy) {
   return STRATEGY_SPLIT[strategy] || STRATEGY_SPLIT.balanced;
 }
 
+// Aggressive split for windfall money (bonus, refund, extra check): finish the
+// safety net, then heavily invest, with almost nothing left idle in checking.
+const WINDFALL_SPLIT = { savings: 0.15, retirement: 0.35, invest: 0.45, checking: 0.05 };
+
+/** Linear blend of two weight sets: `t` is the weight on `a` (1 → all a, 0 → all b). */
+function blendWeights(a, b, t) {
+  return {
+    savings: a.savings * t + b.savings * (1 - t),
+    retirement: a.retirement * t + b.retirement * (1 - t),
+    invest: a.invest * t + b.invest * (1 - t),
+    checking: a.checking * t + b.checking * (1 - t),
+  };
+}
+
 /** Whole-dollar currency, e.g. "$1,234". */
 const money = (n) => "$" + Math.round(n).toLocaleString();
 
@@ -95,8 +109,9 @@ export function typicalIncome(state) {
  * then split the surplus across savings / retirement / investing / checking.
  * @param {Object} state - accounts, snapshots, debts, profile, transactions
  * @param {number} incomeArg - income to plan for
- * @param {{strategy?: string}} [opts] - preview a strategy without persisting it
- * @returns {Object} { steps, split, allocated, leftover, investable, cadence, ... }
+ * @param {{strategy?: string, windfall?: boolean}} [opts] - preview a strategy
+ *   without persisting it; opt into the aggressive windfall split (confirm-first)
+ * @returns {Object} { steps, split, windfall, allocated, leftover, investable, cadence, ... }
  */
 export function buildPlan(state, incomeArg, opts = {}) {
   const { accounts = [], snapshots = [], debts = [], profile = {}, transactions = [] } = state;
@@ -207,8 +222,19 @@ export function buildPlan(state, incomeArg, opts = {}) {
   // to first secure a one-month "starter" safety net before the rest goes to
   // investing. The other three destinations split what remains in proportion — so
   // when no boost is needed this reproduces the plain percentage split exactly.
-  const w = splitWeights(profile, strategy);
+  const baseW = splitWeights(profile, strategy);
   const surplus = remaining;
+  // Windfall: income clearly above your typical → blend an aggressive split into
+  // the *extra* surplus (finish savings, then invest), proportional to how much of
+  // the surplus is windfall. Detection is always reported; the blend only applies
+  // when the caller opts in (confirm-first), so default behavior never changes.
+  const typical = typicalIncome(state);
+  const windfallAmount = typical > 0 ? Math.max(0, income - typical) : 0;
+  const windfallDetected = typical > 0 && windfallAmount >= 500 && income >= typical * 1.25;
+  const windfallApplied = windfallDetected && !!opts.windfall;
+  const windfallSurplus = windfallApplied ? Math.min(windfallAmount, surplus) : 0;
+  const baseFrac = surplus > 0 ? (surplus - windfallSurplus) / surplus : 1;
+  const w = windfallApplied ? blendWeights(baseW, WINDFALL_SPLIT, baseFrac) : baseW;
   const roomLeft = Math.max(0, retirementRoom - retireUsed);
   const starter = Math.min(emTarget, Math.max(1000, Math.round(essentials))); // ~1 month of essentials (min $1,000)
   const starterGap = Math.max(0, starter - bal.savings);
@@ -269,6 +295,12 @@ export function buildPlan(state, incomeArg, opts = {}) {
     steps,
     split: w,
     strategies: STRATEGY_SPLIT, // all strategy weights, so the UI can show alternatives without duplicating them
+    windfall: {
+      detected: windfallDetected,
+      applied: windfallApplied,
+      amount: windfallAmount,
+      typical,
+    },
     essentials,
     essentialsSource,
     cadence,
