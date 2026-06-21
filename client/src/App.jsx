@@ -312,7 +312,7 @@ export default function App() {
         </header>
 
         <ErrorBoundary key={tab}>
-          <main className="flex-1 px-4 pt-5 pb-28 space-y-4 w-full max-w-lg md:max-w-2xl mx-auto">
+          <main className="flex-1 px-4 sm:px-6 pt-5 pb-28 space-y-4 w-full max-w-lg md:max-w-2xl lg:max-w-4xl mx-auto">
             {tab === "home" && <Home profile={profile} transactions={transactions} accounts={accounts} snapshots={snapshots}
               income={income} realNetWorth={realNetWorth} investedTotal={investedTotal} milestoneList={milestoneList} freezes={freezes} onGo={setTab} />}
 

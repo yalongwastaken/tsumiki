@@ -34,6 +34,10 @@ body { margin: 0; -webkit-font-smoothing: antialiased; }
 
 /* soft accent tints → translucent on dark */
 .dark .bg-brand-50 { background-color: rgba(124,111,232,.18) !important; }
+.dark .bg-brand-100 { background-color: rgba(124,111,232,.24) !important; }
+.dark .bg-blue-50 { background-color: rgba(55,138,221,.16) !important; }
+.dark .bg-emerald-100 { background-color: rgba(16,185,129,.2) !important; }
+.dark .text-blue-700 { color: #93c5fd !important; }
 .dark .bg-emerald-50 { background-color: rgba(16,185,129,.15) !important; }
 .dark .bg-amber-50 { background-color: rgba(245,158,11,.15) !important; }
 .dark .bg-rose-50 { background-color: rgba(244,63,94,.15) !important; }

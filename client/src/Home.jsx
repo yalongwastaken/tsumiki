@@ -10,18 +10,25 @@ import Calendar from "./Calendar.jsx";
 // The landing screen — the valuable stuff at a glance, with tap-through to detail.
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
 
+const TONE = {
+  slate: ["bg-slate-100", "text-slate-500", "text-slate-900"],
+  emerald: ["bg-emerald-50", "text-emerald-700", "text-emerald-700"],
+  amber: ["bg-amber-50", "text-amber-700", "text-amber-700"],
+  brand: ["bg-brand-50", "text-brand-700", "text-brand-700"],
+  blue: ["bg-blue-50", "text-blue-700", "text-blue-700"],
+};
 function Stat({ label, value, tone = "slate" }) {
-  const c = { slate: "text-slate-900", emerald: "text-emerald-600", indigo: "text-brand-600", amber: "text-amber-600" }[tone];
+  const [bg, lt, vt] = TONE[tone] || TONE.slate;
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-3">
-      <div className="text-xs text-slate-400">{label}</div>
-      <div className={`text-lg font-mono font-bold ${c}`}>{value}</div>
+    <div className={`rounded-xl p-3 ${bg}`}>
+      <div className={`text-xs ${lt}`}>{label}</div>
+      <div className={`text-lg font-mono font-bold ${vt}`}>{value}</div>
     </div>
   );
 }
-function Card({ title, onGo, children }) {
+function Card({ title, onGo, span, children }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
+    <div className={`bg-white rounded-xl border border-slate-200 p-4 ${span ? "lg:col-span-2" : ""}`}>
       <div className="flex items-center justify-between mb-3">
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{title}</div>
         {onGo && <button onClick={onGo} className="text-xs text-slate-400 hover:text-brand-600">open ›</button>}
@@ -58,9 +65,10 @@ export default function Home({ profile = {}, transactions = [], accounts = [], s
   const nw = snapshots.length ? realNetWorth : investedTotal;
 
   return (
-    <>
+    <div className="grid gap-4 lg:grid-cols-2">
       {/* hero */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
+      <div className="bg-white rounded-xl border border-slate-200 p-4 lg:col-span-2 relative overflow-hidden">
+        <div className="absolute inset-y-0 left-0 w-1.5 bg-brand-500" />
         {profile.name && <div className="text-sm text-slate-500 mb-1">{greeting()}, {profile.name}.</div>}
         <div className="text-xs text-slate-400 tracking-widest uppercase font-medium">{snapshots.length ? "Net worth" : "Contributed"}</div>
         <div className="text-4xl font-mono font-bold text-slate-900 tabular-nums">{fmt(nw)}</div>
@@ -68,11 +76,11 @@ export default function Home({ profile = {}, transactions = [], accounts = [], s
       </div>
 
       {/* key numbers */}
-      <div className="grid grid-cols-2 gap-3">
-        <Stat label="Income / mo" value={fmt(income)} />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:col-span-2">
+        <Stat label="Income / mo" value={fmt(income)} tone="emerald" />
         <Stat label="Spent this month" value={fmt(spendThisMonth)} tone="amber" />
-        <Stat label="Savings rate" value={savingsRate == null ? "—" : `${Math.round(savingsRate * 100)}%`} tone="emerald" />
-        <Stat label="FIRE progress" value={firePct == null ? "—" : `${(firePct * 100).toFixed(1)}%`} tone="indigo" />
+        <Stat label="Savings rate" value={savingsRate == null ? "—" : `${Math.round(savingsRate * 100)}%`} tone="brand" />
+        <Stat label="FIRE progress" value={firePct == null ? "—" : `${(firePct * 100).toFixed(1)}%`} tone="blue" />
       </div>
 
       {/* plan snapshot */}
@@ -112,12 +120,14 @@ export default function Home({ profile = {}, transactions = [], accounts = [], s
       </Card>
 
       {/* flow */}
-      <Card title="This month's flow">
+      <Card title="This month's flow" span>
         <SankeyFlow transactions={transactions} fallbackIncome={income} />
       </Card>
 
       {/* calendar */}
-      <Calendar transactions={transactions} profile={profile} />
-    </>
+      <div className="lg:col-span-2 space-y-4">
+        <Calendar transactions={transactions} profile={profile} />
+      </div>
+    </div>
   );
 }
