@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Personal money-coach backend (mini-PC brain). See ../SPEC.md §12.",
+  "description": "Personal money-coach backend (mini-PC brain). Express + node:sqlite.",
   "scripts": {
     "start": "node --experimental-sqlite index.js",
     "dev": "node --experimental-sqlite --watch index.js",
     "test": "node --experimental-sqlite --test"
   },
-  "engines": { "node": ">=22.5" },
+  "engines": {
+    "node": ">=22.12"
+  },
   "dependencies": {
     "express": "^4.21.0"
   }

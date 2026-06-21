@@ -1,40 +1,65 @@
-// selectors.js — shared pure derivations over the unified ledger + account
-// snapshots. Centralized so the same logic isn't re-implemented (and allowed to
-// drift) across App / Plan / Home / Sankey. All pure + memo-friendly.
+// selectors.js — shared pure derivations over the ledger + account snapshots.
 
-// "2026-06" style month key for a date
+/** Month key like "2026-06" for a date. */
 export const monthKey = (date) => new Date(date).toISOString().slice(0, 7);
+
+/** Current month key. */
 export const thisMonth = () => new Date().toISOString().slice(0, 7);
 
-// latest snapshot per account, keyed by accountId
+/**
+ * Most recent snapshot per account.
+ * @returns {Object} map of accountId → snapshot
+ */
 export function latestSnapshots(snapshots = []) {
   const latest = {};
-  for (const s of snapshots)
-    if (!latest[s.accountId] || new Date(s.date) > new Date(latest[s.accountId].date)) latest[s.accountId] = s;
+  for (const s of snapshots) {
+    // keep the newest snapshot we've seen for this account
+    if (!latest[s.accountId] || new Date(s.date) > new Date(latest[s.accountId].date)) {
+      latest[s.accountId] = s;
+    }
+  }
   return latest;
 }
 
-// net worth = sum of every account's most recent snapshot balance
+/**
+ * Net worth = sum of every account's most recent snapshot balance.
+ * @returns {number}
+ */
 export function netWorthFromSnapshots(snapshots = []) {
   return Object.values(latestSnapshots(snapshots)).reduce((a, s) => a + s.balance, 0);
 }
 
-// sum of latest balances for accounts whose type is in `types`
+/**
+ * Sum of latest balances for accounts whose type is in `types`.
+ * @returns {number}
+ */
 export function sumLatestByType(accounts = [], snapshots = [], types = []) {
   const latest = latestSnapshots(snapshots);
   const set = new Set(types);
-  return accounts.filter((a) => set.has(a.type)).reduce((sum, a) => sum + (latest[a.id]?.balance || 0), 0);
+  return accounts
+    .filter((a) => set.has(a.type))
+    .reduce((sum, a) => sum + (latest[a.id]?.balance || 0), 0);
 }
 
-// average monthly spending × 12 (0 when nothing is logged)
+/**
+ * Average monthly spending, annualized (×12).
+ * @returns {number} 0 when no spending has been logged
+ */
 export function annualSpend(transactions = []) {
-  const sp = transactions.filter((t) => t.type === "spending");
-  if (!sp.length) return 0;
-  const months = new Set(sp.map((t) => monthKey(t.date)));
-  return (sp.reduce((s, t) => s + t.amount, 0) / Math.max(1, months.size)) * 12;
+  const spending = transactions.filter((tx) => tx.type === "spending");
+  if (spending.length === 0) {
+    return 0;
+  }
+
+  const months = new Set(spending.map((tx) => monthKey(tx.date)));
+  const total = spending.reduce((sum, tx) => sum + tx.amount, 0);
+  return (total / Math.max(1, months.size)) * 12;
 }
 
-// transactions in a given month key (defaults to the current month)
+/**
+ * Transactions in a given month key (defaults to the current month).
+ * @returns {Array}
+ */
 export function inMonth(transactions = [], ym = thisMonth()) {
-  return transactions.filter((t) => monthKey(t.date) === ym);
+  return transactions.filter((tx) => monthKey(tx.date) === ym);
 }

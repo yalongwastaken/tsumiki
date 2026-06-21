@@ -1,4 +1,4 @@
-// Tests for the legacy → unified migration (pure, no DB).
+// migrate.test.js — tests for the legacy → unified migration (pure, no DB).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { migrateLegacy } from "./migrate.js";

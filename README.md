@@ -1,74 +1,125 @@
 # Tsumiki — personal money coach
 
-A self-hosted money coach (not just a tracker): given the money you have, it works
-toward telling you where it should go — debt, buffer, savings, investing, retirement.
-See [`SPEC.md`](./SPEC.md) for the full vision, data model, and roadmap.
+A self-hosted money **coach**, not just a tracker. Given the money you have, it tells
+you where it should go — essentials, debt, a checking buffer, savings, retirement, and
+investing — then tracks your real spending and contributions against that plan.
 
-**Architecture** (SPEC.md §12): the **mini PC is the brain** — it runs the server,
-holds the SQLite database, and (soon) runs the allocation engine. Phone and desktop
-are thin web clients. Reach it from anywhere over **Tailscale** — no public ports.
+It's a single-user app designed to run on a mini PC at home and be reached privately
+from your phone or laptop over [Tailscale](https://tailscale.com) — no public ports,
+no cloud, your financial data never leaves your own devices.
 
-This repo currently implements **M0**: the backend, unified data model, and the
-client wired to the API (replacing the old browser `window.storage`).
+See [`docs/SPEC.md`](./docs/SPEC.md) for the full vision and data model, and
+[`IMPROVEMENTS.md`](./IMPROVEMENTS.md) for the design notes behind the current build.
+
+## Architecture
+
+The **mini PC is the brain**: it runs the server, holds the SQLite database, and runs
+the allocation engine. Phones and laptops are thin web clients that talk to it over the
+API.
 
 ```
-server/   Express + node:sqlite API (the brain). No native deps.
-client/   Vite + React app (thin client).
+server/   Express + node:sqlite API + allocation engine. No native deps.
+client/   Vite + React single-page app (thin client).
+docs/     SPEC.md — the working spec.
 ```
 
-## Run it locally (dev)
+The engine takes your income, accounts, debts, and strategy and returns a plan: how to
+split each paycheck across savings, retirement, investing, and checking (cadence-aware,
+so it can show per-paycheck recurring transfers). The client renders the plan, a money
+flow (Sankey), net-worth/FIRE projections, a calendar, and a light streak/milestone
+game layer.
 
-Two terminals:
+## Requirements
+
+- **Node ≥ 22.12** and npm. The server uses the built-in `node:sqlite`
+  (run with `--experimental-sqlite`); the client uses Vite 8. No database server or
+  native build step required.
+
+All dependencies are declared in `client/package.json` and `server/package.json`.
+
+## Quick start
+
+With [`make`](./Makefile):
 
 ```bash
-# 1) backend  → http://localhost:4000
-cd server && npm install && npm start
+make install   # install client + server dependencies
+make dev       # run backend (:4000) and frontend (:5173) together
+```
 
-# 2) frontend → http://localhost:5173 (proxies /api to :4000)
+Then open http://localhost:5173 (the dev frontend proxies `/api` to the backend).
+
+<details>
+<summary>Without make (two terminals)</summary>
+
+```bash
+# terminal 1 — backend → http://localhost:4000
+cd server && npm install && npm run dev
+
+# terminal 2 — frontend → http://localhost:5173
 cd client && npm install && npm run dev
 ```
 
-Requires **Node ≥ 22.12** (server uses the built-in `node:sqlite`; client uses Vite 8).
+</details>
 
-## Run it as one server (prod / on the mini PC)
+## Production (on the mini PC)
 
-Build the client once; the server then serves it at `/`:
+Build the client once; the server then serves it from `/`:
 
 ```bash
-cd client && npm install && npm run build
-cd ../server && npm install && npm start      # http://0.0.0.0:4000
+make start        # builds the client, then serves everything from :4000
 ```
 
-Open `http://<mini-pc-ip>:4000`. The DB lives at `server/data/tsumiki.db`
-(override with `TSUMIKI_DB`). Port via `PORT`, bind host via `HOST`.
+Open `http://<mini-pc-ip>:4000`. Configuration via environment variables:
+
+| Variable     | Default                  | Purpose                        |
+| ------------ | ------------------------ | ------------------------------ |
+| `PORT`       | `4000`                   | port to listen on              |
+| `HOST`       | `0.0.0.0`                | bind address (LAN / Tailscale) |
+| `TSUMIKI_DB` | `server/data/tsumiki.db` | SQLite database file path      |
 
 ## Reach it from your phone, securely (Tailscale)
 
 1. Install Tailscale on the mini PC and your phone; sign into the same tailnet.
 2. On the phone, open `http://<mini-pc-tailscale-ip>:4000`.
 
-No port-forwarding, no public URL — the server is only reachable by your own
-devices on the encrypted tailnet.
+No port-forwarding and no public URL — the server is only reachable by your own devices
+on the encrypted tailnet.
 
 ## Back up your data
 
-The whole database is one file. A nightly copy is plenty:
+The whole database is one file, so a copy is a full backup:
 
 ```bash
-# crontab -e  (on the mini PC)
-0 2 * * *  cp ~/tsumiki/server/data/tsumiki.db ~/tsumiki/backups/tsumiki-$(date +\%F).db
+make backup       # → backups/tsumiki-YYYY-MM-DD.db
 ```
 
-## API (M0)
+Automate it nightly with cron on the mini PC:
 
-| Method | Path           | Purpose                                            |
-|--------|----------------|----------------------------------------------------|
-| GET    | `/api/health`  | liveness check                                     |
-| GET    | `/api/state`   | full unified model                                 |
-| PUT    | `/api/state`   | replace full model (the client's "save")           |
-| POST   | `/api/migrate` | import old `window.storage` JSON → unified model   |
+```cron
+0 2 * * *  cd ~/tsumiki && make backup
+```
 
-## Roadmap
+## Testing
 
-M0 (done) → M1 profile/setup → **M2 allocation engine + "Your Plan"** (MVP) →
-M3 fast logging → M4 tracking → M5 motivation → M6 insight. Details in `SPEC.md` §3.
+```bash
+make test         # all unit tests (engine, db, migrate, selectors, streak, milestones)
+make test-smoke   # headless render walk-through of the whole UI
+```
+
+## API
+
+| Method | Path                | Purpose                                          |
+| ------ | ------------------- | ------------------------------------------------ |
+| GET    | `/api/health`       | liveness check                                   |
+| GET    | `/api/state`        | full unified model                               |
+| PUT    | `/api/state`        | replace the full model (the client's "save")     |
+| POST   | `/api/transactions` | append a single transaction (lean write)         |
+| GET    | `/api/plan`         | allocation plan (`?income=`, `?strategy=`)       |
+| GET    | `/api/export`       | download the full model as JSON                  |
+| POST   | `/api/import`       | replace the model from an exported JSON          |
+| POST   | `/api/migrate`      | import old `window.storage` JSON → unified model |
+
+## Make targets
+
+Run `make help` for the full list: `install`, `dev`, `server`, `client`, `build`,
+`start`, `test`, `test-smoke`, `backup`, `clean`, `distclean`.

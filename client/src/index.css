@@ -2,56 +2,147 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root { height: 100%; }
-body { margin: 0; -webkit-font-smoothing: antialiased; }
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
 
 /* theme vars (used by inline SVG fills that can't use Tailwind classes) */
-:root { --text: #0f172a; --muted: #94a3b8; }
-.dark { --text: #f1f5f9; --muted: #94a3b8; color-scheme: dark; }
+:root {
+  --text: #0f172a;
+  --muted: #94a3b8;
+}
+.dark {
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  color-scheme: dark;
+}
 
 /* ── Dark mode ── override the Tailwind color utilities the app uses, scoped to
    .dark, so we get a full dark theme without touching every component. ── */
-.dark body { background: #0f172a; }
+.dark body {
+  background: #0f172a;
+}
 
-.dark .bg-white { background-color: #1e293b !important; }
-.dark .bg-slate-50 { background-color: #0f172a !important; }
-.dark .bg-slate-100 { background-color: #334155 !important; }
-.dark .bg-slate-200 { background-color: #334155 !important; }
+.dark .bg-white {
+  background-color: #1e293b !important;
+}
+.dark .bg-slate-50 {
+  background-color: #0f172a !important;
+}
+.dark .bg-slate-100 {
+  background-color: #334155 !important;
+}
+.dark .bg-slate-200 {
+  background-color: #334155 !important;
+}
 
-.dark .text-slate-900 { color: #f1f5f9 !important; }
-.dark .text-slate-800 { color: #e2e8f0 !important; }
-.dark .text-slate-700 { color: #cbd5e1 !important; }
-.dark .text-slate-600 { color: #cbd5e1 !important; }
-.dark .text-slate-500 { color: #94a3b8 !important; }
-.dark .text-slate-400 { color: #94a3b8 !important; }
-.dark .text-slate-300 { color: #64748b !important; }
-.dark .text-slate-200 { color: #475569 !important; }
+.dark .text-slate-900 {
+  color: #f1f5f9 !important;
+}
+.dark .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+.dark .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+.dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+.dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+.dark .text-slate-300 {
+  color: #64748b !important;
+}
+.dark .text-slate-200 {
+  color: #475569 !important;
+}
 
-.dark .border-slate-200 { border-color: #334155 !important; }
-.dark .border-slate-300 { border-color: #475569 !important; }
-.dark .border-slate-100, .dark .border-slate-50 { border-color: #1e293b !important; }
-.dark .divide-slate-50 > :not([hidden]) ~ :not([hidden]) { border-color: #334155 !important; }
+.dark .border-slate-200 {
+  border-color: #334155 !important;
+}
+.dark .border-slate-300 {
+  border-color: #475569 !important;
+}
+.dark .border-slate-100,
+.dark .border-slate-50 {
+  border-color: #1e293b !important;
+}
+.dark .divide-slate-50 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155 !important;
+}
 
 /* soft accent tints → translucent on dark */
-.dark .bg-brand-50 { background-color: rgba(124,111,232,.18) !important; }
-.dark .bg-brand-100 { background-color: rgba(124,111,232,.24) !important; }
-.dark .bg-blue-50 { background-color: rgba(55,138,221,.16) !important; }
-.dark .bg-emerald-100 { background-color: rgba(16,185,129,.2) !important; }
-.dark .text-blue-700 { color: #93c5fd !important; }
-.dark .bg-emerald-50 { background-color: rgba(16,185,129,.15) !important; }
-.dark .bg-amber-50 { background-color: rgba(245,158,11,.15) !important; }
-.dark .bg-rose-50 { background-color: rgba(244,63,94,.15) !important; }
-.dark .text-brand-700 { color: #c4b5fd !important; }
-.dark .text-brand-600 { color: #b9a8fc !important; }
-.dark .text-emerald-700 { color: #6ee7b7 !important; }
-.dark .text-amber-700, .dark .text-amber-600 { color: #fcd34d !important; }
-.dark .text-rose-700, .dark .text-rose-600 { color: #fda4af !important; }
-.dark .border-rose-200 { border-color: rgba(244,63,94,.4) !important; }
-.dark .border-brand-500 { border-color: #8b7cf6 !important; }
-.dark .border-brand-200 { border-color: rgba(124,111,232,.4) !important; }
-.dark .border-amber-200 { border-color: rgba(245,158,11,.4) !important; }
-.dark .text-brand-800 { color: #c4b5fd !important; }
-.dark .text-amber-800 { color: #fcd34d !important; }
+.dark .bg-brand-50 {
+  background-color: rgba(124, 111, 232, 0.18) !important;
+}
+.dark .bg-brand-100 {
+  background-color: rgba(124, 111, 232, 0.24) !important;
+}
+.dark .bg-blue-50 {
+  background-color: rgba(55, 138, 221, 0.16) !important;
+}
+.dark .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+}
+.dark .text-blue-700 {
+  color: #93c5fd !important;
+}
+.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+}
+.dark .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+}
+.dark .bg-rose-50 {
+  background-color: rgba(244, 63, 94, 0.15) !important;
+}
+.dark .text-brand-700 {
+  color: #c4b5fd !important;
+}
+.dark .text-brand-600 {
+  color: #b9a8fc !important;
+}
+.dark .text-emerald-700 {
+  color: #6ee7b7 !important;
+}
+.dark .text-amber-700,
+.dark .text-amber-600 {
+  color: #fcd34d !important;
+}
+.dark .text-rose-700,
+.dark .text-rose-600 {
+  color: #fda4af !important;
+}
+.dark .border-rose-200 {
+  border-color: rgba(244, 63, 94, 0.4) !important;
+}
+.dark .border-brand-500 {
+  border-color: #8b7cf6 !important;
+}
+.dark .border-brand-200 {
+  border-color: rgba(124, 111, 232, 0.4) !important;
+}
+.dark .border-amber-200 {
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+.dark .text-brand-800 {
+  color: #c4b5fd !important;
+}
+.dark .text-amber-800 {
+  color: #fcd34d !important;
+}
 
 /* backdrop-blur header looks better with a translucent dark surface */
-.dark .bg-white\/90 { background-color: rgba(30,41,59,.9) !important; }
+.dark .bg-white\/90 {
+  background-color: rgba(30, 41, 59, 0.9) !important;
+}

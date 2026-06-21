@@ -1,0 +1,10 @@
+node_modules/
+client/dist/
+client/test/.tmp/
+server/data/
+backups/
+*.db
+*.db-wal
+*.db-shm
+*.timestamp-*.mjs
+package-lock.json

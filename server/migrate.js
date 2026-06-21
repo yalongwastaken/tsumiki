@@ -1,10 +1,17 @@
-// migrate.js — convert old window.storage shapes into the unified model (SPEC.md §6).
+// migrate.js — convert old window.storage shapes into the unified data model.
 // Old "finance-v2" shape:
 //   { goals:[{id,name,target,pledge,color}], expenses:[{id,cat,amount,note,date}],
 //     contributions:[{id,goalId,amount,date}], settings:{startNetWorth,monthlyInvest,returnRate} }
+/** Short unique id. */
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+/** Normalize a date to ISO (now if missing). */
 const iso = (d) => (d ? new Date(d).toISOString() : new Date().toISOString());
 
+/**
+ * Convert a legacy "finance-v2" object into the unified model.
+ * @returns {Object} unified state (accounts, snapshots, goals, debts, transactions, profile, settings)
+ */
 export function migrateLegacy(old = {}) {
   const goals = (old.goals || []).map((g) => ({
     id: g.id || uid(),
@@ -41,9 +48,7 @@ export function migrateLegacy(old = {}) {
   const accounts = [{ id: "brokerage", name: "Brokerage", type: "brokerage", color: "#94A3B8" }];
   const start = old.settings?.startNetWorth ?? 0;
   const snapshots =
-    start > 0
-      ? [{ id: uid(), accountId: "brokerage", date: iso(Date.now()), balance: start }]
-      : [];
+    start > 0 ? [{ id: uid(), accountId: "brokerage", date: iso(Date.now()), balance: start }] : [];
 
   const settings = {
     returnRate: old.settings?.returnRate ?? 0.07,
@@ -51,7 +56,7 @@ export function migrateLegacy(old = {}) {
     streakFreezes: 0,
   };
 
-  // profile gets sensible defaults; real values come from setup (M1)
+  // profile gets sensible defaults; real values come from setup
   const profile = {
     incomeType: "salary",
     typicalIncome: 7000, // old hardcoded MONTHLY, kept as a fallback
@@ -61,8 +66,10 @@ export function migrateLegacy(old = {}) {
     retirementLimits: null,
     strategy: "balanced",
     customRules: null,
-    // seed a single income source from the old single income figure (I2)
-    incomeSources: [{ id: "primary", name: "Primary income", type: "salary", typicalMonthly: 7000 }],
+    // seed a single income source from the old single income figure
+    incomeSources: [
+      { id: "primary", name: "Primary income", type: "salary", typicalMonthly: 7000 },
+    ],
   };
 
   return { accounts, snapshots, goals, debts: [], transactions, profile, settings };

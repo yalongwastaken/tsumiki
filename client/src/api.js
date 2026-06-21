@@ -1,7 +1,12 @@
-// api.js — the thin client→server layer (SPEC.md §12, M0).
-// Replaces the old window.storage. Same origin as the server in prod; proxied in dev.
+// api.js — the thin client→server fetch layer.
+
+// same origin as the server in prod; proxied to :4000 in dev
 const BASE = import.meta.env.VITE_API ?? "";
 
+/**
+ * Make a JSON request and parse the response.
+ * @throws {Error} with a `.status` field on non-2xx responses
+ */
 async function call(method, path, body) {
   const res = await fetch(BASE + path, {
     method,
@@ -20,8 +25,12 @@ async function call(method, path, body) {
 export const getState = () => call("GET", "/api/state");
 export const getPlan = (income, strategy) => {
   const q = new URLSearchParams();
-  if (income != null) q.set("income", income);
-  if (strategy) q.set("strategy", strategy);
+  if (income != null) {
+    q.set("income", income);
+  }
+  if (strategy) {
+    q.set("strategy", strategy);
+  }
   const s = q.toString();
   return call("GET", `/api/plan${s ? `?${s}` : ""}`);
 };

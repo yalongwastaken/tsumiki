@@ -1,11 +1,16 @@
-// Unit tests for the allocation engine (run: npm test). Pure function, so we
-// assert exact behavior across the scenarios that matter for coaching quality.
+// engine.test.js — allocation engine unit tests (run: npm test).
+// asserts exact behavior across the scenarios that matter for coaching quality
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildPlan, typicalIncome } from "./engine.js";
 
 const acct = (id, type) => ({ id, name: id, type });
-const snap = (accountId, balance) => ({ id: accountId + "s", accountId, date: "2026-06-01T00:00:00Z", balance });
+const snap = (accountId, balance) => ({
+  id: accountId + "s",
+  accountId,
+  date: "2026-06-01T00:00:00Z",
+  balance,
+});
 
 test("zero income → no steps", () => {
   const p = buildPlan({ profile: {} }, 0);
@@ -19,7 +24,12 @@ test("full waterfall order: min debt → floor → match → high debt → emerg
     accounts: [acct("chk", "checking")],
     snapshots: [snap("chk", 1000)], // below floor 3000
     debts: [{ id: "a", name: "Card A", balance: 1000, apr: 24, minPayment: 30 }],
-    profile: { checkingFloor: 3000, emergencyTarget: 9000, employerMatch: { pct: 4 }, strategy: "balanced" },
+    profile: {
+      checkingFloor: 3000,
+      emergencyTarget: 9000,
+      employerMatch: { pct: 4 },
+      strategy: "balanced",
+    },
     transactions: [],
   };
   const keys = buildPlan(state, 6000).steps.map((s) => s.key);
@@ -29,9 +39,14 @@ test("full waterfall order: min debt → floor → match → high debt → emerg
 
 test("avalanche: highest-APR debt is named first", () => {
   const state = {
-    accounts: [acct("chk", "checking")], snapshots: [snap("chk", 5000)],
-    debts: [{ id: "a", name: "Card A", balance: 1000, apr: 15, minPayment: 20 }, { id: "b", name: "Card B", balance: 500, apr: 27, minPayment: 15 }],
-    profile: { checkingFloor: 3000, strategy: "balanced" }, transactions: [],
+    accounts: [acct("chk", "checking")],
+    snapshots: [snap("chk", 5000)],
+    debts: [
+      { id: "a", name: "Card A", balance: 1000, apr: 15, minPayment: 20 },
+      { id: "b", name: "Card B", balance: 500, apr: 27, minPayment: 15 },
+    ],
+    profile: { checkingFloor: 3000, strategy: "balanced" },
+    transactions: [],
   };
   const high = buildPlan(state, 6000).steps.find((s) => s.key === "high_debt");
   assert.match(high.why, /Card B/); // 27% beats 15%
@@ -39,9 +54,14 @@ test("avalanche: highest-APR debt is named first", () => {
 
 test("snowball: smallest-balance debt is named first", () => {
   const state = {
-    accounts: [acct("chk", "checking")], snapshots: [snap("chk", 5000)],
-    debts: [{ id: "a", name: "Big", balance: 5000, apr: 22, minPayment: 50 }, { id: "b", name: "Small", balance: 300, apr: 20, minPayment: 10 }],
-    profile: { checkingFloor: 3000, strategy: "balanced", debtStrategy: "snowball" }, transactions: [],
+    accounts: [acct("chk", "checking")],
+    snapshots: [snap("chk", 5000)],
+    debts: [
+      { id: "a", name: "Big", balance: 5000, apr: 22, minPayment: 50 },
+      { id: "b", name: "Small", balance: 300, apr: 20, minPayment: 10 },
+    ],
+    profile: { checkingFloor: 3000, strategy: "balanced", debtStrategy: "snowball" },
+    transactions: [],
   };
   const high = buildPlan(state, 6000).steps.find((s) => s.key === "high_debt");
   assert.match(high.why, /Small/);
@@ -49,27 +69,44 @@ test("snowball: smallest-balance debt is named first", () => {
 
 test("YTD retirement caps the annual room", () => {
   const state = {
-    accounts: [acct("chk", "checking")], snapshots: [snap("chk", 5000)],
-    debts: [], profile: { checkingFloor: 3000, strategy: "long_term" },
-    transactions: [{ id: "r", type: "contribution", bucket: "retirement", amount: 6800, date: "2026-02-01T00:00:00Z" }],
+    accounts: [acct("chk", "checking")],
+    snapshots: [snap("chk", 5000)],
+    debts: [],
+    profile: { checkingFloor: 3000, strategy: "long_term" },
+    transactions: [
+      {
+        id: "r",
+        type: "contribution",
+        bucket: "retirement",
+        amount: 6800,
+        date: "2026-02-01T00:00:00Z",
+      },
+    ],
   };
   const p = buildPlan(state, 6000);
-  const retire = p.steps.filter((s) => s.key === "match" || s.key === "retirement").reduce((a, s) => a + s.amount, 0);
+  const retire = p.steps
+    .filter((s) => s.key === "match" || s.key === "retirement")
+    .reduce((a, s) => a + s.amount, 0);
   assert.ok(retire <= 200 + 1, `retirement ${retire} should be ≤ remaining room 200`);
   assert.equal(p.context.retirementRoom, 200);
 });
 
 test("configurable high-APR threshold excludes lower-rate debt", () => {
   const state = {
-    accounts: [acct("chk", "checking")], snapshots: [snap("chk", 5000)],
-    debts: [{ id: "a", name: "A", balance: 1000, apr: 24, minPayment: 0 }, { id: "b", name: "B", balance: 500, apr: 15, minPayment: 0 }],
-    profile: { checkingFloor: 3000, strategy: "balanced", highApr: 20 }, transactions: [],
+    accounts: [acct("chk", "checking")],
+    snapshots: [snap("chk", 5000)],
+    debts: [
+      { id: "a", name: "A", balance: 1000, apr: 24, minPayment: 0 },
+      { id: "b", name: "B", balance: 500, apr: 15, minPayment: 0 },
+    ],
+    profile: { checkingFloor: 3000, strategy: "balanced", highApr: 20 },
+    transactions: [],
   };
   const high = buildPlan(state, 6000).steps.find((s) => s.key === "high_debt");
   assert.equal(high.amount, 1000); // only the 24% card
 });
 
-test("A3: typical income prefers logged history (≥2 months), else typed", () => {
+test("typical income prefers logged history (≥2 months), else typed", () => {
   const profile = { incomeSources: [{ id: "s", typicalMonthly: 4000 }] };
   // no history → typed estimate
   assert.equal(typicalIncome({ profile, transactions: [] }), 4000);
@@ -81,10 +118,16 @@ test("A3: typical income prefers logged history (≥2 months), else typed", () =
   assert.equal(typicalIncome({ profile, transactions: tx }), 5000);
 });
 
-test("A1: bills are reserved as essentials before the waterfall", () => {
+test("bills are reserved as essentials before the waterfall", () => {
   const state = {
-    accounts: [acct("chk", "checking")], snapshots: [snap("chk", 9000)], debts: [],
-    profile: { checkingFloor: 3000, strategy: "long_term", bills: [{ id: "r", name: "Rent", amount: 2000 }] },
+    accounts: [acct("chk", "checking")],
+    snapshots: [snap("chk", 9000)],
+    debts: [],
+    profile: {
+      checkingFloor: 3000,
+      strategy: "long_term",
+      bills: [{ id: "r", name: "Rent", amount: 2000 }],
+    },
     transactions: [],
   };
   const p = buildPlan(state, 5000);
@@ -120,7 +163,12 @@ test("starter buffer: with empty savings, savings is boosted past its split shar
     accounts: [acct("chk", "checking"), acct("sav", "savings")],
     snapshots: [snap("chk", 5000), snap("sav", 0)],
     debts: [],
-    profile: { checkingFloor: 3000, emergencyTarget: 20000, strategy: "balanced", bills: [{ id: "r", name: "Rent", amount: 1800 }] },
+    profile: {
+      checkingFloor: 3000,
+      emergencyTarget: 20000,
+      strategy: "balanced",
+      bills: [{ id: "r", name: "Rent", amount: 1800 }],
+    },
     transactions: [],
   };
   // surplus after $1800 essentials = ~$1200; plain 25% share would be ~$300,
@@ -142,17 +190,19 @@ test("no boost needed: split is the plain percentage split", () => {
   };
   const p = buildPlan(state, 4000);
   const amt = (k) => p.steps.filter((s) => s.key === k).reduce((a, s) => a + s.amount, 0);
-  assert.equal(amt("emergency"), 1000);   // 25% of 4000
-  assert.equal(amt("retirement"), 1200);  // 30%
-  assert.equal(amt("checking_flex"), 600);// 15%
-  assert.equal(amt("brokerage"), 1200);   // 30%
+  assert.equal(amt("emergency"), 1000); // 25% of 4000
+  assert.equal(amt("retirement"), 1200); // 30%
+  assert.equal(amt("checking_flex"), 600); // 15%
+  assert.equal(amt("brokerage"), 1200); // 30%
 });
 
 test("preview: strategyOverride changes the split without touching profile", () => {
   const state = {
     accounts: [acct("chk", "checking"), acct("sav", "savings")],
     snapshots: [snap("chk", 5000), snap("sav", 5000)],
-    debts: [], profile: { checkingFloor: 3000, emergencyTarget: 20000, strategy: "balanced" }, transactions: [],
+    debts: [],
+    profile: { checkingFloor: 3000, emergencyTarget: 20000, strategy: "balanced" },
+    transactions: [],
   };
   const base = buildPlan(state, 4000);
   const growth = buildPlan(state, 4000, { strategy: "long_term" });
@@ -164,11 +214,17 @@ test("preview: strategyOverride changes the split without touching profile", () 
 
 test("cadence: paychecksPerMonth derives from the dominant income source", () => {
   const state = {
-    accounts: [acct("chk", "checking")], snapshots: [snap("chk", 5000)], debts: [],
-    profile: { checkingFloor: 0, strategy: "balanced", incomeSources: [
-      { id: "a", typicalMonthly: 4000, cadence: "biweekly" },
-      { id: "b", typicalMonthly: 500, cadence: "monthly" },
-    ] },
+    accounts: [acct("chk", "checking")],
+    snapshots: [snap("chk", 5000)],
+    debts: [],
+    profile: {
+      checkingFloor: 0,
+      strategy: "balanced",
+      incomeSources: [
+        { id: "a", typicalMonthly: 4000, cadence: "biweekly" },
+        { id: "b", typicalMonthly: 500, cadence: "monthly" },
+      ],
+    },
     transactions: [],
   };
   const p = buildPlan(state, 5000);
@@ -178,11 +234,15 @@ test("cadence: paychecksPerMonth derives from the dominant income source", () =>
   assert.equal(buildPlan({ profile: {} }, 1000).cadence, "monthly");
 });
 
-test("A1: with no bills, essentials fall back to learned avg spending", () => {
+test("with no bills, essentials fall back to learned avg spending", () => {
   const state = {
-    accounts: [acct("chk", "checking")], snapshots: [snap("chk", 9000)], debts: [],
+    accounts: [acct("chk", "checking")],
+    snapshots: [snap("chk", 9000)],
+    debts: [],
     profile: { checkingFloor: 3000, strategy: "long_term" },
-    transactions: [{ id: "x", type: "spending", amount: 1500, date: "2026-06-10T00:00:00Z", cat: "X" }],
+    transactions: [
+      { id: "x", type: "spending", amount: 1500, date: "2026-06-10T00:00:00Z", cat: "X" },
+    ],
   };
   const p = buildPlan(state, 5000);
   assert.equal(p.essentialsSource, "learned");
@@ -190,8 +250,19 @@ test("A1: with no bills, essentials fall back to learned avg spending", () => {
 });
 
 test("investable = retirement + brokerage; allocation sums to income", () => {
-  const p = buildPlan({ accounts: [acct("chk", "checking")], snapshots: [snap("chk", 9000)], debts: [], profile: { checkingFloor: 3000, strategy: "long_term" }, transactions: [] }, 4000);
-  const invest = p.steps.filter((s) => s.key === "retirement" || s.key === "brokerage").reduce((a, s) => a + s.amount, 0);
+  const p = buildPlan(
+    {
+      accounts: [acct("chk", "checking")],
+      snapshots: [snap("chk", 9000)],
+      debts: [],
+      profile: { checkingFloor: 3000, strategy: "long_term" },
+      transactions: [],
+    },
+    4000,
+  );
+  const invest = p.steps
+    .filter((s) => s.key === "retirement" || s.key === "brokerage")
+    .reduce((a, s) => a + s.amount, 0);
   assert.equal(p.investable, invest);
   assert.equal(p.allocated + p.leftover, 4000);
 });

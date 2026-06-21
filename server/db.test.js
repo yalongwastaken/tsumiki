@@ -1,18 +1,22 @@
-// Tests for the DB layer: validation + state roundtrip + single-tx append.
-// Runs against a throwaway SQLite file (node --experimental-sqlite --test).
+// db.test.js — DB layer tests: validation + state roundtrip + single-tx append.
+// runs against a throwaway SQLite file (node --experimental-sqlite --test)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 process.env.TSUMIKI_DB = join(tmpdir(), `tsumiki-test-${Date.now()}.db`);
-const { putState, getState, addTransaction, validateState, validateTransaction } = await import("./db.js");
+const { putState, getState, addTransaction, validateState, validateTransaction } =
+  await import("./db.js");
 
 test("validateState rejects malformed bodies", () => {
   assert.ok(validateState({ transactions: [{ id: "x", type: "bogus", amount: 1, date: "d" }] }));
   assert.ok(validateState({ accounts: [{ id: "a", type: "checking" }] })); // no name
   assert.ok(validateState({ goals: "nope" }));
-  assert.equal(validateState({ transactions: [{ id: "x", type: "income", amount: 5, date: "2026-01-01" }] }), null);
+  assert.equal(
+    validateState({ transactions: [{ id: "x", type: "income", amount: 5, date: "2026-01-01" }] }),
+    null,
+  );
 });
 
 test("validateTransaction guards type/amount/id/date", () => {
@@ -23,7 +27,11 @@ test("validateTransaction guards type/amount/id/date", () => {
 });
 
 test("putState round-trips and bumps rev", () => {
-  const s = putState({ accounts: [{ id: "chk", name: "Checking", type: "checking" }], transactions: [], profile: { name: "Sam" } });
+  const s = putState({
+    accounts: [{ id: "chk", name: "Checking", type: "checking" }],
+    transactions: [],
+    profile: { name: "Sam" },
+  });
   assert.equal(s.accounts[0].name, "Checking");
   assert.equal(s.profile.name, "Sam");
   const rev0 = s.rev;
@@ -33,7 +41,13 @@ test("putState round-trips and bumps rev", () => {
 
 test("addTransaction appends one row and bumps rev", () => {
   const before = getState();
-  const after = addTransaction({ id: "t" + Date.now(), type: "income", amount: 2000, date: "2026-06-01T00:00:00Z", sourceId: "job" });
+  const after = addTransaction({
+    id: "t" + Date.now(),
+    type: "income",
+    amount: 2000,
+    date: "2026-06-01T00:00:00Z",
+    sourceId: "job",
+  });
   assert.equal(after.transactions.length, before.transactions.length + 1);
   assert.equal(after.rev, before.rev + 1);
 });

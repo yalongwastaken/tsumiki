@@ -1,60 +1,100 @@
+// Onboarding.jsx — first-run guided setup + explainer (replayable from Setup).
 import { useState } from "react";
 
-// First-run guided setup + explainer (replayable from Setup).
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const STRATEGIES = [
   ["short_term", "Safety first", "Kill debt & build a cash cushion before investing."],
   ["balanced", "Balanced", "Split between debt, safety, and investing."],
   ["long_term", "Growth first", "Push into retirement & investments aggressively."],
 ];
-const field = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700";
+const field =
+  "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700";
 
+/** First-run guided setup modal: name, strategy, and a first income source. */
 export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState(initial.name || "");
   const [srcName, setSrcName] = useState("");
   const [srcAmount, setSrcAmount] = useState("");
   const [strategy, setStrategy] = useState(initial.strategy || "balanced");
-  if (!open) return null;
+  if (!open) {
+    return null;
+  }
 
   const steps = ["welcome", "income", "strategy", "how"];
   const last = step === steps.length - 1;
   function finish() {
-    const source = srcName.trim() ? { id: uid(), name: srcName.trim(), type: "salary", typicalMonthly: Number(srcAmount || 0) } : null;
+    const source = srcName.trim()
+      ? { id: uid(), name: srcName.trim(), type: "salary", typicalMonthly: Number(srcAmount || 0) }
+      : null;
     onComplete({ name: name.trim(), strategy, source });
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="absolute inset-0 bg-slate-900/50" />
       <div className="relative w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl">
         <div className="flex justify-between items-center mb-4">
           <div className="flex gap-1.5">
-            {steps.map((_, i) => <div key={i} className={`h-1.5 rounded-full transition-all ${i === step ? "w-6 bg-brand-600" : "w-1.5 bg-slate-200"}`} />)}
+            {steps.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 rounded-full transition-all ${i === step ? "w-6 bg-brand-600" : "w-1.5 bg-slate-200"}`}
+              />
+            ))}
           </div>
-          <button onClick={onSkip} className="text-xs text-slate-400 hover:text-slate-600">Skip</button>
+          <button onClick={onSkip} className="text-xs text-slate-400 hover:text-slate-600">
+            Skip
+          </button>
         </div>
 
         {steps[step] === "welcome" && (
           <div>
             <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true" className="mb-2">
-              <rect x="6" y="40" width="18" height="18" rx="3" fill="#C9C0FB" /><rect x="23" y="26" width="18" height="18" rx="3" fill="#9B8AFA" /><rect x="40" y="12" width="18" height="18" rx="3" fill="#7C6FE8" />
+              <rect x="6" y="40" width="18" height="18" rx="3" fill="#C9C0FB" />
+              <rect x="23" y="26" width="18" height="18" rx="3" fill="#9B8AFA" />
+              <rect x="40" y="12" width="18" height="18" rx="3" fill="#7C6FE8" />
             </svg>
             <div className="text-xl font-bold text-slate-900 mb-1">Welcome to Tsumiki</div>
-            <div className="text-sm text-slate-500 mb-4">Building wealth, one block at a time. Let's set you up — takes a minute.</div>
+            <div className="text-sm text-slate-500 mb-4">
+              Building wealth, one block at a time. Let's set you up — takes a minute.
+            </div>
             <div className="text-sm text-slate-600 mb-1">What should we call you?</div>
-            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className={field} />
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              className={field}
+            />
           </div>
         )}
 
         {steps[step] === "income" && (
           <div>
             <div className="text-lg font-bold text-slate-900 mb-1">What do you earn?</div>
-            <div className="text-sm text-slate-500 mb-4">Add a main income source. You can add more (and exact amounts) later in Accounts.</div>
-            <input value={srcName} onChange={(e) => setSrcName(e.target.value)} placeholder="e.g. Day job" className={field + " mb-2"} />
+            <div className="text-sm text-slate-500 mb-4">
+              Add a main income source. You can add more (and exact amounts) later in Accounts.
+            </div>
+            <input
+              value={srcName}
+              onChange={(e) => setSrcName(e.target.value)}
+              placeholder="e.g. Day job"
+              className={field + " mb-2"}
+            />
             <div className="relative">
               <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
-              <input type="number" value={srcAmount} onChange={(e) => setSrcAmount(e.target.value)} placeholder="typical / month" className={field + " pl-7"} />
+              <input
+                type="number"
+                value={srcAmount}
+                onChange={(e) => setSrcAmount(e.target.value)}
+                placeholder="typical / month"
+                className={field + " pl-7"}
+              />
             </div>
           </div>
         )}
@@ -62,11 +102,16 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
         {steps[step] === "strategy" && (
           <div>
             <div className="text-lg font-bold text-slate-900 mb-1">How should I coach you?</div>
-            <div className="text-sm text-slate-500 mb-4">This shapes where your money goes first. Change it anytime.</div>
+            <div className="text-sm text-slate-500 mb-4">
+              This shapes where your money goes first. Change it anytime.
+            </div>
             <div className="space-y-2">
               {STRATEGIES.map(([v, l, desc]) => (
-                <button key={v} onClick={() => setStrategy(v)}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg border transition-colors ${strategy === v ? "border-brand-500 bg-brand-50" : "border-slate-200 hover:border-slate-300"}`}>
+                <button
+                  key={v}
+                  onClick={() => setStrategy(v)}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg border transition-colors ${strategy === v ? "border-brand-500 bg-brand-50" : "border-slate-200 hover:border-slate-300"}`}
+                >
                   <div className="text-sm font-medium text-slate-800">{l}</div>
                   <div className="text-xs text-slate-500">{desc}</div>
                 </button>
@@ -79,18 +124,39 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
           <div>
             <div className="text-lg font-bold text-slate-900 mb-3">How Tsumiki works</div>
             <div className="space-y-3 text-sm">
-              <div><span className="font-semibold text-brand-600">Plan</span> — tells you where each dollar should go this month.</div>
-              <div><span className="font-semibold text-brand-600">Add button</span> — log income & spending in seconds, from any screen.</div>
-              <div><span className="font-semibold text-brand-600">Activity</span> — your month at a glance: calendar or list, spending, bills.</div>
-              <div><span className="font-semibold text-brand-600">Goals</span> — streaks & milestones keep you motivated.</div>
+              <div>
+                <span className="font-semibold text-brand-600">Plan</span> — tells you where each
+                dollar should go this month.
+              </div>
+              <div>
+                <span className="font-semibold text-brand-600">Add button</span> — log income &
+                spending in seconds, from any screen.
+              </div>
+              <div>
+                <span className="font-semibold text-brand-600">Activity</span> — your month at a
+                glance: calendar or list, spending, bills.
+              </div>
+              <div>
+                <span className="font-semibold text-brand-600">Goals</span> — streaks & milestones
+                keep you motivated.
+              </div>
             </div>
           </div>
         )}
 
         <div className="flex gap-2 mt-5">
-          {step > 0 && <button onClick={() => setStep(step - 1)} className="px-4 py-2.5 text-sm font-semibold text-slate-600 border border-slate-200 rounded-lg">Back</button>}
-          <button onClick={() => (last ? finish() : setStep(step + 1))}
-            className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg">
+          {step > 0 && (
+            <button
+              onClick={() => setStep(step - 1)}
+              className="px-4 py-2.5 text-sm font-semibold text-slate-600 border border-slate-200 rounded-lg"
+            >
+              Back
+            </button>
+          )}
+          <button
+            onClick={() => (last ? finish() : setStep(step + 1))}
+            className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg"
+          >
             {last ? "Start" : "Next"}
           </button>
         </div>
