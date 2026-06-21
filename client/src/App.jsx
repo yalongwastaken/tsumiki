@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { getState, putState } from "./api.js";
-import { fmt, fmtK } from "./format.js";
+import { fmt } from "./format.js";
+import Setup from "./Setup.jsx";
 
 // recharts is heavy and only used on the Grow tab — load it on demand.
 const Projection = lazy(() => import("./Projection.jsx"));
@@ -299,7 +300,7 @@ export default function App() {
 
       {/* Tabs */}
       <div className="bg-white border-b border-slate-200 flex">
-        {["Dashboard","Grow","Log","Goals"].map(t => (
+        {["Dashboard","Grow","Log","Goals","Setup"].map(t => (
           <button key={t} onClick={() => setTab(t.toLowerCase())}
             className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
               tab === t.toLowerCase() ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
@@ -330,6 +331,8 @@ export default function App() {
         {tab === "goals" && (goals.length ? goals.map(g => (
           <GoalCard key={g.id} goal={g} saved={savedFor(g.id, contributions)} onDeposit={logContribution} />
         )) : <div className="text-center py-12 text-slate-400 text-sm">No goals yet.</div>)}
+
+        {tab === "setup" && <Setup data={data} onSave={save} />}
       </div>
     </div>
   );
