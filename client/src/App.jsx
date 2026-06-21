@@ -412,8 +412,8 @@ export default function App() {
   function deleteTx(id) {
     save({ ...data, transactions: transactions.filter(t => t.id !== id) });
   }
-  function logTx({ type, amount, cat = null, goalId = null, sourceId = null, note = null }) {
-    save({ ...data, transactions: [...transactions, { id: uid(), type, amount, date: new Date().toISOString(), cat, goalId, sourceId, note }] });
+  function logTx({ type, amount, cat = null, goalId = null, sourceId = null, bucket = null, note = null }) {
+    save({ ...data, transactions: [...transactions, { id: uid(), type, amount, date: new Date().toISOString(), cat, goalId, sourceId, bucket, note }] });
   }
   function setNetWorth(value) {
     let acctId = accounts[0]?.id, accts = accounts;
@@ -467,7 +467,7 @@ export default function App() {
 
       <ErrorBoundary key={tab}>
       <div className="px-4 pt-5 space-y-4 max-w-lg mx-auto">
-        {tab === "plan" && <Plan defaultIncome={profile?.typicalIncome ?? undefined} onGoSetup={() => setTab("setup")} />}
+        {tab === "plan" && <Plan transactions={transactions} accounts={accounts} snapshots={snapshots} profile={profile} onGoSetup={() => setTab("setup")} />}
 
         {tab === "dashboard" && <>
           <QuickLog goals={goals} contributions={contributions} onLog={logContribution} />

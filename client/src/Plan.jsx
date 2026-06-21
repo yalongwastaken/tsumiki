@@ -1,97 +1,158 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getPlan } from "./api.js";
 import { fmt } from "./format.js";
 
-// M2 — "Your Plan": the core promise. Calls the server-side engine and shows
-// where each dollar of a given income should go. SPEC.md §1.5.
-const COLORS = {
-  min_debt: "#EF4444", floor: "#3B82F6", match: "#10B981",
-  high_debt: "#F97316", emergency: "#6366F1", retirement: "#8B5CF6", brokerage: "#94A3B8",
-};
-const STRATEGY_LABEL = { short_term: "Safety first", balanced: "Balanced", long_term: "Growth first", custom: "Custom" };
+// I3 — the living monthly plan. This month's pooled income → engine targets per
+// bucket vs your actual contributions, what's left to allocate, and a
+// forward-looking checking minimum watch. SPEC §1.5 + IMPROVEMENTS I3.
+const BUCKET_META = [
+  ["debt", "Debt paydown", "#EF4444"],
+  ["emergency", "Emergency fund", "#6366F1"],
+  ["retirement", "Retirement", "#8B5CF6"],
+  ["invest", "Invest", "#10B981"],
+];
+const monthName = () => new Date().toLocaleDateString(undefined, { month: "long" });
 
-export default function Plan({ defaultIncome, onGoSetup }) {
-  const [income, setIncome] = useState(defaultIncome ?? "");
+// where did a logged contribution actually go? (legacy goalId folds into invest)
+function bucketOf(t) {
+  const b = t.bucket;
+  if (b === "debt" || b === "emergency" || b === "retirement" || b === "invest") return b;
+  return "invest";
+}
+
+export default function Plan({ transactions = [], accounts = [], snapshots = [], profile = {}, onGoSetup }) {
+  const ym = new Date().toISOString().slice(0, 7);
+  const monthTx = useMemo(() => transactions.filter((t) => new Date(t.date).toISOString().slice(0, 7) === ym), [transactions, ym]);
+  const incomeThisMonth = monthTx.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const spendThisMonth = monthTx.filter((t) => t.type === "spending").reduce((s, t) => s + t.amount, 0);
+
+  const sources = profile.incomeSources || [];
+  const typical = sources.length ? sources.reduce((s, x) => s + (x.typicalMonthly || 0), 0) : (profile.typicalIncome || 0);
+  const planIncome = incomeThisMonth > 0 ? incomeThisMonth : typical;
+
+  const [amount, setAmount] = useState(planIncome);
+  useEffect(() => { setAmount(planIncome); }, [planIncome]);
+
   const [plan, setPlan] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  useEffect(() => { getPlan(amount === "" ? 0 : amount).then(setPlan).catch((e) => setErr(String(e.message || e))); }, [amount]);
 
-  async function run(amt) {
-    setLoading(true); setErr("");
-    try { setPlan(await getPlan(amt === "" || amt == null ? undefined : amt)); }
-    catch (e) { setErr(String(e.message || e)); }
-    setLoading(false);
-  }
-  useEffect(() => { run(defaultIncome); /* fresh on mount */ }, []); // eslint-disable-line
+  // actuals this month, by bucket
+  const actual = useMemo(() => {
+    const a = { debt: 0, emergency: 0, retirement: 0, invest: 0 };
+    for (const t of monthTx) if (t.type === "contribution") a[bucketOf(t)] += t.amount;
+    return a;
+  }, [monthTx]);
+
+  // targets from the engine plan, collapsed to display buckets
+  const target = useMemo(() => {
+    const t = { debt: 0, emergency: 0, retirement: 0, invest: 0, floor: 0 };
+    for (const s of plan?.steps || []) {
+      if (s.key === "min_debt" || s.key === "high_debt") t.debt += s.amount;
+      else if (s.key === "emergency") t.emergency += s.amount;
+      else if (s.key === "match" || s.key === "retirement") t.retirement += s.amount;
+      else if (s.key === "brokerage") t.invest += s.amount;
+      else if (s.key === "floor") t.floor += s.amount;
+    }
+    return t;
+  }, [plan]);
+
+  // checking buffer + forward-looking minimum watch
+  const checkingBalance = useMemo(() => {
+    const latest = {};
+    for (const s of snapshots) if (!latest[s.accountId] || new Date(s.date) > new Date(latest[s.accountId].date)) latest[s.accountId] = s;
+    return accounts.filter((a) => a.type === "checking").reduce((sum, a) => sum + (latest[a.id]?.balance || 0), 0);
+  }, [accounts, snapshots]);
+  const floor = profile.checkingFloor || 0;
+  const dayOfMonth = new Date().getDate();
+  const dailySpend = spendThisMonth / Math.max(1, dayOfMonth);
+  const daysToFloor = dailySpend > 0 ? (checkingBalance - floor) / dailySpend : Infinity;
+
+  const assigned = actual.debt + actual.emergency + actual.retirement + actual.invest;
+  const leftToAllocate = incomeThisMonth - assigned - spendThisMonth;
+
+  const rows = BUCKET_META.filter(([k]) => target[k] > 0 || actual[k] > 0);
 
   return (
     <>
+      {/* header */}
       <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Your plan</div>
-          {plan && (
-            <button onClick={onGoSetup} className="text-xs text-slate-400 hover:text-indigo-600">
-              {STRATEGY_LABEL[plan.strategy] || plan.strategy} ›
-            </button>
-          )}
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{monthName()} — your plan</div>
+          {plan && <button onClick={onGoSetup} className="text-xs text-slate-400 hover:text-indigo-600">{plan.strategy?.replace("_", " ")} ›</button>}
         </div>
-        <div className="text-sm text-slate-600 mb-2">If I have this much to put to work:</div>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
-            <input type="number" value={income} onChange={(e) => setIncome(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && run(income)}
-              placeholder="amount" className="w-full pl-7 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700" />
+        <div className="flex items-baseline gap-2 mb-3">
+          <div className="text-3xl font-mono font-bold text-slate-900">{fmt(incomeThisMonth)}</div>
+          <div className="text-xs text-slate-400">earned this month{typical ? ` · ~${fmt(typical)} typical` : ""}</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Plan for</span>
+          <div className="relative" style={{ width: 120 }}>
+            <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
+            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
+              className="w-full pl-7 pr-2 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700" />
           </div>
-          <button onClick={() => run(income)}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">Plan it</button>
+          {incomeThisMonth > 0 && Number(amount) !== incomeThisMonth && (
+            <button onClick={() => setAmount(incomeThisMonth)} className="text-xs text-indigo-600">use this month</button>
+          )}
         </div>
       </div>
 
       {err && <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3">{err}</div>}
-      {loading && <div className="text-center py-10 text-slate-400 text-sm">Crunching your plan…</div>}
 
-      {!loading && plan && plan.income === 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-slate-400 text-sm">
-          Enter an amount above (or set a typical income in Setup) to see your plan.
-        </div>
-      )}
-
-      {!loading && plan && plan.income > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          {/* stacked allocation bar */}
-          <div className="flex items-baseline justify-between mb-2">
-            <div className="text-sm font-semibold text-slate-700">{fmt(plan.income)} allocated</div>
-            {plan.leftover > 0 && <div className="text-xs text-slate-400">{fmt(plan.leftover)} unassigned</div>}
-          </div>
-          <div className="flex h-3 rounded-full overflow-hidden bg-slate-100 mb-4">
-            {plan.steps.map((s, i) => (
-              <div key={i} title={`${s.label}: ${fmt(s.amount)}`}
-                style={{ width: `${(s.amount / plan.income) * 100}%`, background: COLORS[s.key] || "#cbd5e1" }} />
-            ))}
-          </div>
-
-          {/* step rows */}
-          <div className="space-y-3">
-            {plan.steps.map((s, i) => (
-              <div key={i} className="flex gap-3">
-                <div className="mt-1 w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: COLORS[s.key] || "#cbd5e1" }} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-medium text-slate-800">{s.label}</span>
-                    <span className="text-sm font-mono font-semibold text-slate-900">{fmt(s.amount)}</span>
-                  </div>
-                  <div className="text-xs text-slate-400">{s.why}</div>
+      {/* per-bucket plan vs actual */}
+      {rows.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4">
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Plan vs. actual</div>
+          {rows.map(([k, label, color]) => {
+            const tgt = target[k], act = actual[k];
+            const pct = tgt > 0 ? Math.min(100, (act / tgt) * 100) : (act > 0 ? 100 : 0);
+            const done = tgt > 0 && act >= tgt;
+            return (
+              <div key={k}>
+                <div className="flex items-baseline justify-between text-sm mb-1">
+                  <span className="font-medium text-slate-700">{label}</span>
+                  <span className="font-mono text-slate-600">{fmt(act)}<span className="text-slate-300"> / {fmt(tgt)}</span></span>
                 </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+                </div>
+                {tgt > 0 && !done && <div className="text-xs text-slate-400 mt-1">{fmt(tgt - act)} to go this month</div>}
+                {done && <div className="text-xs text-emerald-600 mt-1">target met ✓</div>}
               </div>
-            ))}
-          </div>
-
-          {plan.steps.length === 0 && (
-            <div className="text-center py-4 text-slate-400 text-sm">Nothing to allocate at this amount.</div>
-          )}
+            );
+          })}
         </div>
       )}
+
+      {/* what's left to allocate (flexible money) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Flexible / unassigned</div>
+            <div className="text-xs text-slate-400">income earned − assigned − spent, this month</div>
+          </div>
+          <div className={`text-2xl font-mono font-bold ${leftToAllocate >= 0 ? "text-slate-900" : "text-rose-500"}`}>{fmt(leftToAllocate)}</div>
+        </div>
+      </div>
+
+      {/* checking minimum watch */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Checking buffer</div>
+        <div className="flex items-baseline justify-between mb-1">
+          <span className="text-sm text-slate-600">Balance vs. floor</span>
+          <span className="font-mono text-sm text-slate-700">{fmt(checkingBalance)}<span className="text-slate-300"> / {fmt(floor)} min</span></span>
+        </div>
+        {checkingBalance < floor ? (
+          <div className="text-sm text-rose-500 font-medium">Below your floor by {fmt(floor - checkingBalance)}.</div>
+        ) : dailySpend > 0 && isFinite(daysToFloor) ? (
+          <div className={`text-sm font-medium ${daysToFloor < 14 ? "text-amber-600" : "text-emerald-600"}`}>
+            At this spend rate, ~{Math.round(daysToFloor)} days of buffer above your floor.
+          </div>
+        ) : (
+          <div className="text-sm text-emerald-600 font-medium">Above your floor.</div>
+        )}
+      </div>
     </>
   );
 }

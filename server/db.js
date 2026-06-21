@@ -55,8 +55,9 @@ db.exec(`
     date      TEXT NOT NULL,        -- ISO string
     note      TEXT,
     cat       TEXT,                 -- for spending
-    goal_id   TEXT,                 -- for contribution (abstract ref; not FK-enforced)
-    source_id TEXT                  -- for income (which income source it came from)
+    goal_id   TEXT,                 -- legacy contribution target (folds into invest)
+    source_id TEXT,                 -- for income (which income source it came from)
+    bucket    TEXT                  -- for contribution: emergency|retirement|invest|debt
   );
   CREATE INDEX IF NOT EXISTS idx_tx_date ON transactions(date);
   CREATE INDEX IF NOT EXISTS idx_tx_type ON transactions(type);
@@ -72,6 +73,7 @@ db.exec(`
 {
   const cols = db.prepare("PRAGMA table_info(transactions)").all().map((c) => c.name);
   if (!cols.includes("source_id")) db.exec("ALTER TABLE transactions ADD COLUMN source_id TEXT");
+  if (!cols.includes("bucket")) db.exec("ALTER TABLE transactions ADD COLUMN bucket TEXT");
 }
 
 // ── defaults ────────────────────────────────────────────────────────────────
@@ -131,7 +133,7 @@ export function getState() {
       .prepare("SELECT id, name, balance, apr, min_payment AS minPayment FROM debts")
       .all(),
     transactions: db
-      .prepare("SELECT id, type, amount, date, note, cat, goal_id AS goalId, source_id AS sourceId FROM transactions ORDER BY date")
+      .prepare("SELECT id, type, amount, date, note, cat, goal_id AS goalId, source_id AS sourceId, bucket FROM transactions ORDER BY date")
       .all(),
     profile: getMeta("profile", DEFAULT_PROFILE),
     settings: getMeta("settings", DEFAULT_SETTINGS),
@@ -153,7 +155,7 @@ function replaceAll(state) {
     snapshot: db.prepare("INSERT INTO snapshots(id,account_id,date,balance) VALUES(@id,@accountId,@date,@balance)"),
     goal: db.prepare("INSERT INTO goals(id,name,target,pledge,color,target_date) VALUES(@id,@name,@target,@pledge,@color,@targetDate)"),
     debt: db.prepare("INSERT INTO debts(id,name,balance,apr,min_payment) VALUES(@id,@name,@balance,@apr,@minPayment)"),
-    tx: db.prepare("INSERT INTO transactions(id,type,amount,date,note,cat,goal_id,source_id) VALUES(@id,@type,@amount,@date,@note,@cat,@goalId,@sourceId)"),
+    tx: db.prepare("INSERT INTO transactions(id,type,amount,date,note,cat,goal_id,source_id,bucket) VALUES(@id,@type,@amount,@date,@note,@cat,@goalId,@sourceId,@bucket)"),
   };
 
   for (const a of state.accounts || []) ins.account.run({ color: null, ...a });
@@ -161,7 +163,7 @@ function replaceAll(state) {
   for (const g of state.goals || []) ins.goal.run({ color: null, targetDate: null, pledge: 0, ...g });
   for (const d of state.debts || []) ins.debt.run({ apr: 0, minPayment: 0, ...d });
   for (const t of state.transactions || [])
-    ins.tx.run({ note: null, cat: null, goalId: null, sourceId: null, ...t });
+    ins.tx.run({ note: null, cat: null, goalId: null, sourceId: null, bucket: null, ...t });
 
   if (state.profile) setMeta("profile", state.profile);
   if (state.settings) setMeta("settings", state.settings);

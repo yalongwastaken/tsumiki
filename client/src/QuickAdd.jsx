@@ -8,12 +8,19 @@ const TYPES = [
   ["income", "Income", "#10B981"],
   ["contribution", "Contribution", "#6366F1"],
 ];
+// contributions now target an engine bucket, not a goal (goals are the game layer)
+const BUCKETS = [
+  ["emergency", "Emergency"],
+  ["retirement", "Retirement"],
+  ["invest", "Invest"],
+  ["debt", "Debt paydown"],
+];
 
 export default function QuickAdd({ open, onClose, onLog, cats, goals, sources = [], transactions }) {
   const [type, setType] = useState("spending");
   const [amount, setAmount] = useState("");
   const [cat, setCat] = useState(null);
-  const [goalId, setGoalId] = useState(null);
+  const [bucket, setBucket] = useState("invest");
   const [sourceId, setSourceId] = useState(null);
   const [note, setNote] = useState("");
   const amountRef = useRef(null);
@@ -34,7 +41,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, goals, sources = 
   const recents = useMemo(() => {
     const out = [], seen = new Set();
     for (const t of [...transactions].reverse()) {
-      const sig = `${t.type}|${t.cat || t.goalId || ""}|${t.amount}`;
+      const sig = `${t.type}|${t.cat || t.bucket || ""}|${t.amount}`;
       if (seen.has(sig)) continue;
       seen.add(sig); out.push(t);
       if (out.length >= 4) break;
@@ -45,18 +52,18 @@ export default function QuickAdd({ open, onClose, onLog, cats, goals, sources = 
   // reset + focus when opened
   useEffect(() => {
     if (open) {
-      setType("spending"); setAmount(""); setCat(orderedCats[0] || null); setGoalId(goals[0]?.id || "brokerage"); setSourceId(sources[0]?.id || null); setNote("");
+      setType("spending"); setAmount(""); setCat(orderedCats[0] || null); setBucket("invest"); setSourceId(sources[0]?.id || null); setNote("");
       setTimeout(() => amountRef.current?.focus(), 50);
     }
   }, [open]); // eslint-disable-line
 
   if (!open) return null;
 
-  const goalLabel = (id) => (id === "brokerage" ? "Brokerage" : goals.find((g) => g.id === id)?.name || id);
+  const bucketLabel = (b) => (BUCKETS.find(([v]) => v === b)?.[1] || "Invest");
   function repeat(t) {
     setType(t.type); setAmount(String(t.amount));
     if (t.type === "spending") setCat(t.cat);
-    if (t.type === "contribution") setGoalId(t.goalId);
+    if (t.type === "contribution") setBucket(t.bucket || "invest");
     setNote(t.note || "");
   }
   function submit() {
@@ -65,7 +72,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, goals, sources = 
     onLog({
       type, amount: n, note: note || null,
       cat: type === "spending" ? cat : null,
-      goalId: type === "contribution" ? goalId : null,
+      bucket: type === "contribution" ? bucket : null,
       sourceId: type === "income" ? sourceId : null,
     });
     onClose();
@@ -107,9 +114,9 @@ export default function QuickAdd({ open, onClose, onLog, cats, goals, sources = 
         )}
         {type === "contribution" && (
           <div className="flex flex-wrap gap-2 mb-4">
-            {[...goals.map((g) => [g.id, g.name]), ["brokerage", "Brokerage"]].map(([id, name]) => (
-              <button key={id} onClick={() => setGoalId(id)}
-                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${goalId === id ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-600"}`}>{name}</button>
+            {BUCKETS.map(([v, l]) => (
+              <button key={v} onClick={() => setBucket(v)}
+                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${bucket === v ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-600"}`}>{l}</button>
             ))}
           </div>
         )}
@@ -136,7 +143,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, goals, sources = 
               {recents.map((t) => (
                 <button key={t.id} onClick={() => repeat(t)}
                   className="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200">
-                  {fmt(t.amount)} · {t.type === "spending" ? t.cat : t.type === "contribution" ? goalLabel(t.goalId) : "income"}
+                  {fmt(t.amount)} · {t.type === "spending" ? t.cat : t.type === "contribution" ? bucketLabel(t.bucket) : "income"}
                 </button>
               ))}
             </div>
