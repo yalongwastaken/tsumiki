@@ -8,6 +8,7 @@ import Plan from "./Plan.jsx";
 import QuickAdd from "./QuickAdd.jsx";
 import Calendar from "./Calendar.jsx";
 import Onboarding from "./Onboarding.jsx";
+import Home from "./Home.jsx";
 import Milestones from "./Milestones.jsx";
 import MoneyTargets from "./MoneyTargets.jsx";
 import { computeMilestones } from "./milestones.js";
@@ -21,7 +22,6 @@ const NetWorthHistory = lazy(() => import("./NetWorthHistory.jsx"));
 // M0 note: data model is now the unified shape from the server (SPEC.md §6).
 // Components read the unified `transactions` ledger; contributions are bucketed.
 const CATS = ["Tech / Gear", "Subscriptions", "Dining Out", "Entertainment", "Education", "Clothing", "Other"];
-const CAT_COLORS = ["#FB923C", "#F97316", "#FDBA74", "#FCD34D"];
 
 const EMPTY = {
   accounts: [], snapshots: [], goals: [], debts: [], transactions: [],
@@ -31,80 +31,6 @@ const EMPTY = {
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
-
-function useCountUp(target, dur = 900) {
-  const [val, setVal] = useState(target);
-  const prev = useRef(target);
-  useEffect(() => {
-    const from = prev.current, to = target, t0 = performance.now();
-    let raf;
-    const tick = (t) => {
-      const p = Math.min(1, (t - t0) / dur);
-      const e = 1 - Math.pow(1 - p, 3);
-      setVal(from + (to - from) * e);
-      if (p < 1) raf = requestAnimationFrame(tick);
-      else prev.current = to;
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, dur]);
-  return val;
-}
-
-// ─── Sankey Flow ──────────────────────────────────────────────────────────────
-// M4 (§7): real money flow for the current month — actual income on the left,
-// actual spending + contributions + leftover on the right. Honest, not planned.
-const BUCKET_LABELS = { emergency: "Emergency", retirement: "Retirement", invest: "Invest", debt: "Debt" };
-const BUCKET_COLORS = { emergency: "#6366F1", retirement: "#8B5CF6", invest: "#10B981", debt: "#EF4444" };
-function SankeyFlow({ transactions, fallbackIncome }) {
-  const W = 580, LX = 50, LW = 16, RX = 405, RW = 16, PTOP = 12, PBOT = 16, GAP = 6, MIN_H = 30, SCALE = 140;
-  const ym = new Date().toISOString().slice(0, 7);
-  const month = transactions.filter(t => new Date(t.date).toISOString().slice(0, 7) === ym);
-  const incomeActual = month.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
-  const income = incomeActual > 0 ? incomeActual : fallbackIncome;
-  const usingFallback = incomeActual <= 0;
-
-  const catMap = {};
-  for (const t of month) if (t.type === "spending") catMap[t.cat || "Other"] = (catMap[t.cat || "Other"] || 0) + t.amount;
-  const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 4);
-
-  const contribMap = {};
-  for (const t of month) if (t.type === "contribution") { const b = BUCKET_LABELS[t.bucket] ? t.bucket : "invest"; contribMap[b] = (contribMap[b] || 0) + t.amount; }
-
-  const items = [
-    ...Object.entries(contribMap).map(([b, a]) => ({ label: BUCKET_LABELS[b], amount: a, color: BUCKET_COLORS[b] })),
-    ...topCats.map(([c, a], i) => ({ label: c, amount: a, color: CAT_COLORS[i % CAT_COLORS.length] })),
-  ];
-  if (!income || income <= 0)
-    return <div className="text-center py-6 text-slate-400 text-sm">Log income and spending to see this month's flow.</div>;
-  const freeAmt = income - items.reduce((s, x) => s + x.amount, 0);
-  if (freeAmt > 0) items.push({ label: "Unspent / to invest", amount: freeAmt, color: "#94A3B8" });
-  if (items.length === 0) return <div className="text-center py-6 text-slate-400 text-sm">Log spending or contributions to see your flow.</div>;
-
-  let ry = PTOP;
-  const right = items.map(it => { const h = MIN_H + (it.amount/income)*SCALE; const r = {...it, y:ry, h}; ry += h+GAP; return r; });
-  const SVG_H = ry - GAP + PBOT, leftH = SVG_H - PTOP - PBOT;
-  let ly = PTOP;
-  const left = items.map(it => { const h = (it.amount/income)*leftH; const b = {...it, y:ly, h}; ly += h; return b; });
-  const ribbon = (l,r) => { const cx=(RX-LX-LW)*0.42, x1=LX+LW, x2=RX;
-    return `M${x1},${l.y} C${x1+cx},${l.y} ${x2-cx},${r.y} ${x2},${r.y} L${x2},${r.y+r.h} C${x2-cx},${r.y+r.h} ${x1+cx},${l.y+l.h} ${x1},${l.y+l.h} Z`; };
-  const cY = PTOP + leftH/2;
-  return (
-    <svg viewBox={`0 0 ${W} ${SVG_H}`} width="100%" style={{ display:"block", overflow:"visible" }}>
-      {left.map((b,i) => <rect key={i} x={LX} y={b.y} width={LW} height={Math.max(0.5,b.h)} fill={b.color} />)}
-      {right.map((r,i) => <path key={i} d={ribbon(left[i],r)} fill={r.color} fillOpacity={0.2} />)}
-      {right.map((r,i) => <rect key={i} x={RX} y={r.y} width={RW} height={r.h} fill={r.color} rx={2} />)}
-      {right.map((r,i) => { const m = r.y+r.h/2, lc = r.color==="#94A3B8"?"#64748B":r.color;
-        return (<g key={i}>
-          <text x={RX+RW+10} y={m-7} dominantBaseline="central" fontSize="11" fill={lc} fontWeight="600">{r.label}</text>
-          <text x={RX+RW+10} y={m+7} dominantBaseline="central" fontSize="11" fill="#94A3B8">{fmt(r.amount)}/mo</text>
-        </g>); })}
-      <text x={LX-10} y={cY-8} textAnchor="end" dominantBaseline="central" fontSize="11" fill="#94A3B8">{usingFallback ? "Income (est.)" : "Income"}</text>
-      <text x={LX-10} y={cY+8} textAnchor="end" dominantBaseline="central" fontSize="13" fill="#0F172A" fontWeight="bold">{fmt(income)}</text>
-    </svg>
-  );
-}
 
 // ─── Net worth setter (M0 stand-in for proper account snapshots, SPEC §6) ───────
 function NetWorthCard({ realNetWorth, onSet }) {
@@ -162,13 +88,14 @@ function StreakPanel({ transactions, freezes = 0 }) {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [tab, setTab] = useState("plan");
+  const [tab, setTab] = useState("home");
   const [data, setData] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [showOnboard, setShowOnboard] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [derivedInvest, setDerivedInvest] = useState(null); // monthly investable per the plan (§7)
   const revRef = useRef(0);            // last server rev (optimistic concurrency)
   const saveChain = useRef(Promise.resolve()); // serialize writes so rapid saves can't self-conflict
@@ -225,7 +152,6 @@ export default function App() {
   }, [snapshots]);
   const investedTotal = contributions.reduce((s,c) => s+c.amount, 0); // "contributed by you" — only goes up
   const netWorth = snapshots.length ? realNetWorth : investedTotal;
-  const animNW = useCountUp(netWorth);
 
   // §7 reality check: contributions since you started tracking vs the actual
   // change in net worth. The gap is the market (or unlogged spending) at work.
@@ -325,98 +251,90 @@ export default function App() {
 
   if (loading) return <div className="flex items-center justify-center h-40 text-slate-400 text-sm">Loading your data…</div>;
 
+  const netWorthDisplay = snapshots.length ? realNetWorth : investedTotal;
+  const sectionLabel = NAV.find(n => n[0] === tab)?.[1] || "";
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-12">
-      {error && <div className="bg-rose-50 border-b border-rose-200 text-rose-600 text-xs px-5 py-2">{error}</div>}
-      {celebrate && (
-        <button onClick={() => setCelebrate(null)}
-          className="w-full text-left bg-gradient-to-r from-amber-400 to-orange-400 text-white px-5 py-2.5 text-sm font-semibold">
-          🎉 Milestone{celebrate.length > 1 ? "s" : ""}: {celebrate.map(m => `${m.icon} ${m.label}`).join("  ·  ")} <span className="opacity-70 font-normal">— tap to dismiss</span>
-        </button>
-      )}
-      {/* Hero */}
-      <div className="bg-white border-b border-slate-200 px-5 pt-5 pb-5">
-        {profile?.name && <div className="text-sm text-slate-500 mb-2">{greeting()}, {profile.name}.</div>}
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-xs text-slate-400 tracking-widest uppercase font-medium mb-1">
-              {snapshots.length ? "Net worth" : "Contributed"}
-            </div>
-            <div className="text-4xl font-mono font-bold text-slate-900 tabular-nums">{fmt(animNW)}</div>
-            <div className="text-xs text-slate-400 mt-1">
-              {snapshots.length
-                ? (investedTotal > 0 ? `${fmt(investedTotal)} contributed by you` : "real balances · set in Setup")
-                : "log a balance in Setup for real net worth"}
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-xs text-slate-400">income</div>
-            <div className="text-lg font-mono font-bold text-slate-700">{fmt(income)}</div>
-            <div className="text-xs text-slate-400">/mo</div>
-          </div>
+    <div className="min-h-screen bg-slate-50 md:flex">
+      {/* mobile overlay */}
+      {menuOpen && <div className="fixed inset-0 bg-slate-900/40 z-30 md:hidden" onClick={() => setMenuOpen(false)} />}
+
+      {/* nav — persistent sidebar on desktop, slide-in drawer on mobile */}
+      <aside className={`fixed z-40 inset-y-0 left-0 w-60 bg-white border-r border-slate-200 flex flex-col transform transition-transform duration-300 ease-out md:static md:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="px-5 py-4 flex items-center gap-2 border-b border-slate-100">
+          <span className="text-xl">🧱</span><span className="font-bold text-slate-800">Tsumiki</span>
         </div>
-        {toast && <div className="mt-2 text-xs text-emerald-500">{toast}</div>}
-      </div>
+        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+          {NAV.map(([key, label, icon]) => (
+            <button key={key} onClick={() => { setTab(key); setMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${tab === key ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50"}`}>
+              <span className="text-base">{icon}</span>{label}
+            </button>
+          ))}
+        </nav>
+        {profile?.name && <div className="px-5 py-3 border-t border-slate-100 text-xs text-slate-400">Hi, {profile.name}</div>}
+      </aside>
 
-      {/* Tabs */}
-      <div className="bg-white border-b border-slate-200 flex">
-        {["Plan","Calendar","Dashboard","Grow","Log","Goals","Setup"].map(t => (
-          <button key={t} onClick={() => setTab(t.toLowerCase())}
-            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-              tab === t.toLowerCase() ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
-            {t}</button>
-        ))}
-      </div>
+      {/* main column */}
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
+        {celebrate && (
+          <button onClick={() => setCelebrate(null)}
+            className="w-full text-left bg-gradient-to-r from-amber-400 to-orange-400 text-white px-5 py-2.5 text-sm font-semibold">
+            🎉 Milestone{celebrate.length > 1 ? "s" : ""}: {celebrate.map(m => `${m.icon} ${m.label}`).join("  ·  ")} <span className="opacity-70 font-normal">— tap to dismiss</span>
+          </button>
+        )}
+        {error && <div className="bg-rose-50 border-b border-rose-200 text-rose-600 text-xs px-5 py-2">{error}</div>}
 
-      <ErrorBoundary key={tab}>
-      <div className="px-4 pt-5 space-y-4 max-w-lg mx-auto">
-        {tab === "plan" && <Plan transactions={transactions} accounts={accounts} snapshots={snapshots} profile={profile} onGoSetup={() => setTab("setup")} />}
-
-        {tab === "calendar" && <Calendar transactions={transactions} profile={profile} />}
-
-        {tab === "dashboard" && <>
-          {realityCheck && (
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Reality check</div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-slate-600">You contributed {fmt(realityCheck.contribSince)}; net worth changed {fmt(realityCheck.deltaNW)}.</span>
-              </div>
-              <div className={`text-sm mt-1 font-medium ${realityCheck.gap >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
-                {realityCheck.gap >= 0
-                  ? `+${fmt(realityCheck.gap)} on top — markets working for you.`
-                  : `${fmt(realityCheck.gap)} — markets or unlogged spending took a bite.`}
-              </div>
-            </div>
-          )}
-          <div className="bg-white rounded-xl border border-slate-200 px-4 pt-4 pb-3">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">This month's flow — actual</div>
-            <SankeyFlow transactions={transactions} fallbackIncome={income} />
+        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-3 px-4 py-3">
+          <button onClick={() => setMenuOpen(true)} className="md:hidden text-2xl leading-none text-slate-600" aria-label="Open menu">☰</button>
+          <div className="font-semibold text-slate-800">{sectionLabel}</div>
+          <div className="ml-auto flex items-baseline gap-1">
+            {toast ? <span className="text-xs text-emerald-500">{toast}</span> : <>
+              <span className="text-sm font-mono font-bold text-slate-700">{fmt(netWorthDisplay)}</span>
+              <span className="text-xs text-slate-400">net worth</span>
+            </>}
           </div>
-          {transactions.length === 0 && (
-            <div className="text-center py-8 text-slate-400 text-sm">Tap <span className="font-semibold text-indigo-500">+</span> to log income or spending — your flow and plan fill in from there.</div>
-          )}
-        </>}
+        </header>
 
-        {tab === "grow" && <>
-          <Suspense fallback={<div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-slate-400 text-sm">Loading charts…</div>}>
-            <Projection start={netWorth} derivedInvest={derivedInvest} settings={settings} onChange={(s) => save({ ...data, settings: s })} />
-            <NetWorthHistory data={nwSeries} />
-          </Suspense>
-          <Fire netWorth={netWorth} monthlyInvest={monthlyForFire} returnRate={settings.returnRate} annualExpenses={annualExpenses} birthYear={profile?.birthYear} retireAge={profile?.retireAge} />
-          <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
-        </>}
+        <ErrorBoundary key={tab}>
+          <main className="flex-1 px-4 pt-5 pb-28 space-y-4 w-full max-w-lg md:max-w-2xl mx-auto">
+            {tab === "home" && <Home profile={profile} transactions={transactions} accounts={accounts} snapshots={snapshots}
+              income={income} realNetWorth={realNetWorth} investedTotal={investedTotal} milestoneList={milestoneList} freezes={freezes} onGo={setTab} />}
 
-        {tab === "log" && <Ledger transactions={transactions} sources={incomeSources} onDelete={deleteTx} />}
+            {tab === "plan" && <Plan transactions={transactions} accounts={accounts} snapshots={snapshots} profile={profile} onGoSetup={() => setTab("setup")} />}
 
-        {tab === "goals" && <>
-          <StreakPanel transactions={transactions} freezes={freezes} />
-          <Milestones list={milestoneList} />
-          <MoneyTargets targets={profile?.moneyTargets || []} onChange={(list) => save({ ...data, profile: { ...profile, moneyTargets: list } })} />
-        </>}
+            {tab === "calendar" && <Calendar transactions={transactions} profile={profile} />}
 
-        {tab === "setup" && <Setup data={data} onSave={save} onReplayIntro={() => setShowOnboard(true)} />}
+            {tab === "money" && <Ledger transactions={transactions} sources={incomeSources} onDelete={deleteTx} />}
+
+            {tab === "grow" && <>
+              {realityCheck && (
+                <div className="bg-white rounded-xl border border-slate-200 p-4">
+                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Reality check</div>
+                  <div className="text-sm text-slate-600">You contributed {fmt(realityCheck.contribSince)}; net worth changed {fmt(realityCheck.deltaNW)}.</div>
+                  <div className={`text-sm mt-1 font-medium ${realityCheck.gap >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                    {realityCheck.gap >= 0 ? `+${fmt(realityCheck.gap)} on top — markets working for you.` : `${fmt(realityCheck.gap)} — markets or unlogged spending took a bite.`}
+                  </div>
+                </div>
+              )}
+              <Suspense fallback={<div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-slate-400 text-sm">Loading charts…</div>}>
+                <Projection start={netWorth} derivedInvest={derivedInvest} settings={settings} onChange={(s) => save({ ...data, settings: s })} />
+                <NetWorthHistory data={nwSeries} />
+              </Suspense>
+              <Fire netWorth={netWorth} monthlyInvest={monthlyForFire} returnRate={settings.returnRate} annualExpenses={annualExpenses} birthYear={profile?.birthYear} retireAge={profile?.retireAge} />
+              <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
+            </>}
+
+            {tab === "goals" && <>
+              <StreakPanel transactions={transactions} freezes={freezes} />
+              <Milestones list={milestoneList} />
+              <MoneyTargets targets={profile?.moneyTargets || []} onChange={(list) => save({ ...data, profile: { ...profile, moneyTargets: list } })} />
+            </>}
+
+            {tab === "setup" && <Setup data={data} onSave={save} onReplayIntro={() => setShowOnboard(true)} />}
+          </main>
+        </ErrorBoundary>
       </div>
-      </ErrorBoundary>
 
       {/* always-available fast logging (SPEC §9) */}
       <button onClick={() => setShowAdd(true)} aria-label="Log a transaction"
@@ -429,6 +347,17 @@ export default function App() {
     </div>
   );
 }
+
+// section nav (clean-rename IA)
+const NAV = [
+  ["home", "Home", "🏠"],
+  ["plan", "Plan", "🎯"],
+  ["calendar", "Calendar", "📅"],
+  ["money", "Money", "💸"],
+  ["grow", "Grow", "📈"],
+  ["goals", "Goals", "🏆"],
+  ["setup", "Setup", "⚙️"],
+];
 
 // I4 — read-only ledger (logging happens via the + button). Filter + delete.
 function Ledger({ transactions, sources, onDelete }) {

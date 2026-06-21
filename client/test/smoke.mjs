@@ -26,6 +26,7 @@ for (const k of ["window", "document", "HTMLElement", "Element", "Node", "getCom
 globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
 globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 globalThis.performance = { now: () => Date.now() };
+globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} }; // jsdom lacks it; recharts needs it
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 // 3) stubbed server
@@ -66,12 +67,20 @@ const fails = [];
 await act(async () => { root.render(React.createElement(App)); });
 await new Promise((r) => setTimeout(r, 250));
 
-for (const name of ["Calendar", "Dashboard", "Goals", "Log", "Setup", "Plan"]) {
-  const btn = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === name);
+// nav buttons live in the sidebar and include an emoji icon, so match by label-includes
+const navTo = async (label) => {
+  const aside = document.querySelector("aside");
+  const b = [...(aside?.querySelectorAll("button") || [])].find((x) => x.textContent.includes(label));
+  if (!b) return false;
+  await act(async () => b.click());
+  await new Promise((r) => setTimeout(r, 120));
+  return true;
+};
+
+for (const name of ["Plan", "Calendar", "Money", "Grow", "Goals", "Setup", "Home"]) {
   try {
-    if (btn) await act(async () => { btn.click(); });
-    await new Promise((r) => setTimeout(r, 120));
-    const len = document.getElementById("root").innerHTML.length;
+    if (!(await navTo(name))) { fails.push(`${name}: no nav button`); continue; }
+    const len = document.querySelector("main")?.innerHTML.length || 0;
     if (len < 50) fails.push(`${name}: blank`);
     else console.log(`  ✓ ${name}`);
   } catch (e) { fails.push(`${name}: ${e.message}`); }
@@ -102,15 +111,17 @@ try { // open quick-add, switch types, enter an amount, log
 } catch (e) { fails.push(`quick-add interaction: ${e.message}`); }
 
 try { // delete a ledger row
-  const logTab = btnByText("Log"); if (logTab) await act(async () => logTab.click());
-  await new Promise((r) => setTimeout(r, 80));
-  const del = btnByText("✕"); if (del) { await act(async () => del.click()); await new Promise((r) => setTimeout(r, 80)); console.log("  ✓ ledger: delete"); }
+  await navTo("Money");
+  const del = btnByText("✕");
+  if (!del) fails.push("ledger: no delete button found");
+  else { await act(async () => del.click()); await new Promise((r) => setTimeout(r, 80)); console.log("  ✓ ledger: delete"); }
 } catch (e) { fails.push(`ledger interaction: ${e.message}`); }
 
-try { // setup: change strategy + save profile
-  const setupTab = btnByText("Setup"); if (setupTab) await act(async () => setupTab.click());
-  await new Promise((r) => setTimeout(r, 80));
-  const save = btnByText("Save profile"); if (save) { await act(async () => save.click()); await new Promise((r) => setTimeout(r, 80)); console.log("  ✓ setup: save profile"); }
+try { // setup: save profile
+  await navTo("Setup");
+  const save = btnByText("Save profile");
+  if (!save) fails.push("setup: no Save profile button found");
+  else { await act(async () => save.click()); await new Promise((r) => setTimeout(r, 80)); console.log("  ✓ setup: save profile"); }
 } catch (e) { fails.push(`setup interaction: ${e.message}`); }
 
 if (errors.length) fails.push(...errors.map((e) => `render error: ${e}`));
