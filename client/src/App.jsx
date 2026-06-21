@@ -4,6 +4,8 @@ import { fmt } from "./format.js";
 import Setup from "./Setup.jsx";
 import Plan from "./Plan.jsx";
 import QuickAdd from "./QuickAdd.jsx";
+import Milestones from "./Milestones.jsx";
+import { computeMilestones } from "./milestones.js";
 
 // recharts is heavy and only used on the Grow tab — load it on demand.
 const Projection = lazy(() => import("./Projection.jsx"));
@@ -29,20 +31,25 @@ function savedFor(goalId, contributions) {
   return contributions.filter(c => c.goalId === goalId).reduce((s, c) => s + c.amount, 0);
 }
 
-function computeStreak(contributions) {
+// M5: a freeze budget bridges missed weeks so one slip doesn't reset a long run.
+function computeStreak(contributions, freezes = 0) {
   const weeks = new Set(contributions.map(c => weekKey(c.date)));
-  if (weeks.size === 0) return { current: 0, longest: 0, weeks };
+  if (weeks.size === 0) return { current: 0, longest: 0, weeks, freezesUsed: 0 };
   let cur = weekKey(Date.now());
-  if (!weeks.has(cur)) cur -= WEEK;
-  let current = 0;
-  while (weeks.has(cur)) { current++; cur -= WEEK; }
+  if (!weeks.has(cur)) cur -= WEEK; // current week may not be logged yet
+  let current = 0, fz = freezes, used = 0;
+  while (true) {
+    if (weeks.has(cur)) { current++; cur -= WEEK; }
+    else if (fz > 0 && current > 0) { fz--; used++; cur -= WEEK; } // freeze covers a gap
+    else break;
+  }
   const sorted = [...weeks].sort((a,b) => a-b);
   let longest = 1, run = 1;
   for (let i = 1; i < sorted.length; i++) {
     run = sorted[i] - sorted[i-1] === WEEK ? run + 1 : 1;
     longest = Math.max(longest, run);
   }
-  return { current, longest: Math.max(longest, current), weeks };
+  return { current, longest: Math.max(longest, current), weeks, freezesUsed: used };
 }
 
 function useCountUp(target, dur = 900) {
@@ -138,8 +145,9 @@ function NetWorthCard({ realNetWorth, onSet }) {
 }
 
 // ─── Streak ───────────────────────────────────────────────────────────────────
-function StreakPanel({ contributions }) {
-  const { current, longest, weeks } = computeStreak(contributions);
+function StreakPanel({ contributions, freezes = 0 }) {
+  const { current, longest, weeks, freezesUsed } = computeStreak(contributions, freezes);
+  const freezesLeft = Math.max(0, freezes - freezesUsed);
   const thisWeek = weekKey(Date.now());
   const cells = [];
   for (let i = 11; i >= 0; i--) {
@@ -150,7 +158,7 @@ function StreakPanel({ contributions }) {
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Discipline streak</div>
-        <div className="text-xs text-slate-400">longest: {longest} wk</div>
+        <div className="text-xs text-slate-400">{"❄️".repeat(freezesLeft) || "no freezes"} · longest {longest} wk</div>
       </div>
       <div className="flex items-center gap-3 mb-4">
         <div className="text-4xl">{current > 0 ? "🔥" : "💤"}</div>
@@ -261,7 +269,7 @@ export default function App() {
     catch (e) { setError(String(e.message || e)); }
   }
 
-  const { goals, transactions, settings, accounts, snapshots, profile } = data;
+  const { goals, transactions, settings, accounts, snapshots, profile, debts } = data;
   const income = profile?.typicalIncome || 7000;
 
   // derived views off the single ledger (SPEC.md §6)
@@ -296,6 +304,35 @@ export default function App() {
     return { gap: deltaNW - contribSince, deltaNW, contribSince };
   }, [snapshots, contributions, realNetWorth]);
 
+  // ── M5 motivation: streak freezes + milestones ──────────────────────────────
+  const freezes = settings?.streakFreezes ?? 2;
+  const savingsBalance = useMemo(() => {
+    const latest = {};
+    for (const s of snapshots) if (!latest[s.accountId] || new Date(s.date) > new Date(latest[s.accountId].date)) latest[s.accountId] = s;
+    return accounts.filter(a => a.type === "savings").reduce((sum, a) => sum + (latest[a.id]?.balance || 0), 0);
+  }, [accounts, snapshots]);
+  const streakNow = useMemo(() => computeStreak(contributions, freezes).current, [contributions, freezes]);
+  const milestoneList = useMemo(() => computeMilestones({
+    realNetWorth, investedTotal, savings: savingsBalance,
+    emergencyTarget: profile?.emergencyTarget || 0, debts, streak: streakNow,
+    goals: goals.map(g => ({ id: g.id, name: g.name, target: g.target, saved: savedFor(g.id, contributions) })),
+  }), [realNetWorth, investedTotal, savingsBalance, profile, debts, streakNow, goals, contributions]);
+
+  // celebrate milestones newly achieved during this session — pure, no writes.
+  // Baseline is captured on first load so we don't re-celebrate old wins.
+  const [celebrate, setCelebrate] = useState(null);
+  const seenRef = useRef(null);
+  useEffect(() => {
+    if (loading) return;
+    const achieved = milestoneList.filter(m => m.achieved).map(m => m.id);
+    if (seenRef.current === null) { seenRef.current = new Set(achieved); return; }
+    const fresh = achieved.filter(id => !seenRef.current.has(id));
+    if (fresh.length) {
+      fresh.forEach(id => seenRef.current.add(id));
+      setCelebrate(milestoneList.filter(m => fresh.includes(m.id)));
+    }
+  }, [milestoneList, loading]); // eslint-disable-line
+
   function logContribution(goalId, amount) {
     save({ ...data, transactions: [...transactions, { id: uid(), type: "contribution", goalId, amount, date: new Date().toISOString(), note: null, cat: null }] });
   }
@@ -319,6 +356,12 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 pb-12">
       {error && <div className="bg-rose-50 border-b border-rose-200 text-rose-600 text-xs px-5 py-2">{error}</div>}
+      {celebrate && (
+        <button onClick={() => setCelebrate(null)}
+          className="w-full text-left bg-gradient-to-r from-amber-400 to-orange-400 text-white px-5 py-2.5 text-sm font-semibold">
+          🎉 Milestone{celebrate.length > 1 ? "s" : ""}: {celebrate.map(m => `${m.icon} ${m.label}`).join("  ·  ")} <span className="opacity-70 font-normal">— tap to dismiss</span>
+        </button>
+      )}
       {/* Hero */}
       <div className="bg-white border-b border-slate-200 px-5 pt-5 pb-5">
         <div className="flex items-start justify-between">
@@ -357,6 +400,7 @@ export default function App() {
 
         {tab === "dashboard" && <>
           <QuickLog goals={goals} contributions={contributions} onLog={logContribution} />
+          <Milestones list={milestoneList} />
           {realityCheck && (
             <div className="bg-white rounded-xl border border-slate-200 p-4">
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Reality check</div>
@@ -370,7 +414,7 @@ export default function App() {
               </div>
             </div>
           )}
-          <StreakPanel contributions={contributions} />
+          <StreakPanel contributions={contributions} freezes={freezes} />
           <div className="bg-white rounded-xl border border-slate-200 px-4 pt-4 pb-3">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">This month's flow — actual</div>
             <SankeyFlow transactions={transactions} goals={goals} fallbackIncome={income} />
