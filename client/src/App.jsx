@@ -1,26 +1,25 @@
-import { useState, useEffect, useRef } from "react";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { getState, putState } from "./api.js";
 
-const MONTHLY = 7000;
-const WEEK = 7 * 86400000;
+// M0 note: data model is now the unified shape from the server (SPEC.md §6).
+// Existing components are fed DERIVED views (contributions/expenses) off the
+// single `transactions` ledger, so screens keep working while the model changes.
 const CATS = ["Tech / Gear", "Subscriptions", "Dining Out", "Entertainment", "Education", "Clothing", "Other"];
 const CAT_COLORS = ["#FB923C", "#F97316", "#FDBA74", "#FCD34D"];
 
-const SEED = {
-  goals: [
-    { id: "emergency", name: "Emergency Fund", target: 15000, pledge: 500, color: "#6366F1" },
-    { id: "roth",      name: "Roth IRA 2026",  target: 7000,  pledge: 584, color: "#10B981" },
-    { id: "japan",     name: "Japan Trip Fund", target: 5000,  pledge: 300, color: "#F59E0B" },
-  ],
-  expenses: [],
-  contributions: [],
-  settings: { startNetWorth: 0, monthlyInvest: 3000, returnRate: 0.07 },
+const EMPTY = {
+  accounts: [], snapshots: [], goals: [], debts: [], transactions: [],
+  profile: { incomeType: "salary", typicalIncome: 7000, strategy: "balanced" },
+  settings: { returnRate: 0.07, monthlyInvest: null },
 };
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const weekKey = (d) => { const x = new Date(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); x.setHours(0,0,0,0); return x.getTime(); };
 const fmt  = (n) => "$" + Math.round(n).toLocaleString();
 const fmtK = (n) => n >= 1000 ? "$" + (n/1000).toFixed(n >= 10000 ? 0 : 1) + "k" : "$" + Math.round(n);
+const WEEK = 7 * 86400000;
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 function savedFor(goalId, contributions) {
   return contributions.filter(c => c.goalId === goalId).reduce((s, c) => s + c.amount, 0);
@@ -42,7 +41,6 @@ function computeStreak(contributions) {
   return { current, longest: Math.max(longest, current), weeks };
 }
 
-// count-up animation
 function useCountUp(target, dur = 900) {
   const [val, setVal] = useState(target);
   const prev = useRef(target);
@@ -63,22 +61,23 @@ function useCountUp(target, dur = 900) {
 }
 
 // ─── Sankey Flow ──────────────────────────────────────────────────────────────
-function SankeyFlow({ goals, expenses }) {
+function SankeyFlow({ goals, expenses, income }) {
   const W = 580, LX = 50, LW = 16, RX = 405, RW = 16, PTOP = 12, PBOT = 16, GAP = 6, MIN_H = 30, SCALE = 140;
   const catMap = expenses.reduce((a,e) => { a[e.cat] = (a[e.cat]||0)+e.amount; return a; }, {});
   const topCats = Object.entries(catMap).sort((a,b) => b[1]-a[1]).slice(0,4);
   const items = [
     ...goals.map(g => ({ label: g.name, amount: g.pledge, color: g.color })),
-    ...topCats.map(([c,a],i) => ({ label: c, amount: a, color: CAT_COLORS[i] })),
+    ...topCats.map(([c,a],i) => ({ label: c, amount: a, color: CAT_COLORS[i % CAT_COLORS.length] })),
   ];
-  const freeAmt = MONTHLY - items.reduce((s,x) => s+x.amount, 0);
+  const freeAmt = income - items.reduce((s,x) => s+x.amount, 0);
   if (freeAmt > 0) items.push({ label: "To brokerage", amount: freeAmt, color: "#94A3B8" });
+  if (items.length === 0) return <div className="text-center py-6 text-slate-400 text-sm">Add goals or log spending to see your flow.</div>;
 
   let ry = PTOP;
-  const right = items.map(it => { const h = MIN_H + (it.amount/MONTHLY)*SCALE; const r = {...it, y:ry, h}; ry += h+GAP; return r; });
+  const right = items.map(it => { const h = MIN_H + (it.amount/income)*SCALE; const r = {...it, y:ry, h}; ry += h+GAP; return r; });
   const SVG_H = ry - GAP + PBOT, leftH = SVG_H - PTOP - PBOT;
   let ly = PTOP;
-  const left = items.map(it => { const h = (it.amount/MONTHLY)*leftH; const b = {...it, y:ly, h}; ly += h; return b; });
+  const left = items.map(it => { const h = (it.amount/income)*leftH; const b = {...it, y:ly, h}; ly += h; return b; });
   const ribbon = (l,r) => { const cx=(RX-LX-LW)*0.42, x1=LX+LW, x2=RX;
     return `M${x1},${l.y} C${x1+cx},${l.y} ${x2-cx},${r.y} ${x2},${r.y} L${x2},${r.y+r.h} C${x2-cx},${r.y+r.h} ${x1+cx},${l.y+l.h} ${x1},${l.y+l.h} Z`; };
   const cY = PTOP + leftH/2;
@@ -93,7 +92,7 @@ function SankeyFlow({ goals, expenses }) {
           <text x={RX+RW+10} y={m+7} dominantBaseline="central" fontSize="11" fill="#94A3B8">{fmt(r.amount)}/mo</text>
         </g>); })}
       <text x={LX-10} y={cY-8} textAnchor="end" dominantBaseline="central" fontSize="11" fill="#94A3B8">Monthly</text>
-      <text x={LX-10} y={cY+8} textAnchor="end" dominantBaseline="central" fontSize="13" fill="#0F172A" fontWeight="bold">$7,000</text>
+      <text x={LX-10} y={cY+8} textAnchor="end" dominantBaseline="central" fontSize="13" fill="#0F172A" fontWeight="bold">{fmt(income)}</text>
     </svg>
   );
 }
@@ -111,7 +110,8 @@ function projectSeries(start, monthly, rate, years) {
 
 function Projection({ start, settings, onChange }) {
   const [years, setYears] = useState(10);
-  const data = projectSeries(start, settings.monthlyInvest, settings.returnRate, years);
+  const monthly = settings.monthlyInvest ?? 3000;
+  const data = projectSeries(start, monthly, settings.returnRate, years);
   const end = data[data.length-1];
   const gains = end.value - end.contributed;
   return (
@@ -124,7 +124,6 @@ function Projection({ start, settings, onChange }) {
         <div className="text-3xl font-mono font-bold text-emerald-600">{fmt(end.value)}</div>
         <div className="text-xs text-emerald-500">+{fmt(gains)} growth</div>
       </div>
-
       <div style={{ width: "100%", height: 180 }}>
         <ResponsiveContainer>
           <AreaChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
@@ -142,10 +141,9 @@ function Projection({ start, settings, onChange }) {
           </AreaChart>
         </ResponsiveContainer>
       </div>
-
       <div className="space-y-4 mt-4">
         <Slider label="Time horizon" value={years} min={1} max={30} step={1} suffix=" yr" onChange={setYears} />
-        <Slider label="Monthly invested" value={settings.monthlyInvest} min={0} max={6000} step={100}
+        <Slider label="Monthly invested" value={monthly} min={0} max={6000} step={100}
           fmt={fmt} onChange={(v) => onChange({ ...settings, monthlyInvest: v })} />
         <Slider label="Annual return" value={settings.returnRate} min={0.02} max={0.12} step={0.005}
           fmt={(v) => (v*100).toFixed(1) + "%"} onChange={(v) => onChange({ ...settings, returnRate: v })} />
@@ -173,6 +171,26 @@ function Slider({ label, value, min, max, step, suffix = "", fmt: f, onChange })
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         className="w-full accent-emerald-600" />
+    </div>
+  );
+}
+
+// ─── Net worth setter (M0 stand-in for proper account snapshots, SPEC §6) ───────
+function NetWorthCard({ realNetWorth, onSet }) {
+  const [v, setV] = useState("");
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4">
+      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Starting point</div>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-slate-600 flex-1">Record your current net worth (a balance snapshot)</span>
+        <div className="relative" style={{ width: 130 }}>
+          <span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
+          <input type="number" placeholder={String(Math.round(realNetWorth))} value={v} onChange={e => setV(e.target.value)}
+            className="w-full pl-7 pr-2 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700" />
+        </div>
+        <button onClick={() => { const n = parseFloat(v); if (!Number.isNaN(n)) { onSet(n); setV(""); } }}
+          className="px-3 py-2 text-sm font-semibold text-white rounded-lg bg-indigo-600 hover:bg-indigo-700">Set</button>
+      </div>
     </div>
   );
 }
@@ -213,9 +231,9 @@ function StreakPanel({ contributions }) {
   );
 }
 
-// ─── Quick Log (streak action) ────────────────────────────────────────────────
+// ─── Quick Log ──────────────────────────────────────────────────────────────
 function QuickLog({ goals, contributions, onLog }) {
-  const [goalId, setGoalId] = useState(goals[0]?.id);
+  const [goalId, setGoalId] = useState(goals[0]?.id || "brokerage");
   const [amount, setAmount] = useState("");
   const thisWeek = weekKey(Date.now());
   const loggedThisWeek = contributions.some(c => weekKey(c.date) === thisWeek);
@@ -251,7 +269,7 @@ function QuickLog({ goals, contributions, onLog }) {
 function GoalCard({ goal, saved, onDeposit }) {
   const [input, setInput] = useState("");
   const pct = Math.min(100, (saved/goal.target)*100);
-  const mos = saved >= goal.target ? 0 : Math.ceil((goal.target - saved)/goal.pledge);
+  const mos = saved >= goal.target ? 0 : Math.ceil((goal.target - saved)/(goal.pledge || 1));
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex justify-between items-start mb-3">
@@ -279,47 +297,64 @@ function GoalCard({ goal, saved, onDeposit }) {
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("dashboard");
-  const [data, setData] = useState(SEED);
+  const [data, setData] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [toast, setToast] = useState("");
 
   useEffect(() => { (async () => {
-    try {
-      const v2 = await window.storage.get("finance-v2");
-      if (v2) { setData({ ...SEED, ...JSON.parse(v2.value) }); }
-      else {
-        const v1 = await window.storage.get("finance-v1");
-        if (v1) { const d = JSON.parse(v1.value);
-          setData({ ...SEED, goals: d.goals?.map(g => ({ id:g.id, name:g.name, target:g.target, pledge:g.pledge, color:g.color })) || SEED.goals,
-            expenses: d.expenses || [] }); }
-      }
-    } catch (_) {}
+    try { setData({ ...EMPTY, ...(await getState()) }); }
+    catch (e) { setError(String(e.message || e)); }
     setLoading(false);
   })(); }, []);
 
   async function save(next) {
     setData(next);
-    try { await window.storage.set("finance-v2", JSON.stringify(next));
-      setToast("Saved"); setTimeout(() => setToast(""), 1200); } catch (_) {}
+    try { await putState(next); setToast("Saved"); setTimeout(() => setToast(""), 1200); }
+    catch (e) { setError(String(e.message || e)); }
   }
 
-  const { goals, expenses, contributions, settings } = data;
+  const { goals, transactions, settings, accounts, snapshots, profile } = data;
+  const income = profile?.typicalIncome || 7000;
+
+  // derived views off the single ledger (SPEC.md §6)
+  const contributions = useMemo(
+    () => transactions.filter(t => t.type === "contribution").map(t => ({ id: t.id, goalId: t.goalId, amount: t.amount, date: t.date })),
+    [transactions]);
+  const expenses = useMemo(
+    () => transactions.filter(t => t.type === "spending").map(t => ({ id: t.id, cat: t.cat, amount: t.amount, note: t.note, date: new Date(t.date).toLocaleDateString() })),
+    [transactions]);
+
+  // real net worth = sum of latest snapshot per account (SPEC.md §7)
+  const realNetWorth = useMemo(() => {
+    const latest = {};
+    for (const s of snapshots) if (!latest[s.accountId] || new Date(s.date) > new Date(latest[s.accountId].date)) latest[s.accountId] = s;
+    return Object.values(latest).reduce((a, s) => a + s.balance, 0);
+  }, [snapshots]);
   const investedTotal = contributions.reduce((s,c) => s+c.amount, 0);
-  const netWorth = settings.startNetWorth + investedTotal;
+  const netWorth = snapshots.length ? realNetWorth : investedTotal;
   const animNW = useCountUp(netWorth);
-  const pledged = goals.reduce((s,g) => s+g.pledge, 0);
 
   function logContribution(goalId, amount) {
-    save({ ...data, contributions: [...contributions, { id: Date.now(), goalId, amount, date: new Date().toISOString() }] });
+    save({ ...data, transactions: [...transactions, { id: uid(), type: "contribution", goalId, amount, date: new Date().toISOString(), note: null, cat: null }] });
   }
   function addExpense(cat, amount, note) {
-    save({ ...data, expenses: [...expenses, { id: Date.now(), cat, amount, note, date: new Date().toLocaleDateString() }] });
+    save({ ...data, transactions: [...transactions, { id: uid(), type: "spending", cat, amount, note: note || null, date: new Date().toISOString(), goalId: null }] });
+  }
+  function deleteTx(id) {
+    save({ ...data, transactions: transactions.filter(t => t.id !== id) });
+  }
+  function setNetWorth(value) {
+    let acctId = accounts[0]?.id, accts = accounts;
+    if (!acctId) { acctId = "primary"; accts = [{ id: acctId, name: "Net worth", type: "other", color: "#94A3B8" }]; }
+    save({ ...data, accounts: accts, snapshots: [...snapshots, { id: uid(), accountId: acctId, date: new Date().toISOString(), balance: value }] });
   }
 
   if (loading) return <div className="flex items-center justify-center h-40 text-slate-400 text-sm">Loading your data…</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12">
+      {error && <div className="bg-rose-50 border-b border-rose-200 text-rose-600 text-xs px-5 py-2">{error}</div>}
       {/* Hero */}
       <div className="bg-white border-b border-slate-200 px-5 pt-5 pb-5">
         <div className="flex items-start justify-between">
@@ -332,7 +367,7 @@ export default function App() {
           </div>
           <div className="text-right">
             <div className="text-xs text-slate-400">income</div>
-            <div className="text-lg font-mono font-bold text-slate-700">$7,000</div>
+            <div className="text-lg font-mono font-bold text-slate-700">{fmt(income)}</div>
             <div className="text-xs text-slate-400">/mo</div>
           </div>
         </div>
@@ -355,34 +390,21 @@ export default function App() {
           <StreakPanel contributions={contributions} />
           <div className="bg-white rounded-xl border border-slate-200 px-4 pt-4 pb-3">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Monthly flow — the engine</div>
-            <SankeyFlow goals={goals} expenses={expenses} />
+            <SankeyFlow goals={goals} expenses={expenses} income={income} />
           </div>
         </>}
 
         {tab === "grow" && <>
           <Projection start={netWorth} settings={settings} onChange={(s) => save({ ...data, settings: s })} />
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Starting point</div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-600 flex-1">Current net worth (savings + investments you already have)</span>
-              <div className="relative" style={{ width: 130 }}>
-                <span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
-                <input type="number" value={settings.startNetWorth}
-                  onChange={e => save({ ...data, settings: { ...settings, startNetWorth: parseFloat(e.target.value) || 0 } })}
-                  className="w-full pl-7 pr-2 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700" />
-              </div>
-            </div>
-          </div>
+          <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
         </>}
 
         {tab === "log" && <LogTab cats={CATS} expenses={expenses} contributions={contributions} goals={goals}
-          onAddExpense={addExpense}
-          onDeleteExpense={(id) => save({ ...data, expenses: expenses.filter(e => e.id !== id) })}
-          onDeleteContribution={(id) => save({ ...data, contributions: contributions.filter(c => c.id !== id) })} />}
+          onAddExpense={addExpense} onDeleteExpense={deleteTx} onDeleteContribution={deleteTx} />}
 
-        {tab === "goals" && goals.map(g => (
+        {tab === "goals" && (goals.length ? goals.map(g => (
           <GoalCard key={g.id} goal={g} saved={savedFor(g.id, contributions)} onDeposit={logContribution} />
-        ))}
+        )) : <div className="text-center py-12 text-slate-400 text-sm">No goals yet.</div>)}
       </div>
     </div>
   );
