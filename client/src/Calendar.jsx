@@ -92,11 +92,11 @@ export default function Calendar({ transactions = [], profile = {} }) {
               return (
                 <button key={c} onClick={() => setSel(sel === d ? null : d)}
                   style={tint(info?.spend || 0)}
-                  className={`aspect-square rounded-md text-xs flex flex-col items-center justify-center relative ${sel === d ? "ring-2 ring-indigo-400" : isToday ? "ring-1 ring-slate-300" : ""}`}>
+                  className={`aspect-square rounded-md text-xs flex flex-col items-center justify-center relative ${sel === d ? "ring-2 ring-brand-400" : isToday ? "ring-1 ring-slate-300" : ""}`}>
                   <span className={isToday ? "font-bold text-slate-900" : "text-slate-600"}>{d}</span>
                   <span className="flex gap-0.5 mt-0.5 h-1.5">
                     {info?.income > 0 && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
-                    {info?.contrib > 0 && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                    {info?.contrib > 0 && <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />}
                     {billsByDay[d] && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
                   </span>
                 </button>
@@ -107,7 +107,7 @@ export default function Calendar({ transactions = [], profile = {} }) {
 
         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-xs text-slate-400">
           <span><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />income</span>
-          <span><span className="inline-block w-2 h-2 rounded-full bg-indigo-500 mr-1" />saved</span>
+          <span><span className="inline-block w-2 h-2 rounded-full bg-brand-500 mr-1" />saved</span>
           <span><span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />bill due</span>
           <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{ background: "rgba(244,63,94,0.4)" }} />spending</span>
           <span>🔥 week objective met</span>
@@ -127,7 +127,7 @@ export default function Calendar({ transactions = [], profile = {} }) {
           {selData?.items.length ? selData.items.slice().reverse().map((t) => (
             <div key={t.id} className="flex justify-between py-1.5 text-sm border-t border-slate-50">
               <span className="text-slate-700">{t.type === "spending" ? (t.cat || "Spending") : t.type === "income" ? "Income" : "Saved"}{t.note ? ` · ${t.note}` : ""}</span>
-              <span className={`font-mono ${t.type === "spending" ? "text-slate-700" : t.type === "income" ? "text-emerald-600" : "text-indigo-600"}`}>{t.type === "spending" ? "−" : "+"}{fmt(t.amount)}</span>
+              <span className={`font-mono ${t.type === "spending" ? "text-slate-700" : t.type === "income" ? "text-emerald-600" : "text-brand-600"}`}>{t.type === "spending" ? "−" : "+"}{fmt(t.amount)}</span>
             </div>
           )) : (selBills.length === 0 && <div className="text-sm text-slate-400">Nothing logged this day.</div>)}
         </div>

@@ -4,10 +4,12 @@ import { fmt } from "./format.js";
 // spending + contributions + leftover on the right (SPEC §7). Honest, not planned.
 const CAT_COLORS = ["#FB923C", "#F97316", "#FDBA74", "#FCD34D"];
 const BUCKET_LABELS = { emergency: "Emergency", retirement: "Retirement", invest: "Invest", debt: "Debt" };
-const BUCKET_COLORS = { emergency: "#6366F1", retirement: "#8B5CF6", invest: "#10B981", debt: "#EF4444" };
+const BUCKET_COLORS = { emergency: "#378ADD", retirement: "#A78BFA", invest: "#1D9E75", debt: "#E05656" };
 
+const clip = (s) => (s.length > 16 ? s.slice(0, 15) + "…" : s);
 export default function SankeyFlow({ transactions, fallbackIncome }) {
-  const W = 580, LX = 50, LW = 16, RX = 405, RW = 16, PTOP = 12, PBOT = 16, GAP = 6, MIN_H = 30, SCALE = 140;
+  // wider viewBox + right padding so labels never run off the edge
+  const W = 700, LX = 50, LW = 16, RX = 380, RW = 16, PTOP = 12, PBOT = 16, GAP = 6, MIN_H = 30, SCALE = 140;
   const ym = new Date().toISOString().slice(0, 7);
   const month = transactions.filter((t) => new Date(t.date).toISOString().slice(0, 7) === ym);
   const incomeActual = month.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
@@ -28,7 +30,7 @@ export default function SankeyFlow({ transactions, fallbackIncome }) {
   if (!income || income <= 0)
     return <div className="text-center py-6 text-slate-400 text-sm">Log income and spending to see this month's flow.</div>;
   const freeAmt = income - items.reduce((s, x) => s + x.amount, 0);
-  if (freeAmt > 0) items.push({ label: "Unspent / to invest", amount: freeAmt, color: "#94A3B8" });
+  if (freeAmt > 0) items.push({ label: "Leftover", amount: freeAmt, color: "#94A3B8" });
   if (items.length === 0) return <div className="text-center py-6 text-slate-400 text-sm">Log spending or contributions to see your flow.</div>;
 
   let ry = PTOP;
@@ -44,13 +46,13 @@ export default function SankeyFlow({ transactions, fallbackIncome }) {
       {left.map((b, i) => <rect key={i} x={LX} y={b.y} width={LW} height={Math.max(0.5, b.h)} fill={b.color} />)}
       {right.map((r, i) => <path key={i} d={ribbon(left[i], r)} fill={r.color} fillOpacity={0.2} />)}
       {right.map((r, i) => <rect key={i} x={RX} y={r.y} width={RW} height={r.h} fill={r.color} rx={2} />)}
-      {right.map((r, i) => { const m = r.y + r.h / 2, lc = r.color === "#94A3B8" ? "#64748B" : r.color;
+      {right.map((r, i) => { const m = r.y + r.h / 2, lc = r.color === "#94A3B8" ? "var(--muted)" : r.color;
         return (<g key={i}>
-          <text x={RX + RW + 10} y={m - 7} dominantBaseline="central" fontSize="11" fill={lc} fontWeight="600">{r.label}</text>
-          <text x={RX + RW + 10} y={m + 7} dominantBaseline="central" fontSize="11" fill="#94A3B8">{fmt(r.amount)}/mo</text>
+          <text x={RX + RW + 10} y={m - 7} dominantBaseline="central" fontSize="11" fill={lc} fontWeight="600">{clip(r.label)}</text>
+          <text x={RX + RW + 10} y={m + 7} dominantBaseline="central" fontSize="11" fill="var(--muted)">{fmt(r.amount)}/mo</text>
         </g>); })}
-      <text x={LX - 10} y={cY - 8} textAnchor="end" dominantBaseline="central" fontSize="11" fill="#94A3B8">{usingFallback ? "Income (est.)" : "Income"}</text>
-      <text x={LX - 10} y={cY + 8} textAnchor="end" dominantBaseline="central" fontSize="13" fill="#0F172A" fontWeight="bold">{fmt(income)}</text>
+      <text x={LX - 10} y={cY - 8} textAnchor="end" dominantBaseline="central" fontSize="11" fill="var(--muted)">{usingFallback ? "Income (est.)" : "Income"}</text>
+      <text x={LX - 10} y={cY + 8} textAnchor="end" dominantBaseline="central" fontSize="13" fill="var(--text)" fontWeight="bold">{fmt(income)}</text>
     </svg>
   );
 }

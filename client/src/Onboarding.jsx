@@ -30,7 +30,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
       <div className="relative w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl">
         <div className="flex justify-between items-center mb-4">
           <div className="flex gap-1.5">
-            {steps.map((_, i) => <div key={i} className={`h-1.5 rounded-full transition-all ${i === step ? "w-6 bg-indigo-600" : "w-1.5 bg-slate-200"}`} />)}
+            {steps.map((_, i) => <div key={i} className={`h-1.5 rounded-full transition-all ${i === step ? "w-6 bg-brand-600" : "w-1.5 bg-slate-200"}`} />)}
           </div>
           <button onClick={onSkip} className="text-xs text-slate-400 hover:text-slate-600">Skip</button>
         </div>
@@ -64,7 +64,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
             <div className="space-y-2">
               {STRATEGIES.map(([v, l, desc]) => (
                 <button key={v} onClick={() => setStrategy(v)}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg border transition-colors ${strategy === v ? "border-indigo-500 bg-indigo-50" : "border-slate-200 hover:border-slate-300"}`}>
+                  className={`w-full text-left px-3 py-2.5 rounded-lg border transition-colors ${strategy === v ? "border-brand-500 bg-brand-50" : "border-slate-200 hover:border-slate-300"}`}>
                   <div className="text-sm font-medium text-slate-800">{l}</div>
                   <div className="text-xs text-slate-500">{desc}</div>
                 </button>
@@ -77,10 +77,10 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
           <div>
             <div className="text-lg font-bold text-slate-900 mb-3">How Tsumiki works</div>
             <div className="space-y-3 text-sm">
-              <div><span className="font-semibold text-indigo-600">Plan</span> — tells you where each dollar should go this month.</div>
-              <div><span className="font-semibold text-indigo-600">＋ button</span> — log income & spending in seconds, from any screen.</div>
-              <div><span className="font-semibold text-indigo-600">Calendar</span> — your month at a glance: spending, activity, bills.</div>
-              <div><span className="font-semibold text-indigo-600">Goals</span> — streaks & milestones keep you motivated.</div>
+              <div><span className="font-semibold text-brand-600">Plan</span> — tells you where each dollar should go this month.</div>
+              <div><span className="font-semibold text-brand-600">＋ button</span> — log income & spending in seconds, from any screen.</div>
+              <div><span className="font-semibold text-brand-600">Calendar</span> — your month at a glance: spending, activity, bills.</div>
+              <div><span className="font-semibold text-brand-600">Goals</span> — streaks & milestones keep you motivated.</div>
             </div>
           </div>
         )}
@@ -88,7 +88,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
         <div className="flex gap-2 mt-5">
           {step > 0 && <button onClick={() => setStep(step - 1)} className="px-4 py-2.5 text-sm font-semibold text-slate-600 border border-slate-200 rounded-lg">Back</button>}
           <button onClick={() => (last ? finish() : setStep(step + 1))}
-            className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">
+            className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg">
             {last ? "Start" : "Next"}
           </button>
         </div>

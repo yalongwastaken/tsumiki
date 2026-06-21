@@ -124,6 +124,14 @@ try { // setup: save profile
   else { await act(async () => save.click()); await new Promise((r) => setTimeout(r, 80)); console.log("  ✓ setup: save profile"); }
 } catch (e) { fails.push(`setup interaction: ${e.message}`); }
 
+try { // dark-mode toggle applies the .dark class
+  const t = document.querySelector('button[aria-label="Toggle dark mode"]');
+  if (!t) fails.push("theme: no toggle button");
+  else { await act(async () => t.click()); await new Promise((r) => setTimeout(r, 60));
+    if (document.documentElement.classList.contains("dark")) console.log("  ✓ dark mode toggle");
+    else fails.push("theme: .dark class not applied"); }
+} catch (e) { fails.push(`theme interaction: ${e.message}`); }
+
 if (errors.length) fails.push(...errors.map((e) => `render error: ${e}`));
 if (fails.length) { console.error("\nSMOKE TEST FAILED:\n - " + fails.join("\n - ")); process.exit(1); }
 console.log("\nSMOKE TEST PASSED");

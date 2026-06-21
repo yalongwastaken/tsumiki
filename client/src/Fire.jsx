@@ -41,12 +41,12 @@ export default function Fire({ netWorth, monthlyInvest, returnRate, annualExpens
         <div className="text-xs text-slate-400">25× {fmt(annualExpenses)}/yr</div>
       </div>
       <div className="flex items-baseline gap-2 mb-3">
-        <div className="text-3xl font-mono font-bold text-indigo-600">{fmt(fireNumber)}</div>
+        <div className="text-3xl font-mono font-bold text-brand-600">{fmt(fireNumber)}</div>
         <div className="text-xs text-slate-400">your FIRE number</div>
       </div>
 
       <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-1.5">
-        <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+        <div className="h-full bg-brand-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
       </div>
       <div className="text-xs text-slate-400 mb-4">{pct.toFixed(1)}% there ({fmt(netWorth)})</div>
 

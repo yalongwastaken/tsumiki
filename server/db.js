@@ -93,7 +93,7 @@ const DEFAULT_PROFILE = {
   moneyTargets: [],  // [{ id, label, amount, metric }] — user-defined game goals (I4)
   bills: [],         // [{ id, name, amount }] — recurring essentials (A1/S4, inform-only)
 };
-const DEFAULT_SETTINGS = { returnRate: 0.07, monthlyInvest: null, streakFreezes: 2, onboarded: false };
+const DEFAULT_SETTINGS = { returnRate: 0.07, monthlyInvest: null, streakFreezes: 2, onboarded: false, theme: "light" };
 
 function getMeta(key, fallback) {
   const row = db.prepare("SELECT value FROM meta WHERE key = ?").get(key);

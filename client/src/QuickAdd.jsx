@@ -116,7 +116,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
           <div className="flex flex-wrap gap-2 mb-4">
             {BUCKETS.map(([v, l]) => (
               <button key={v} onClick={() => setBucket(v)}
-                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${bucket === v ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-600"}`}>{l}</button>
+                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${bucket === v ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}>{l}</button>
             ))}
           </div>
         )}
@@ -151,7 +151,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
         )}
 
         <button onClick={submit} disabled={!(parseFloat(amount) > 0)}
-          className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition-colors">
+          className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition-colors">
           Log {amount && parseFloat(amount) > 0 ? fmt(parseFloat(amount)) : ""}
         </button>
       </div>

@@ -83,16 +83,25 @@ export default function Setup({ data, onSave, onReplayIntro }) {
   }
 
   // income sources (commit immediately; keep profile.typicalIncome = derived sum)
-  const [src, setSrc] = useState({ name: "", type: "salary", typicalMonthly: "" });
+  const [src, setSrc] = useState({ name: "", type: "salary", basis: "annual", amount: "", hours: "40" });
+  // convert any pay basis to a monthly figure
+  const toMonthly = (s) => {
+    const a = Number(s.amount || 0);
+    if (s.basis === "annual") return Math.round(a / 12);
+    if (s.basis === "hourly") return Math.round((a * Number(s.hours || 0) * 52) / 12);
+    return Math.round(a); // monthly
+  };
+  const basisForType = (type) => (type === "hourly" ? "hourly" : type === "salary" ? "annual" : "monthly");
   function commitSources(list) {
     const total = list.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
     onSave({ ...data, profile: { ...profile, incomeSources: list, typicalIncome: total } });
   }
   function addSource() {
     if (!src.name.trim()) return;
-    commitSources([...incomeSources, { id: uid(), name: src.name.trim(), type: src.type, typicalMonthly: Number(src.typicalMonthly || 0) }]);
-    setSrc({ name: "", type: "salary", typicalMonthly: "" });
+    commitSources([...incomeSources, { id: uid(), name: src.name.trim(), type: src.type, basis: src.basis, amount: Number(src.amount || 0), hours: Number(src.hours || 0), typicalMonthly: toMonthly(src) }]);
+    setSrc({ name: "", type: "salary", basis: "annual", amount: "", hours: "40" });
   }
+  const srcDetail = (s) => s.basis === "hourly" ? `$${s.amount}/hr · ${s.hours}h/wk` : s.basis === "annual" ? `${fmt(s.amount)}/yr` : `${fmt(s.amount)}/mo`;
   function removeSource(id) { commitSources(incomeSources.filter((s) => s.id !== id)); }
 
   // accounts
@@ -166,7 +175,7 @@ export default function Setup({ data, onSave, onReplayIntro }) {
               <div key={s.id} className="flex items-center justify-between py-2.5">
                 <div>
                   <div className="text-sm text-slate-700">{s.name} <span className="text-xs text-slate-400">· {s.type.replace("_", " ")}</span></div>
-                  <div className="text-xs text-slate-400">~{fmt(s.typicalMonthly || 0)}/mo</div>
+                  <div className="text-xs text-slate-400">{s.basis ? `${srcDetail(s)} → ` : ""}~{fmt(s.typicalMonthly || 0)}/mo</div>
                 </div>
                 <button onClick={() => removeSource(s.id)} className="text-slate-300 hover:text-rose-400 text-xs">✕</button>
               </div>
@@ -175,13 +184,24 @@ export default function Setup({ data, onSave, onReplayIntro }) {
         )}
         <div className="grid grid-cols-2 gap-2 mb-2">
           <input value={src.name} onChange={(e) => setSrc({ ...src, name: e.target.value })} placeholder="Source name" className={field} />
-          <select value={src.type} onChange={(e) => setSrc({ ...src, type: e.target.value })} className={field}>
+          <select value={src.type} onChange={(e) => setSrc({ ...src, type: e.target.value, basis: basisForType(e.target.value) })} className={field}>
             {SOURCE_TYPES.map((t) => <option key={t} value={t}>{t.replace("_", " ")}</option>)}
           </select>
         </div>
-        <div className="flex gap-2">
-          <div className="flex-1"><Money value={src.typicalMonthly} onChange={(v) => setSrc({ ...src, typicalMonthly: v })} placeholder="Typical / mo (optional)" /></div>
-          <button onClick={addSource} className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add</button>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          <select value={src.basis} onChange={(e) => setSrc({ ...src, basis: e.target.value })} className={field}>
+            <option value="monthly">per month</option>
+            <option value="annual">per year</option>
+            <option value="hourly">per hour</option>
+          </select>
+          <Money value={src.amount} onChange={(v) => setSrc({ ...src, amount: v })} placeholder={src.basis === "hourly" ? "rate" : "amount"} />
+          {src.basis === "hourly"
+            ? <input type="number" value={src.hours} onChange={(e) => setSrc({ ...src, hours: e.target.value })} placeholder="hrs/wk" className={field} />
+            : <div className="flex items-center text-xs text-slate-400">≈ {fmt(toMonthly(src))}/mo</div>}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          {src.basis === "hourly" && <span className="text-xs text-slate-400">≈ {fmt(toMonthly(src))}/mo</span>}
+          <button onClick={addSource} className="ml-auto px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add</button>
         </div>
       </div>
 
@@ -209,7 +229,7 @@ export default function Setup({ data, onSave, onReplayIntro }) {
               {STRATEGIES.map(([v, l, desc]) => (
                 <button key={v} onClick={() => set("strategy")(v)} title={desc}
                   className={`text-left px-3 py-2 rounded-lg border text-sm transition-colors ${
-                    form.strategy === v ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                    form.strategy === v ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
                   <div className="font-medium">{l}</div>
                 </button>
               ))}
@@ -227,7 +247,7 @@ export default function Setup({ data, onSave, onReplayIntro }) {
           </div>
           {(suggestFloor > 0 || suggestEmergency > 0) && (
             <button onClick={() => setForm((f) => ({ ...f, checkingFloor: suggestFloor, emergencyTarget: suggestEmergency }))}
-              className="text-xs text-indigo-600 hover:text-indigo-700">
+              className="text-xs text-brand-600 hover:text-brand-700">
               Use suggested from your spending ({fmt(suggestFloor)} / {fmt(suggestEmergency)})
             </button>
           )}
@@ -240,7 +260,7 @@ export default function Setup({ data, onSave, onReplayIntro }) {
             <div className="grid grid-cols-2 gap-2">
               {[["avalanche", "Avalanche", "Highest APR first — least interest."], ["snowball", "Snowball", "Smallest balance first — quick wins."]].map(([v, l, desc]) => (
                 <button key={v} onClick={() => set("debtStrategy")(v)} title={desc}
-                  className={`px-3 py-2 rounded-lg border text-sm text-left transition-colors ${form.debtStrategy === v ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                  className={`px-3 py-2 rounded-lg border text-sm text-left transition-colors ${form.debtStrategy === v ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
                   <div className="font-medium">{l}</div>
                 </button>
               ))}
@@ -256,7 +276,7 @@ export default function Setup({ data, onSave, onReplayIntro }) {
               <input type="number" value={form.iraLimit} onChange={(e) => set("iraLimit")(e.target.value)} placeholder="7000" className={field} />
             </div>
           </div>
-          <button onClick={saveProfile} className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors">
+          <button onClick={saveProfile} className="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition-colors">
             Save profile
           </button>
         </div>

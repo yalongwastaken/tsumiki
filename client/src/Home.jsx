@@ -10,7 +10,7 @@ import Calendar from "./Calendar.jsx";
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
 
 function Stat({ label, value, tone = "slate" }) {
-  const c = { slate: "text-slate-900", emerald: "text-emerald-600", indigo: "text-indigo-600", amber: "text-amber-600" }[tone];
+  const c = { slate: "text-slate-900", emerald: "text-emerald-600", indigo: "text-brand-600", amber: "text-amber-600" }[tone];
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-3">
       <div className="text-xs text-slate-400">{label}</div>
@@ -23,7 +23,7 @@ function Card({ title, onGo, children }) {
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{title}</div>
-        {onGo && <button onClick={onGo} className="text-xs text-slate-400 hover:text-indigo-600">open ›</button>}
+        {onGo && <button onClick={onGo} className="text-xs text-slate-400 hover:text-brand-600">open ›</button>}
       </div>
       {children}
     </div>

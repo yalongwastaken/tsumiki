@@ -46,7 +46,7 @@ function NetWorthCard({ realNetWorth, onSet }) {
             className="w-full pl-7 pr-2 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700" />
         </div>
         <button onClick={() => { const n = parseFloat(v); if (!Number.isNaN(n)) { onSet(n); setV(""); } }}
-          className="px-3 py-2 text-sm font-semibold text-white rounded-lg bg-indigo-600 hover:bg-indigo-700">Set</button>
+          className="px-3 py-2 text-sm font-semibold text-white rounded-lg bg-brand-600 hover:bg-brand-700">Set</button>
       </div>
     </div>
   );
@@ -135,6 +135,9 @@ export default function App() {
   }
 
   const { transactions, settings, accounts, snapshots, profile, debts } = data;
+  // apply dark/light theme to <html> whenever it changes
+  useEffect(() => { document.documentElement.classList.toggle("dark", settings?.theme === "dark"); }, [settings?.theme]);
+  const toggleTheme = () => save({ ...data, settings: { ...settings, theme: settings?.theme === "dark" ? "light" : "dark" } });
   const incomeSources = profile?.incomeSources || [];
   // typical monthly income — learned from history when available (A3)
   const income = useMemo(() => typicalIncome(profile, transactions), [profile, transactions]);
@@ -262,12 +265,15 @@ export default function App() {
       {/* nav — persistent sidebar on desktop, slide-in drawer on mobile */}
       <aside className={`fixed z-40 inset-y-0 left-0 w-60 bg-white border-r border-slate-200 flex flex-col transform transition-transform duration-300 ease-out md:static md:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="px-5 py-4 flex items-center gap-2 border-b border-slate-100">
-          <span className="text-xl">🧱</span><span className="font-bold text-slate-800">Tsumiki</span>
+          <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true">
+            <rect x="6" y="40" width="18" height="18" rx="3" fill="#C9C0FB" /><rect x="23" y="26" width="18" height="18" rx="3" fill="#9B8AFA" /><rect x="40" y="12" width="18" height="18" rx="3" fill="#7C6FE8" />
+          </svg>
+          <span className="font-bold text-slate-800">Tsumiki</span>
         </div>
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
           {NAV.map(([key, label, icon]) => (
             <button key={key} onClick={() => { setTab(key); setMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${tab === key ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50"}`}>
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${tab === key ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-50"}`}>
               <span className="text-base">{icon}</span>{label}
             </button>
           ))}
@@ -288,11 +294,13 @@ export default function App() {
         <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-3 px-4 py-3">
           <button onClick={() => setMenuOpen(true)} className="md:hidden text-2xl leading-none text-slate-600" aria-label="Open menu">☰</button>
           <div className="font-semibold text-slate-800">{sectionLabel}</div>
-          <div className="ml-auto flex items-baseline gap-1">
-            {toast ? <span className="text-xs text-emerald-500">{toast}</span> : <>
-              <span className="text-sm font-mono font-bold text-slate-700">{fmt(netWorthDisplay)}</span>
-              <span className="text-xs text-slate-400">net worth</span>
-            </>}
+          <div className="ml-auto flex items-center gap-3">
+            {toast ? <span className="text-xs text-emerald-500">{toast}</span> : (
+              <span className="text-sm font-mono font-bold text-slate-700">{fmt(netWorthDisplay)} <span className="text-xs font-sans font-normal text-slate-400">net worth</span></span>
+            )}
+            <button onClick={toggleTheme} aria-label="Toggle dark mode" className="text-lg leading-none text-slate-500 hover:text-slate-700">
+              {settings?.theme === "dark" ? "☀️" : "🌙"}
+            </button>
           </div>
         </header>
 
@@ -338,7 +346,7 @@ export default function App() {
 
       {/* always-available fast logging (SPEC §9) */}
       <button onClick={() => setShowAdd(true)} aria-label="Log a transaction"
-        className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-3xl leading-none shadow-lg flex items-center justify-center">
+        className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-brand-600 hover:bg-brand-700 text-white text-3xl leading-none shadow-lg flex items-center justify-center">
         +
       </button>
       <QuickAdd open={showAdd} onClose={() => setShowAdd(false)} onLog={logTx}
@@ -366,7 +374,7 @@ function Ledger({ transactions, sources, onDelete }) {
   const bucketName = (b) => ({ emergency: "Emergency", retirement: "Retirement", invest: "Invest", debt: "Debt" }[b] || "Invest");
   const rows = [...transactions].filter((t) => filter === "all" || t.type === filter).sort((a, b) => new Date(b.date) - new Date(a.date));
   const meta = (t) => t.type === "spending" ? (t.cat || "Spending") : t.type === "income" ? sourceName(t.sourceId) : bucketName(t.bucket);
-  const color = (t) => t.type === "income" ? "text-emerald-600" : t.type === "contribution" ? "text-indigo-600" : "text-slate-700";
+  const color = (t) => t.type === "income" ? "text-emerald-600" : t.type === "contribution" ? "text-brand-600" : "text-slate-700";
   return <>
     <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
       {[["all", "All"], ["income", "Income"], ["spending", "Spending"], ["contribution", "Saved"]].map(([v, l]) => (
@@ -375,7 +383,7 @@ function Ledger({ transactions, sources, onDelete }) {
       ))}
     </div>
     {rows.length === 0 ? (
-      <div className="text-center py-12 text-slate-400 text-sm">Nothing logged yet. Tap <span className="font-semibold text-indigo-500">+</span> to start.</div>
+      <div className="text-center py-12 text-slate-400 text-sm">Nothing logged yet. Tap <span className="font-semibold text-brand-500">+</span> to start.</div>
     ) : (
       <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-50">
         {rows.map((t) => (
