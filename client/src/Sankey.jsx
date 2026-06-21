@@ -1,5 +1,6 @@
 import { fmt } from "./format.js";
 import { CAT_COLORS, bucketLabel, bucketColor, bucketOf } from "./buckets.js";
+import { thisMonth, monthKey } from "./selectors.js";
 
 // Real money flow for the current month — actual income on the left, actual
 // spending + contributions + leftover on the right (SPEC §7). Honest, not planned.
@@ -8,8 +9,8 @@ const clip = (s) => (s.length > 16 ? s.slice(0, 15) + "…" : s);
 export default function SankeyFlow({ transactions, fallbackIncome }) {
   // left gutter (LX) leaves room for the income label so it isn't clipped
   const W = 720, LX = 110, LW = 16, RX = 400, RW = 16, PTOP = 12, PBOT = 16, GAP = 6, MIN_H = 30, SCALE = 140;
-  const ym = new Date().toISOString().slice(0, 7);
-  const month = transactions.filter((t) => new Date(t.date).toISOString().slice(0, 7) === ym);
+  const ym = thisMonth();
+  const month = transactions.filter((t) => monthKey(t.date) === ym);
   const incomeActual = month.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const income = incomeActual > 0 ? incomeActual : fallbackIncome;
   const usingFallback = incomeActual <= 0;

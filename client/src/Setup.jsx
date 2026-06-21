@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from "react";
 import { X, Pencil } from "lucide-react";
 import { fmt } from "./format.js";
 import { importData, exportUrl } from "./api.js";
+import { annualSpend } from "./selectors.js";
 
 // M1 — the personalization profile + accounts/debts the engine (M2) runs on.
 // Single editable screen (MVP). SPEC.md §11.
@@ -37,13 +38,7 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
   const totalTypical = incomeSources.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
 
   // smart defaults derived from logged spending (SPEC.md §11)
-  const avgMonthlySpend = useMemo(() => {
-    const sp = transactions.filter((t) => t.type === "spending");
-    if (!sp.length) return 0;
-    const months = new Set(sp.map((t) => new Date(t.date).toISOString().slice(0, 7)));
-    const total = sp.reduce((s, t) => s + t.amount, 0);
-    return total / Math.max(1, months.size);
-  }, [transactions]);
+  const avgMonthlySpend = useMemo(() => annualSpend(transactions) / 12, [transactions]);
   const suggestEmergency = Math.round(avgMonthlySpend * 3);
   const suggestFloor = Math.round(avgMonthlySpend);
 

@@ -1,0 +1,48 @@
+// Unit tests for shared selectors — lock in the behavior the App/Plan/Home
+// previously implemented inline, so the dedup refactor can't drift.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { monthKey, latestSnapshots, netWorthFromSnapshots, sumLatestByType, annualSpend, inMonth } from "../src/selectors.js";
+
+const snap = (accountId, date, balance) => ({ id: accountId + date, accountId, date, balance });
+
+test("monthKey returns YYYY-MM", () => {
+  assert.equal(monthKey("2026-06-21T12:00:00Z"), "2026-06");
+});
+
+test("latestSnapshots keeps the newest per account", () => {
+  const snaps = [snap("a", "2026-01-01", 100), snap("a", "2026-05-01", 300), snap("b", "2026-03-01", 50)];
+  const latest = latestSnapshots(snaps);
+  assert.equal(latest.a.balance, 300);
+  assert.equal(latest.b.balance, 50);
+});
+
+test("netWorthFromSnapshots sums latest per account", () => {
+  const snaps = [snap("a", "2026-01-01", 100), snap("a", "2026-05-01", 300), snap("b", "2026-03-01", 50)];
+  assert.equal(netWorthFromSnapshots(snaps), 350); // 300 + 50
+  assert.equal(netWorthFromSnapshots([]), 0);
+});
+
+test("sumLatestByType filters by account type", () => {
+  const accounts = [{ id: "c", type: "checking" }, { id: "s", type: "savings" }, { id: "s2", type: "savings" }];
+  const snaps = [snap("c", "2026-05-01", 4000), snap("s", "2026-05-01", 6000), snap("s2", "2026-05-01", 1000)];
+  assert.equal(sumLatestByType(accounts, snaps, ["savings"]), 7000);
+  assert.equal(sumLatestByType(accounts, snaps, ["checking"]), 4000);
+  assert.equal(sumLatestByType(accounts, snaps, ["brokerage"]), 0);
+});
+
+test("annualSpend averages monthly spend × 12", () => {
+  const tx = [
+    { type: "spending", amount: 1000, date: "2026-04-10" },
+    { type: "spending", amount: 2000, date: "2026-05-10" },
+    { type: "income", amount: 9999, date: "2026-05-10" }, // ignored
+  ];
+  // two months, $3000 total → $1500/mo × 12
+  assert.equal(annualSpend(tx), 18000);
+  assert.equal(annualSpend([]), 0);
+});
+
+test("inMonth filters to a month key", () => {
+  const tx = [{ type: "income", amount: 1, date: "2026-06-02" }, { type: "income", amount: 2, date: "2026-05-02" }];
+  assert.equal(inMonth(tx, "2026-06").length, 1);
+});

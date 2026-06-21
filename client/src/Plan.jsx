@@ -4,6 +4,7 @@ import { getPlan } from "./api.js";
 import { fmt } from "./format.js";
 import { typicalIncome } from "./income.js";
 import { BUCKETS, bucketOf } from "./buckets.js";
+import { thisMonth, monthKey, sumLatestByType } from "./selectors.js";
 import PlanSplitChart from "./PlanSplitChart.jsx";
 
 // I3 — the living monthly plan. This month's pooled income → engine targets per
@@ -16,8 +17,8 @@ const stratLabel = (s) => STRAT_LABEL[s] || "Balanced";
 const cadenceLabel = (c) => ({ weekly: "weekly", biweekly: "every 2 weeks", semimonthly: "twice a month", monthly: "monthly" }[c] || "monthly");
 
 export default function Plan({ transactions = [], accounts = [], snapshots = [], profile = {}, onGoSetup, onApplyMonth, onClearMonth }) {
-  const ym = new Date().toISOString().slice(0, 7);
-  const monthTx = useMemo(() => transactions.filter((t) => new Date(t.date).toISOString().slice(0, 7) === ym), [transactions, ym]);
+  const ym = thisMonth();
+  const monthTx = useMemo(() => transactions.filter((t) => monthKey(t.date) === ym), [transactions, ym]);
   const incomeThisMonth = monthTx.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const spendThisMonth = monthTx.filter((t) => t.type === "spending").reduce((s, t) => s + t.amount, 0);
 
@@ -65,11 +66,7 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
   }, [plan]);
 
   // checking buffer + forward-looking minimum watch
-  const checkingBalance = useMemo(() => {
-    const latest = {};
-    for (const s of snapshots) if (!latest[s.accountId] || new Date(s.date) > new Date(latest[s.accountId].date)) latest[s.accountId] = s;
-    return accounts.filter((a) => a.type === "checking").reduce((sum, a) => sum + (latest[a.id]?.balance || 0), 0);
-  }, [accounts, snapshots]);
+  const checkingBalance = useMemo(() => sumLatestByType(accounts, snapshots, ["checking"]), [accounts, snapshots]);
   const floor = profile.checkingFloor || 0;
   const hasCheckingContext = accounts.some((a) => a.type === "checking") || floor > 0;
   const dayOfMonth = new Date().getDate();

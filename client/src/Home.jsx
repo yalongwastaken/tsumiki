@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { fmt } from "./format.js";
 import { getPlan } from "./api.js";
+import { thisMonth, monthKey, annualSpend } from "./selectors.js";
 import { computeAdherence } from "./streak.js";
 import { nextMilestone } from "./milestones.js";
 import { Flame, Check } from "lucide-react";
@@ -40,18 +41,13 @@ function Card({ title, onGo, span, children }) {
 }
 
 export default function Home({ profile = {}, transactions = [], accounts = [], snapshots = [], income = 0, realNetWorth = 0, investedTotal = 0, milestoneList = [], freezes = 2, onGo }) {
-  const ym = new Date().toISOString().slice(0, 7);
-  const monthTx = useMemo(() => transactions.filter((t) => new Date(t.date).toISOString().slice(0, 7) === ym), [transactions, ym]);
+  const ym = thisMonth();
+  const monthTx = useMemo(() => transactions.filter((t) => monthKey(t.date) === ym), [transactions, ym]);
   const incomeThisMonth = monthTx.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const spendThisMonth = monthTx.filter((t) => t.type === "spending").reduce((s, t) => s + t.amount, 0);
   const contribThisMonth = monthTx.filter((t) => t.type === "contribution").reduce((s, t) => s + t.amount, 0);
 
-  const annualExpenses = useMemo(() => {
-    const sp = transactions.filter((t) => t.type === "spending");
-    if (!sp.length) return 0;
-    const months = new Set(sp.map((t) => new Date(t.date).toISOString().slice(0, 7)));
-    return (sp.reduce((s, t) => s + t.amount, 0) / Math.max(1, months.size)) * 12;
-  }, [transactions]);
+  const annualExpenses = useMemo(() => annualSpend(transactions), [transactions]);
 
   const savingsRate = incomeThisMonth > 0 ? Math.max(0, (incomeThisMonth - spendThisMonth) / incomeThisMonth) : null;
   const firePct = annualExpenses > 0 ? realNetWorth / (annualExpenses * 25) : null;

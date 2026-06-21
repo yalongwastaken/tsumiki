@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { getState, putState, getPlan, addTransaction } from "./api.js";
 import { fmt } from "./format.js";
 import { typicalIncome } from "./income.js";
+import { netWorthFromSnapshots, sumLatestByType, annualSpend, thisMonth } from "./selectors.js";
 import { computeAdherence } from "./streak.js";
 import Setup from "./Setup.jsx";
 import Plan from "./Plan.jsx";
@@ -165,11 +166,7 @@ export default function App() {
     [transactions]);
 
   // real net worth = sum of latest snapshot per account (SPEC.md §7)
-  const realNetWorth = useMemo(() => {
-    const latest = {};
-    for (const s of snapshots) if (!latest[s.accountId] || new Date(s.date) > new Date(latest[s.accountId].date)) latest[s.accountId] = s;
-    return Object.values(latest).reduce((a, s) => a + s.balance, 0);
-  }, [snapshots]);
+  const realNetWorth = useMemo(() => netWorthFromSnapshots(snapshots), [snapshots]);
   const investedTotal = contributions.reduce((s,c) => s+c.amount, 0); // "contributed by you" — only goes up
   const netWorth = snapshots.length ? realNetWorth : investedTotal;
 
@@ -189,11 +186,7 @@ export default function App() {
 
   // ── M5 motivation: streak freezes + milestones ──────────────────────────────
   const freezes = settings?.streakFreezes ?? 2;
-  const savingsBalance = useMemo(() => {
-    const latest = {};
-    for (const s of snapshots) if (!latest[s.accountId] || new Date(s.date) > new Date(latest[s.accountId].date)) latest[s.accountId] = s;
-    return accounts.filter(a => a.type === "savings").reduce((sum, a) => sum + (latest[a.id]?.balance || 0), 0);
-  }, [accounts, snapshots]);
+  const savingsBalance = useMemo(() => sumLatestByType(accounts, snapshots, ["savings"]), [accounts, snapshots]);
   const streakNow = useMemo(() => computeAdherence(transactions, freezes).current, [transactions, freezes]);
   const milestoneList = useMemo(() => computeMilestones({
     realNetWorth, investedTotal, savings: savingsBalance,
@@ -217,12 +210,7 @@ export default function App() {
   }, [milestoneList, loading]); // eslint-disable-line
 
   // ── M6 insight: FIRE inputs + net-worth history ─────────────────────────────
-  const annualExpenses = useMemo(() => {
-    const sp = transactions.filter(t => t.type === "spending");
-    if (!sp.length) return 0;
-    const months = new Set(sp.map(t => new Date(t.date).toISOString().slice(0, 7)));
-    return (sp.reduce((s, t) => s + t.amount, 0) / Math.max(1, months.size)) * 12;
-  }, [transactions]);
+  const annualExpenses = useMemo(() => annualSpend(transactions), [transactions]);
   const monthlyForFire = settings?.monthlyInvest ?? (derivedInvest != null ? derivedInvest : 3000);
   const nwSeries = useMemo(() => {
     if (snapshots.length < 2) return [];
@@ -331,7 +319,7 @@ export default function App() {
               income={income} realNetWorth={realNetWorth} investedTotal={investedTotal} milestoneList={milestoneList} freezes={freezes} onGo={setTab} />}
 
             {tab === "plan" && <Plan transactions={transactions} accounts={accounts} snapshots={snapshots} profile={profile} onGoSetup={() => setTab("settings")}
-              onApplyMonth={(s) => save({ ...data, profile: { ...profile, monthOverride: { ym: new Date().toISOString().slice(0, 7), strategy: s } } })}
+              onApplyMonth={(s) => save({ ...data, profile: { ...profile, monthOverride: { ym: thisMonth(), strategy: s } } })}
               onClearMonth={() => { const { monthOverride, ...rest } = profile; save({ ...data, profile: rest }); }} />}
 
             {tab === "activity" && <Activity transactions={transactions} profile={profile} sources={incomeSources} onDelete={deleteTx} />}
