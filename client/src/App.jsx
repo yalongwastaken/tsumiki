@@ -7,8 +7,10 @@ import QuickAdd from "./QuickAdd.jsx";
 import Milestones from "./Milestones.jsx";
 import { computeMilestones } from "./milestones.js";
 
+import Fire from "./Fire.jsx";
 // recharts is heavy and only used on the Grow tab — load it on demand.
 const Projection = lazy(() => import("./Projection.jsx"));
+const NetWorthHistory = lazy(() => import("./NetWorthHistory.jsx"));
 
 // M0 note: data model is now the unified shape from the server (SPEC.md §6).
 // Existing components are fed DERIVED views (contributions/expenses) off the
@@ -216,10 +218,21 @@ function QuickLog({ goals, contributions, onLog }) {
 }
 
 // ─── Goal Card ────────────────────────────────────────────────────────────────
-function GoalCard({ goal, saved, onDeposit }) {
+function GoalCard({ goal, saved, onDeposit, onUpdate }) {
   const [input, setInput] = useState("");
   const pct = Math.min(100, (saved/goal.target)*100);
   const mos = saved >= goal.target ? 0 : Math.ceil((goal.target - saved)/(goal.pledge || 1));
+
+  // M6: if a target date is set, compute the pace needed and on-track status.
+  let pace = null;
+  if (goal.targetDate && saved < goal.target) {
+    const monthsLeft = Math.max(0, (new Date(goal.targetDate) - Date.now()) / (30.44 * 86400000));
+    const required = monthsLeft > 0 ? (goal.target - saved) / monthsLeft : Infinity;
+    const onTrack = required <= (goal.pledge || 0);
+    pace = { monthsLeft, required, onTrack, past: monthsLeft <= 0 };
+  }
+  const dateVal = goal.targetDate ? new Date(goal.targetDate).toISOString().slice(0, 10) : "";
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex justify-between items-start mb-3">
@@ -230,8 +243,24 @@ function GoalCard({ goal, saved, onDeposit }) {
       </div>
       <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-1.5">
         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: goal.color }} /></div>
-      <div className="flex justify-between text-xs text-slate-400 mb-4">
+      <div className="flex justify-between text-xs text-slate-400 mb-3">
         <span>{pct.toFixed(1)}%</span><span>{pct >= 100 ? "Goal reached!" : `~${mos} months at this pace`}</span></div>
+
+      {/* target date + required pace */}
+      <div className="flex items-center justify-between gap-2 mb-3 text-xs">
+        <label className="text-slate-500">Target date</label>
+        <input type="date" value={dateVal}
+          onChange={(e) => onUpdate(goal.id, { targetDate: e.target.value ? new Date(e.target.value).toISOString() : null })}
+          className="px-2 py-1 border border-slate-200 rounded-lg bg-slate-50 text-slate-700" />
+      </div>
+      {pace && pct < 100 && (
+        <div className={`text-xs mb-4 ${pace.past ? "text-rose-500" : pace.onTrack ? "text-emerald-600" : "text-amber-600"}`}>
+          {pace.past
+            ? "Target date has passed."
+            : `Need ${fmt(pace.required)}/mo to hit by ${new Date(goal.targetDate).toLocaleDateString()} — ${pace.onTrack ? "on track ✓" : `behind (pledged ${fmt(goal.pledge)})`}`}
+        </div>
+      )}
+
       <div className="flex gap-2">
         <div className="relative flex-1"><span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
           <input type="number" placeholder="Deposit" value={input} onChange={e => setInput(e.target.value)}
@@ -333,6 +362,29 @@ export default function App() {
     }
   }, [milestoneList, loading]); // eslint-disable-line
 
+  // ── M6 insight: FIRE inputs + net-worth history ─────────────────────────────
+  const annualExpenses = useMemo(() => {
+    const sp = transactions.filter(t => t.type === "spending");
+    if (!sp.length) return 0;
+    const months = new Set(sp.map(t => new Date(t.date).toISOString().slice(0, 7)));
+    return (sp.reduce((s, t) => s + t.amount, 0) / Math.max(1, months.size)) * 12;
+  }, [transactions]);
+  const monthlyForFire = settings?.monthlyInvest ?? (derivedInvest != null ? derivedInvest : 3000);
+  const nwSeries = useMemo(() => {
+    if (snapshots.length < 2) return [];
+    const sorted = [...snapshots].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const bal = {}, out = [];
+    for (const s of sorted) {
+      bal[s.accountId] = s.balance;
+      out.push({ label: new Date(s.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }), value: Math.round(Object.values(bal).reduce((x, y) => x + y, 0)) });
+    }
+    return out;
+  }, [snapshots]);
+
+  function updateGoal(id, patch) {
+    save({ ...data, goals: goals.map(g => g.id === id ? { ...g, ...patch } : g) });
+  }
+
   function logContribution(goalId, amount) {
     save({ ...data, transactions: [...transactions, { id: uid(), type: "contribution", goalId, amount, date: new Date().toISOString(), note: null, cat: null }] });
   }
@@ -422,9 +474,11 @@ export default function App() {
         </>}
 
         {tab === "grow" && <>
-          <Suspense fallback={<div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-slate-400 text-sm">Loading projection…</div>}>
+          <Suspense fallback={<div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-slate-400 text-sm">Loading charts…</div>}>
             <Projection start={netWorth} derivedInvest={derivedInvest} settings={settings} onChange={(s) => save({ ...data, settings: s })} />
+            <NetWorthHistory data={nwSeries} />
           </Suspense>
+          <Fire netWorth={netWorth} monthlyInvest={monthlyForFire} returnRate={settings.returnRate} annualExpenses={annualExpenses} />
           <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
         </>}
 
@@ -432,7 +486,7 @@ export default function App() {
           onAddExpense={addExpense} onDeleteExpense={deleteTx} onDeleteContribution={deleteTx} />}
 
         {tab === "goals" && (goals.length ? goals.map(g => (
-          <GoalCard key={g.id} goal={g} saved={savedFor(g.id, contributions)} onDeposit={logContribution} />
+          <GoalCard key={g.id} goal={g} saved={savedFor(g.id, contributions)} onDeposit={logContribution} onUpdate={updateGoal} />
         )) : <div className="text-center py-12 text-slate-400 text-sm">No goals yet.</div>)}
 
         {tab === "setup" && <Setup data={data} onSave={save} />}
