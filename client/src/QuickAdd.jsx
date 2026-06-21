@@ -160,6 +160,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
             ref={amountRef}
             type="number"
             inputMode="decimal"
+            aria-label="Amount"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
@@ -216,6 +217,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
 
         <input
           type="text"
+          aria-label="Note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Note (optional)"

@@ -9,6 +9,12 @@ const startOfDay = (d) => {
   return x;
 };
 const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+// parse a "YYYY-MM-DD" anchor as a LOCAL date (not UTC), so generated paydays —
+// built with local new Date(y, m, d) — line up with the anchor in every timezone.
+const parseLocal = (s) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s));
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(s);
+};
 
 /**
  * The next `count` payday dates on/after `from`, given an anchor payday + cadence.
@@ -21,7 +27,7 @@ export function nextPaydays(anchorISO, cadence, count = 4, from = new Date()) {
     return [];
   }
   const today = startOfDay(from);
-  const anchor = startOfDay(new Date(anchorISO));
+  const anchor = startOfDay(parseLocal(anchorISO));
   if (isNaN(anchor.getTime())) {
     return [];
   }

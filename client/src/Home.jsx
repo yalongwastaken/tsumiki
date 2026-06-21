@@ -1,12 +1,13 @@
 // Home.jsx — landing screen: the valuable stuff at a glance, tap-through to detail.
 import { useState, useEffect, useMemo } from "react";
 import { fmt } from "./format.js";
-import { getPlan } from "./api.js";
+import { getPlan, getNews } from "./api.js";
 import { thisMonth, monthKey, annualSpend, sumLatestByType } from "./selectors.js";
 import { computeAdherence } from "./streak.js";
 import { nextMilestone } from "./milestones.js";
 import { nextPaydays } from "./paydays.js";
 import { cashflowForecast, spendingTrends, coachNudges } from "./insights.js";
+import { learnFeed } from "./learn.js";
 import { Flame, Check, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import SankeyFlow from "./Sankey.jsx";
 import Calendar from "./Calendar.jsx";
@@ -84,7 +85,7 @@ export default function Home({
 
   const savingsRate =
     incomeThisMonth > 0 ? Math.max(0, (incomeThisMonth - spendThisMonth) / incomeThisMonth) : null;
-  const firePct = annualExpenses > 0 ? realNetWorth / (annualExpenses * 25) : null;
+  const firePct = annualExpenses > 0 ? Math.max(0, realNetWorth / (annualExpenses * 25)) : null;
 
   const planIncome = incomeThisMonth > 0 ? incomeThisMonth : income;
   const [plan, setPlan] = useState(null);
@@ -93,6 +94,14 @@ export default function Home({
       .then(setPlan)
       .catch(() => {});
   }, [planIncome]);
+
+  // opt-in money-news headlines (empty unless the server has TSUMIKI_NEWS_FEED set)
+  const [news, setNews] = useState(null);
+  useEffect(() => {
+    getNews()
+      .then(setNews)
+      .catch(() => {});
+  }, []);
   const leftToAllocate = incomeThisMonth - contribThisMonth - spendThisMonth;
 
   const adh = useMemo(() => computeAdherence(transactions, freezes), [transactions, freezes]);
@@ -134,6 +143,19 @@ export default function Home({
     highDebt,
     leftToAllocate,
     forecast,
+  }).slice(0, 2); // keep the landing screen calm — at most two nudges
+
+  // curated money tips, chosen by your current situation (see learn.js)
+  const floorAmt = profile.checkingFloor || 0;
+  const tips = learnFeed({
+    hasMatch: !!profile.employerMatch?.pct,
+    idleCash:
+      sumLatestByType(accounts, snapshots, ["checking"]) > Math.max(floorAmt * 2, floorAmt + 3000),
+    investedTotal,
+    hasRetirement: transactions.some((t) => t.type === "contribution" && t.bucket === "retirement"),
+    windfall: !!plan?.windfall?.detected,
+    spendingUp: trends.some((t) => t.dir === "up"),
+    hasPaydays: sources.some((s) => s.payday),
   });
 
   // getting-started checklist — drives activation, hides once complete
@@ -339,7 +361,7 @@ export default function Home({
       )}
 
       {/* cashflow forecast — lowest projected checking before it recovers */}
-      {forecast.hasData && forecast.floor > 0 && (
+      {forecast.hasData && forecast.floor > 0 && forecast.inflowsKnown && (
         <Card title="Cashflow forecast" onGo={() => onGo?.("plan")}>
           <div className="flex items-baseline gap-2 mb-1">
             <span
@@ -363,6 +385,48 @@ export default function Home({
           )}
           <div className="text-xs text-slate-400 mt-1">
             From your bills, paydays, and typical daily spending.
+          </div>
+        </Card>
+      )}
+
+      {/* curated money tips, tied to your situation */}
+      {tips.length > 0 && (
+        <Card title="Money tips for you" span>
+          <div className="space-y-3">
+            {tips.map((t) => (
+              <div key={t.id}>
+                <div className="text-sm font-semibold text-slate-700">{t.topic}</div>
+                <div className="text-sm text-slate-500 mt-0.5">{t.blurb}</div>
+                <button
+                  onClick={() => onGo?.(t.tab)}
+                  className="text-xs text-brand-600 hover:text-brand-700 mt-1 inline-flex items-center gap-1"
+                >
+                  {t.action} <ArrowRight size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* opt-in money news — only when the server has a feed configured */}
+      {news?.enabled && news.items?.length > 0 && (
+        <Card title="Money news">
+          <div className="space-y-2">
+            {news.items.slice(0, 5).map((n, i) => (
+              <a
+                key={i}
+                href={n.link || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-sm text-slate-700 hover:text-brand-600"
+              >
+                {n.title}
+              </a>
+            ))}
+          </div>
+          <div className="text-xs text-slate-400 mt-2">
+            Headlines only · general info, not advice.
           </div>
         </Card>
       )}

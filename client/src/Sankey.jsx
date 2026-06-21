@@ -8,7 +8,8 @@ const clip = (s) => (s.length > 16 ? s.slice(0, 15) + "…" : s);
 /** Sankey of the current month's actual flow — honest, not planned. */
 export default function SankeyFlow({ transactions, fallbackIncome }) {
   // left gutter (LX) leaves room for the income label so it isn't clipped
-  const W = 720,
+  // viewBox tuned so the content fills the width (text stays legible on phones)
+  const W = 560,
     LX = 110,
     LW = 16,
     RX = 400,
@@ -114,9 +115,9 @@ export default function SankeyFlow({ transactions, fallbackIncome }) {
           <g key={i}>
             <text
               x={RX + RW + 10}
-              y={m - 7}
+              y={m - 8}
               dominantBaseline="central"
-              fontSize="11"
+              fontSize="13"
               fill={lc}
               fontWeight="600"
             >
@@ -124,9 +125,9 @@ export default function SankeyFlow({ transactions, fallbackIncome }) {
             </text>
             <text
               x={RX + RW + 10}
-              y={m + 7}
+              y={m + 8}
               dominantBaseline="central"
-              fontSize="11"
+              fontSize="13"
               fill="var(--muted)"
             >
               {fmt(r.amount)}/mo
@@ -136,20 +137,20 @@ export default function SankeyFlow({ transactions, fallbackIncome }) {
       })}
       <text
         x={LX - 10}
-        y={cY - 8}
+        y={cY - 9}
         textAnchor="end"
         dominantBaseline="central"
-        fontSize="11"
+        fontSize="13"
         fill="var(--muted)"
       >
         {usingFallback ? "Income (est.)" : "Income"}
       </text>
       <text
         x={LX - 10}
-        y={cY + 8}
+        y={cY + 9}
         textAnchor="end"
         dominantBaseline="central"
-        fontSize="13"
+        fontSize="15"
         fill="var(--text)"
         fontWeight="bold"
       >

@@ -98,11 +98,11 @@ export default function Recurring({ plan, profile = {}, accounts = [] }) {
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="flex items-center justify-between mb-3 gap-2">
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
           Recurring by paycheck
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={toggleRound}
             title="Round transfers to clean $10s"

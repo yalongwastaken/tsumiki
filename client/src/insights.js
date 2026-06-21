@@ -10,9 +10,14 @@ const startOfDay = (d) => {
   x.setHours(0, 0, 0, 0);
   return x;
 };
+// local calendar-day key (not UTC) so payday/bill buckets match the displayed day
+const localKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
 /** Average daily discretionary spend over the last `days` days (real spend only). */
 export function avgDailySpend(transactions = [], days = 60, today = new Date()) {
+  if (days <= 0) {
+    return 0;
+  }
   const cutoff = startOfDay(today).getTime() - days * DAY;
   let total = 0;
   for (const t of transactions) {
@@ -33,14 +38,19 @@ export function cashflowForecast(state = {}, { days = 45, today = new Date() } =
   const { accounts = [], snapshots = [], profile = {}, transactions = [] } = state;
   const floor = Math.max(0, profile.checkingFloor || 0);
   const start = sumLatestByType(accounts, snapshots, ["checking"]);
-  const daily = avgDailySpend(transactions, 60, today);
+  const billDays = (profile.bills || []).filter((b) => b.dayOfMonth && b.amount > 0);
+  // discretionary daily burn with the scheduled-bill portion removed, so bills
+  // (subtracted on their due dates below) aren't double-counted in the average.
+  const monthlyBills = billDays.reduce((s, b) => s + b.amount, 0);
+  const daily = Math.max(0, avgDailySpend(transactions, 60, today) - monthlyBills / 30);
 
-  // map of "YYYY-MM-DD" → net change that day (paydays in, bills out)
+  // map of local-day key → net change that day (paydays in, bills out)
   const delta = {};
   const addDelta = (d, amt) => {
-    const k = startOfDay(d).toISOString().slice(0, 10);
+    const k = localKey(startOfDay(d));
     delta[k] = (delta[k] || 0) + amt;
   };
+  let modeledInflow = false;
   for (const s of profile.incomeSources || []) {
     if (!s.payday || !CADENCE[s.cadence]) {
       continue;
@@ -48,9 +58,13 @@ export function cashflowForecast(state = {}, { days = 45, today = new Date() } =
     const perCheck = (s.typicalMonthly || 0) / CADENCE[s.cadence];
     for (const d of nextPaydays(s.payday, s.cadence, 12, today)) {
       addDelta(d, perCheck);
+      modeledInflow = true;
     }
   }
-  const billDays = (profile.bills || []).filter((b) => b.dayOfMonth && b.amount > 0);
+  // if income sources exist but none have a payday, our inflows are incomplete —
+  // a declining projection would be a false alarm, so don't claim a dip.
+  const incomeSourcesExist = (profile.incomeSources || []).some((s) => (s.typicalMonthly || 0) > 0);
+  const inflowsKnown = modeledInflow || !incomeSourcesExist;
 
   const t0 = startOfDay(today);
   let bal = start;
@@ -60,7 +74,7 @@ export function cashflowForecast(state = {}, { days = 45, today = new Date() } =
   const series = [{ date: new Date(t0), balance: Math.round(bal) }];
   for (let i = 1; i <= days; i++) {
     const day = new Date(t0.getTime() + i * DAY);
-    const key = day.toISOString().slice(0, 10);
+    const key = localKey(day);
     bal += delta[key] || 0;
     for (const b of billDays) {
       if (b.dayOfMonth === day.getDate()) {
@@ -83,8 +97,9 @@ export function cashflowForecast(state = {}, { days = 45, today = new Date() } =
     min: Math.round(min),
     minDate,
     floor,
-    dipsBelow: dipDate != null,
-    dipDate,
+    dipsBelow: dipDate != null && inflowsKnown,
+    dipDate: inflowsKnown ? dipDate : null,
+    inflowsKnown,
     hasData: start > 0 || daily > 0,
   };
 }
@@ -174,7 +189,7 @@ export function coachNudges(ctx = {}, limit = 3) {
   } = ctx;
   const out = [];
 
-  if (forecast?.dipsBelow) {
+  if (forecast?.dipsBelow && forecast.dipDate) {
     const when = forecast.dipDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
     out.push({
       id: "cashflow",

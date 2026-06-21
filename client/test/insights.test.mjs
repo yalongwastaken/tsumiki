@@ -27,15 +27,61 @@ test("cashflowForecast flags a dip below the floor before payday", () => {
     snapshots: [snap("c", "2026-06-01", 3200)],
     profile: {
       checkingFloor: 3000,
-      bills: [{ id: "r", name: "Rent", amount: 1500, dayOfMonth: 1 }],
-      incomeSources: [{ id: "x", typicalMonthly: 4000, cadence: "monthly", payday: "2026-06-30" }],
+      // payday is weeks out; ~$50/day discretionary erodes checking before it lands
+      incomeSources: [{ id: "x", typicalMonthly: 4000, cadence: "monthly", payday: "2026-07-15" }],
     },
-    transactions: [{ type: "spending", amount: 1800, date: "2026-05-25" }], // ~$30/day
+    transactions: [{ type: "spending", amount: 3000, date: "2026-05-25" }], // ~$50/day, no bills
   };
   const f = cashflowForecast(state, { days: 20, today: TODAY });
   assert.equal(f.start, 3200);
-  assert.ok(f.dipsBelow, "should dip below the 3000 floor as daily spend erodes it");
+  assert.equal(f.inflowsKnown, true);
+  assert.ok(f.dipsBelow, "daily spend erodes checking below the 3000 floor before payday");
   assert.ok(f.min < 3000);
+});
+
+test("cashflowForecast: bills aren't double-counted against logged spend", () => {
+  // rent logged as spending AND listed as a bill → must not be subtracted twice
+  const state = {
+    accounts: [{ id: "c", type: "checking" }],
+    snapshots: [snap("c", "2026-06-01", 5000)],
+    profile: {
+      checkingFloor: 3000,
+      bills: [{ id: "r", name: "Rent", amount: 1500, dayOfMonth: 1 }],
+      incomeSources: [{ id: "x", typicalMonthly: 4000, cadence: "monthly", payday: "2026-06-30" }],
+    },
+    transactions: [
+      { type: "spending", amount: 1500, cat: "Rent", date: "2026-05-01" },
+      { type: "spending", amount: 1500, cat: "Rent", date: "2026-06-01" },
+    ],
+  };
+  const f = cashflowForecast(state, { days: 25, today: TODAY });
+  // discretionary ≈ 0 after removing the bill baseline, so a $5k balance with a
+  // single $1.5k bill must NOT fall to a negative / sub-floor false alarm
+  assert.ok(f.min >= 3000, `min ${f.min} should stay at/above floor (no double count)`);
+  assert.equal(f.dipsBelow, false);
+});
+
+test("cashflowForecast: no dip alarm when income exists but no payday is set", () => {
+  const state = {
+    accounts: [{ id: "c", type: "checking" }],
+    snapshots: [snap("c", "2026-06-01", 2000)],
+    profile: {
+      checkingFloor: 1500,
+      incomeSources: [{ id: "x", typicalMonthly: 4000, cadence: "monthly" }], // no payday
+    },
+    transactions: [{ type: "spending", amount: 1800, date: "2026-05-25" }], // ~$30/day burn
+  };
+  const f = cashflowForecast(state, { days: 30, today: TODAY });
+  assert.equal(f.inflowsKnown, false, "inflows are incomplete");
+  assert.equal(f.dipsBelow, false, "no false dip warning without modeled income");
+});
+
+test("coachNudges tolerates dipsBelow with a null dipDate", () => {
+  assert.doesNotThrow(() => coachNudges({ forecast: { dipsBelow: true, dipDate: null } }));
+});
+
+test("avgDailySpend handles a zero window without NaN", () => {
+  assert.equal(avgDailySpend([{ type: "spending", amount: 100, date: "2026-06-10" }], 0, TODAY), 0);
 });
 
 test("cashflowForecast: a big balance with low spend never dips", () => {

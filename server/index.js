@@ -14,6 +14,7 @@ import {
 } from "./db.js";
 import { migrateLegacy } from "./migrate.js";
 import { buildPlan, typicalIncome } from "./engine.js";
+import { getNews, scheduleNews } from "./news.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -64,6 +65,9 @@ app.get("/api/plan", (req, res) => {
   res.json(buildPlan(state, income, { strategy: req.query.strategy, windfall }));
 });
 
+// opt-in money-news headlines (off unless TSUMIKI_NEWS_FEED is set)
+app.get("/api/news", async (_req, res) => res.json(await getNews()));
+
 // data export (download the whole dataset) + import (validated full replace)
 app.get("/api/export", (_req, res) => {
   res.setHeader(
@@ -105,3 +109,5 @@ if (existsSync(dist)) {
 const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || "0.0.0.0";
 app.listen(PORT, HOST, () => console.log(`tsumiki server on http://${HOST}:${PORT}`));
+
+scheduleNews(); // no-op unless TSUMIKI_NEWS_FEED is configured

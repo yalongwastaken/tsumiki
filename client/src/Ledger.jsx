@@ -68,7 +68,7 @@ export default function Ledger({ transactions, sources, onDelete }) {
                 <button
                   onClick={() => onDelete(t.id)}
                   aria-label="Delete"
-                  className="text-slate-300 hover:text-rose-400"
+                  className="p-1.5 -m-1 text-slate-300 hover:text-rose-400"
                 >
                   <X size={15} />
                 </button>

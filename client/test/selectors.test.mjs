@@ -8,7 +8,6 @@ import {
   netWorthFromSnapshots,
   sumLatestByType,
   annualSpend,
-  inMonth,
 } from "../src/selectors.js";
 
 const snap = (accountId, date, balance) => ({ id: accountId + date, accountId, date, balance });
@@ -63,12 +62,4 @@ test("annualSpend averages monthly spend × 12", () => {
   // two months, $3000 total → $1500/mo × 12
   assert.equal(annualSpend(tx), 18000);
   assert.equal(annualSpend([]), 0);
-});
-
-test("inMonth filters to a month key", () => {
-  const tx = [
-    { type: "income", amount: 1, date: "2026-06-02" },
-    { type: "income", amount: 2, date: "2026-05-02" },
-  ];
-  assert.equal(inMonth(tx, "2026-06").length, 1);
 });

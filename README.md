@@ -71,11 +71,17 @@ make start        # builds the client, then serves everything from :4000
 
 Open `http://<mini-pc-ip>:4000`. Configuration via environment variables:
 
-| Variable     | Default                  | Purpose                        |
-| ------------ | ------------------------ | ------------------------------ |
-| `PORT`       | `4000`                   | port to listen on              |
-| `HOST`       | `0.0.0.0`                | bind address (LAN / Tailscale) |
-| `TSUMIKI_DB` | `server/data/tsumiki.db` | SQLite database file path      |
+| Variable            | Default                  | Purpose                                          |
+| ------------------- | ------------------------ | ------------------------------------------------ |
+| `PORT`              | `4000`                   | port to listen on                                |
+| `HOST`              | `0.0.0.0`                | bind address (LAN / Tailscale)                   |
+| `TSUMIKI_DB`        | `server/data/tsumiki.db` | SQLite database file path                        |
+| `TSUMIKI_NEWS_FEED` | _(unset → off)_          | optional public RSS/Atom URL for money headlines |
+
+The money-news card is **off by default** — the server makes no outbound calls
+unless you set `TSUMIKI_NEWS_FEED` to a public feed. When set, it fetches the feed
+nightly, caches it in memory, and serves headlines only (general info, never
+personalized, nothing about you leaves the device).
 
 ## Reach it from your phone, securely (Tailscale)
 
@@ -108,16 +114,17 @@ make test-smoke   # headless render walk-through of the whole UI
 
 ## API
 
-| Method | Path                | Purpose                                          |
-| ------ | ------------------- | ------------------------------------------------ |
-| GET    | `/api/health`       | liveness check                                   |
-| GET    | `/api/state`        | full unified model                               |
-| PUT    | `/api/state`        | replace the full model (the client's "save")     |
-| POST   | `/api/transactions` | append a single transaction (lean write)         |
-| GET    | `/api/plan`         | allocation plan (`?income=`, `?strategy=`)       |
-| GET    | `/api/export`       | download the full model as JSON                  |
-| POST   | `/api/import`       | replace the model from an exported JSON          |
-| POST   | `/api/migrate`      | import old `window.storage` JSON → unified model |
+| Method | Path                | Purpose                                                  |
+| ------ | ------------------- | -------------------------------------------------------- |
+| GET    | `/api/health`       | liveness check                                           |
+| GET    | `/api/state`        | full unified model                                       |
+| PUT    | `/api/state`        | replace the full model (the client's "save")             |
+| POST   | `/api/transactions` | append a single transaction (lean write)                 |
+| GET    | `/api/plan`         | allocation plan (`?income=`, `?strategy=`, `?windfall=`) |
+| GET    | `/api/news`         | cached money headlines (empty unless a feed is set)      |
+| GET    | `/api/export`       | download the full model as JSON                          |
+| POST   | `/api/import`       | replace the model from an exported JSON                  |
+| POST   | `/api/migrate`      | import old `window.storage` JSON → unified model         |
 
 ## Make targets
 

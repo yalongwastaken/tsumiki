@@ -17,6 +17,13 @@ body {
   --text: #0f172a;
   --muted: #94a3b8;
 }
+
+/* visible keyboard focus for interactive elements (none was defined before) */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid #8b7cf6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 .dark {
   --text: #f1f5f9;
   --muted: #94a3b8;
@@ -112,8 +119,10 @@ body {
 .dark .text-brand-600 {
   color: #b9a8fc !important;
 }
+.dark .text-emerald-800,
 .dark .text-emerald-700,
-.dark .text-emerald-800 {
+.dark .text-emerald-600,
+.dark .text-emerald-500 {
   color: #6ee7b7 !important;
 }
 .dark .text-amber-700,
@@ -121,7 +130,9 @@ body {
   color: #fcd34d !important;
 }
 .dark .text-rose-700,
-.dark .text-rose-600 {
+.dark .text-rose-600,
+.dark .text-rose-500,
+.dark .text-rose-400 {
   color: #fda4af !important;
 }
 .dark .border-rose-200 {
@@ -130,7 +141,8 @@ body {
 .dark .border-brand-500 {
   border-color: #8b7cf6 !important;
 }
-.dark .border-brand-200 {
+.dark .border-brand-200,
+.dark .border-brand-300 {
   border-color: rgba(124, 111, 232, 0.4) !important;
 }
 .dark .border-amber-200 {

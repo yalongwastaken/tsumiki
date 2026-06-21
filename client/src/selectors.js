@@ -55,11 +55,3 @@ export function annualSpend(transactions = []) {
   const total = spending.reduce((sum, tx) => sum + tx.amount, 0);
   return (total / Math.max(1, months.size)) * 12;
 }
-
-/**
- * Transactions in a given month key (defaults to the current month).
- * @returns {Array}
- */
-export function inMonth(transactions = [], ym = thisMonth()) {
-  return transactions.filter((tx) => monthKey(tx.date) === ym);
-}
