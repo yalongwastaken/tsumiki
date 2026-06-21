@@ -57,10 +57,14 @@ export default function Ledger({ transactions, sources, onDelete }) {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className={`text-sm font-mono ${color(t)}`}>
-                  {t.type === "spending" ? "−" : "+"}
-                  {fmt(t.amount)}
-                </span>
+                {t.type === "spending" && t.amount === 0 ? (
+                  <span className="text-xs text-emerald-600">no spend ✓</span>
+                ) : (
+                  <span className={`text-sm font-mono ${color(t)}`}>
+                    {t.type === "spending" ? "−" : "+"}
+                    {fmt(t.amount)}
+                  </span>
+                )}
                 <button
                   onClick={() => onDelete(t.id)}
                   aria-label="Delete"

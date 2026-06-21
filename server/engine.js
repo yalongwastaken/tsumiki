@@ -6,11 +6,11 @@
 
 const DEFAULT_HIGH_APR = 10; // % — at/above this, debt is "high interest"
 const DEFAULT_IRA_LIMIT = 7000; // annual retirement contribution cap
-const CADENCE = { weekly: 4.345, biweekly: 2.1725, semimonthly: 2, monthly: 1 }; // paychecks/month
+const CADENCE = { weekly: 4.345, biweekly: 2.1725, semimonthly: 2, monthly: 1 }; // paychecks/month (mirrors client cadence.js)
 
 /** Average monthly logged spending — fallback "essentials" estimate when no bills. */
 function avgMonthlySpend(transactions) {
-  const sp = transactions.filter((t) => t.type === "spending");
+  const sp = transactions.filter((t) => t.type === "spending" && t.amount > 0);
   if (!sp.length) {
     return 0;
   }
@@ -203,31 +203,41 @@ export function buildPlan(state, incomeArg, opts = {}) {
   );
 
   // ── split what's left across the four destinations (no single drain) ──
-  // Algorithm: savings takes its strategy share, but is BOOSTED to first secure a
-  // one-month "starter" safety net before the rest goes to investing. The other
-  // three destinations then split what remains in proportion — so when no boost
-  // is needed this reproduces the plain percentage split exactly.
+  // Algorithm: the savings account always takes its strategy share, but is BOOSTED
+  // to first secure a one-month "starter" safety net before the rest goes to
+  // investing. The other three destinations split what remains in proportion — so
+  // when no boost is needed this reproduces the plain percentage split exactly.
   const w = splitWeights(profile, strategy);
   const surplus = remaining;
   const roomLeft = Math.max(0, retirementRoom - retireUsed);
   const starter = Math.min(emTarget, Math.max(1000, Math.round(essentials))); // ~1 month of essentials (min $1,000)
   const starterGap = Math.max(0, starter - bal.savings);
-  const eAmt = Math.min(Math.max(surplus * w.savings, starterGap), emGap, surplus);
-  const boosted = eAmt > surplus * w.savings + 0.5;
+  // Smarter, emergency-aware split: as the safety net fills (fundedRatio → 1) the
+  // savings share tapers and the freed weight flows to investing. Savings keeps a
+  // floor (40% of its nominal weight) so it's always a visible category, and the
+  // starter boost still guarantees a baseline cushion first.
+  const fundedRatio = emTarget > 0 ? Math.min(1, bal.savings / emTarget) : 0;
+  const TAPER = 0.6;
+  const wSav = w.savings * (1 - TAPER * fundedRatio);
+  const wInv = w.invest + (w.savings - wSav); // freed savings weight → investing
+  const eAmt = Math.min(Math.max(surplus * wSav, starterGap), surplus);
+  const boosted = eAmt > surplus * wSav + 0.5;
   give(
     "emergency",
-    "Savings — emergency fund",
+    "Savings account",
     eAmt,
     boosted
       ? `Securing a ${money(starter)} starter safety net before investing the rest.`
-      : emGap > 0
-        ? `Toward your ${money(emTarget)} safety net.`
-        : "Safety cushion.",
+      : fundedRatio >= 1
+        ? "Ongoing savings — your emergency fund is full, so most now flows to investing."
+        : emGap > 0
+          ? `Building toward your ${money(emTarget)} safety net.`
+          : "Ongoing savings — sinking funds and cushion.",
   );
 
   // remaining splits among retirement / checking / invest by their relative weights
   const rest = remaining;
-  const rw = w.retirement + w.checking + w.invest || 1;
+  const rw = w.retirement + w.checking + wInv || 1;
   const rAmt = Math.min(rest * (w.retirement / rw), roomLeft); // capped at annual room
   const cAmt = rest * (w.checking / rw); // flexible, kept liquid
   give(
@@ -258,6 +268,7 @@ export function buildPlan(state, incomeArg, opts = {}) {
     investable,
     steps,
     split: w,
+    strategies: STRATEGY_SPLIT, // all strategy weights, so the UI can show alternatives without duplicating them
     essentials,
     essentialsSource,
     cadence,

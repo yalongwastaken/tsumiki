@@ -26,7 +26,7 @@ export default function SankeyFlow({ transactions, fallbackIncome }) {
 
   const catMap = {};
   for (const t of month) {
-    if (t.type === "spending") {
+    if (t.type === "spending" && t.amount > 0) {
       catMap[t.cat || "Other"] = (catMap[t.cat || "Other"] || 0) + t.amount;
     }
   }

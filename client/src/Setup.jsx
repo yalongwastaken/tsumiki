@@ -4,6 +4,7 @@ import { X, Pencil } from "lucide-react";
 import { fmt } from "./format.js";
 import { importData, exportUrl } from "./api.js";
 import { annualSpend } from "./selectors.js";
+import { detectRecurring } from "./insights.js";
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const ordinal = (n) =>
@@ -105,6 +106,7 @@ export default function Setup({
     amount: "",
     hours: "40",
     cadence: "biweekly",
+    payday: "",
   });
   const [editingSrc, setEditingSrc] = useState(null);
   // convert any pay basis to a monthly figure
@@ -135,6 +137,7 @@ export default function Setup({
       amount: Number(src.amount || 0),
       hours: Number(src.hours || 0),
       cadence: src.cadence || "biweekly",
+      payday: src.payday || null,
       typicalMonthly: toMonthly(src),
     };
     commitSources(
@@ -149,6 +152,7 @@ export default function Setup({
       amount: "",
       hours: "40",
       cadence: "biweekly",
+      payday: "",
     });
     setEditingSrc(null);
   }
@@ -160,6 +164,7 @@ export default function Setup({
       amount: String(s.amount ?? s.typicalMonthly ?? ""),
       hours: String(s.hours || 40),
       cadence: s.cadence || "biweekly",
+      payday: s.payday || "",
     });
     setEditingSrc(s.id);
   }
@@ -180,6 +185,7 @@ export default function Setup({
         amount: "",
         hours: "40",
         cadence: "biweekly",
+        payday: "",
       });
     }
   }
@@ -262,6 +268,17 @@ export default function Setup({
   }
   function removeBill(id) {
     onSave({ ...data, profile: { ...profile, bills: bills.filter((b) => b.id !== id) } });
+  }
+  // charges that look recurring but aren't billed yet — offer to add them
+  const detected = detectRecurring(transactions, bills);
+  function addDetectedBill(d) {
+    onSave({
+      ...data,
+      profile: {
+        ...profile,
+        bills: [...bills, { id: uid(), name: d.label, amount: d.amount, dayOfMonth: null }],
+      },
+    });
   }
 
   // backup: export (download) + import (replace)
@@ -427,6 +444,16 @@ export default function Setup({
                 — sets per-paycheck amounts on your plan
               </span>
             </div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-slate-500">Next payday</span>
+              <input
+                type="date"
+                value={src.payday || ""}
+                onChange={(e) => setSrc({ ...src, payday: e.target.value })}
+                className={field}
+              />
+              <span className="text-xs text-slate-400">— optional, shows dated reminders</span>
+            </div>
             <div className="flex items-center justify-between gap-2">
               {src.basis === "hourly" && (
                 <span className="text-xs text-slate-400">≈ {fmt(toMonthly(src))}/mo</span>
@@ -542,6 +569,31 @@ export default function Setup({
               <div className={label}>Recurring bills</div>
               <div className="text-xs text-slate-400">~{fmt(billsTotal)}/mo reserved</div>
             </div>
+            {detected.length > 0 && (
+              <div className="mb-3 rounded-lg bg-brand-50 p-3">
+                <div className="text-xs font-medium text-brand-700 mb-2">
+                  Looks recurring in your spending — add as bills?
+                </div>
+                <div className="space-y-1.5">
+                  {detected.map((d, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <span className="text-slate-700 flex-1 truncate">
+                        {d.label}{" "}
+                        <span className="text-xs text-slate-400">
+                          · {fmt(d.amount)} · {d.months} months
+                        </span>
+                      </span>
+                      <button
+                        onClick={() => addDetectedBill(d)}
+                        className="text-xs font-medium text-brand-700 border border-brand-300 rounded-lg px-2 py-0.5 hover:bg-brand-100"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {bills.length > 0 && (
               <div className="divide-y divide-slate-50 mb-3">
                 {bills.map((b) => (

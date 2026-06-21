@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import { Flame, ChevronLeft, ChevronRight } from "lucide-react";
 import { fmt } from "./format.js";
 import { weekKey, objectiveForWeek } from "./streak.js";
+import { paydaysInMonth } from "./paydays.js";
 
 const DOW = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -61,6 +62,17 @@ export default function Calendar({ transactions = [], profile = {} }) {
     return m;
   }, [profile.bills]);
 
+  // forecast paydays this month, per income source (day-of-month → source names)
+  const paydaysByDay = useMemo(() => {
+    const m = {};
+    for (const s of profile.incomeSources || []) {
+      for (const d of paydaysInMonth(s.payday, s.cadence, year, month)) {
+        (m[d] ??= []).push(s.name || "Income");
+      }
+    }
+    return m;
+  }, [profile.incomeSources, year, month]);
+
   // adherence by week (uses all transactions, since a week can span months)
   const weekTx = useMemo(() => {
     const m = {};
@@ -89,6 +101,7 @@ export default function Calendar({ transactions = [], profile = {} }) {
     spend > 0 ? { background: `rgba(244,63,94,${0.08 + 0.5 * (spend / maxSpend)})` } : undefined;
   const selData = sel != null ? byDay[sel] : null;
   const selBills = sel != null ? billsByDay[sel] || [] : [];
+  const selPaydays = sel != null ? paydaysByDay[sel] || [] : [];
 
   return (
     <>
@@ -145,11 +158,30 @@ export default function Calendar({ transactions = [], profile = {} }) {
               }
               const info = byDay[d];
               const isToday = new Date(year, month, d).toDateString() === todayKey;
+              // screen-reader summary of the day's activity
+              const parts = [];
+              if (info?.spend > 0) {
+                parts.push(`${fmt(info.spend)} spent`);
+              }
+              if (info?.income > 0) {
+                parts.push("income");
+              }
+              if (info?.contrib > 0) {
+                parts.push("saved");
+              }
+              if (billsByDay[d]) {
+                parts.push("bill due");
+              }
+              if (paydaysByDay[d]) {
+                parts.push("payday");
+              }
+              const dayLabel = `${monthLabel.split(" ")[0]} ${d}${parts.length ? `: ${parts.join(", ")}` : ""}`;
               return (
                 <button
                   key={c}
                   onClick={() => setSel(sel === d ? null : d)}
                   style={tint(info?.spend || 0)}
+                  aria-label={dayLabel}
                   className={`aspect-square rounded-md text-xs flex flex-col items-center justify-center relative ${sel === d ? "ring-2 ring-brand-400" : isToday ? "ring-1 ring-slate-300" : ""}`}
                 >
                   <span className={isToday ? "font-bold text-slate-900" : "text-slate-600"}>
@@ -163,6 +195,9 @@ export default function Calendar({ transactions = [], profile = {} }) {
                       <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
                     )}
                     {billsByDay[d] && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
+                    {paydaysByDay[d] && (
+                      <span className="w-1.5 h-1.5 rounded-full border border-emerald-500" />
+                    )}
                   </span>
                 </button>
               );
@@ -184,6 +219,10 @@ export default function Calendar({ transactions = [], profile = {} }) {
             bill due
           </span>
           <span>
+            <span className="inline-block w-2 h-2 rounded-full border border-emerald-500 mr-1" />
+            payday
+          </span>
+          <span>
             <span
               className="inline-block w-2 h-2 rounded-sm mr-1"
               style={{ background: "rgba(244,63,94,0.4)" }}
@@ -201,6 +240,12 @@ export default function Calendar({ transactions = [], profile = {} }) {
           <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
             {base.toLocaleDateString(undefined, { month: "long" })} {sel}
           </div>
+          {selPaydays.map((name, i) => (
+            <div key={`pay-${i}`} className="flex justify-between py-1.5 text-sm">
+              <span className="text-emerald-600">Payday · {name}</span>
+              <span className="text-xs text-slate-400">expected</span>
+            </div>
+          ))}
           {selBills.length > 0 &&
             selBills.map((b) => (
               <div key={b.id} className="flex justify-between py-1.5 text-sm">
@@ -233,7 +278,8 @@ export default function Calendar({ transactions = [], profile = {} }) {
                     </span>
                   </div>
                 ))
-            : selBills.length === 0 && (
+            : selBills.length === 0 &&
+              selPaydays.length === 0 && (
                 <div className="text-sm text-slate-400">Nothing logged this day.</div>
               )}
         </div>

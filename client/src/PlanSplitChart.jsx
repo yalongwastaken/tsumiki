@@ -11,11 +11,12 @@ const GROUPS = [
   { label: "Investment", color: "#1D9E75", keys: ["brokerage"] },
 ];
 
-// mirrors server STRATEGY_SPLIT — the surplus split per strategy
+// strategy order + labels; the weights come from the plan (plan.strategies) so
+// they can't drift from the engine
 const STRATS = [
-  ["short_term", "Safety", { savings: 0.35, retirement: 0.2, invest: 0.15, checking: 0.3 }],
-  ["balanced", "Balanced", { savings: 0.25, retirement: 0.3, invest: 0.3, checking: 0.15 }],
-  ["long_term", "Growth", { savings: 0.1, retirement: 0.4, invest: 0.4, checking: 0.1 }],
+  ["short_term", "Safety"],
+  ["balanced", "Balanced"],
+  ["long_term", "Growth"],
 ];
 const SPLIT_SEG = [
   ["checking", "#378ADD"],
@@ -110,32 +111,35 @@ export default function PlanSplitChart({ plan, strategy, saved, onSetStrategy })
           Surplus split by strategy {onSetStrategy ? "— tap to preview" : ""}
         </div>
         <div className="space-y-1.5">
-          {STRATS.map(([key, label, w]) => (
-            <button
-              key={key}
-              onClick={() => onSetStrategy?.(key)}
-              disabled={!onSetStrategy}
-              className={`w-full flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${strategy === key ? "bg-brand-50 ring-1 ring-brand-200" : "hover:bg-slate-50"} ${onSetStrategy ? "cursor-pointer" : "cursor-default"}`}
-            >
-              <span
-                className={`text-xs w-24 text-left flex items-center gap-1 ${strategy === key ? "font-semibold text-brand-700" : "text-slate-500"}`}
+          {STRATS.map(([key, label]) => {
+            const w = (plan.strategies && plan.strategies[key]) || {};
+            return (
+              <button
+                key={key}
+                onClick={() => onSetStrategy?.(key)}
+                disabled={!onSetStrategy}
+                className={`w-full flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${strategy === key ? "bg-brand-50 ring-1 ring-brand-200" : "hover:bg-slate-50"} ${onSetStrategy ? "cursor-pointer" : "cursor-default"}`}
               >
-                {label}
-                {saved === key && (
-                  <span className="text-[10px] font-normal text-slate-400">· default</span>
-                )}
-              </span>
-              <span className="flex-1 flex h-3 rounded-full overflow-hidden">
-                {SPLIT_SEG.map(([k, color]) => (
-                  <span
-                    key={k}
-                    style={{ width: `${w[k] * 100}%`, background: color }}
-                    title={`${k} ${Math.round(w[k] * 100)}%`}
-                  />
-                ))}
-              </span>
-            </button>
-          ))}
+                <span
+                  className={`text-xs w-24 text-left flex items-center gap-1 ${strategy === key ? "font-semibold text-brand-700" : "text-slate-500"}`}
+                >
+                  {label}
+                  {saved === key && (
+                    <span className="text-[10px] font-normal text-slate-400">· default</span>
+                  )}
+                </span>
+                <span className="flex-1 flex h-3 rounded-full overflow-hidden">
+                  {SPLIT_SEG.map(([k, color]) => (
+                    <span
+                      key={k}
+                      style={{ width: `${(w[k] || 0) * 100}%`, background: color }}
+                      title={`${k} ${Math.round((w[k] || 0) * 100)}%`}
+                    />
+                  ))}
+                </span>
+              </button>
+            );
+          })}
         </div>
         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-400">
           {SPLIT_SEG.map(([k, color]) => (

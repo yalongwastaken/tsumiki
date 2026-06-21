@@ -46,7 +46,7 @@ export function sumLatestByType(accounts = [], snapshots = [], types = []) {
  * @returns {number} 0 when no spending has been logged
  */
 export function annualSpend(transactions = []) {
-  const spending = transactions.filter((tx) => tx.type === "spending");
+  const spending = transactions.filter((tx) => tx.type === "spending" && tx.amount > 0);
   if (spending.length === 0) {
     return 0;
   }

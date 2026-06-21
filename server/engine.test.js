@@ -179,13 +179,13 @@ test("starter buffer: with empty savings, savings is boosted past its split shar
   assert.equal(p.allocated + p.leftover, 3000);
 });
 
-test("no boost needed: split is the plain percentage split", () => {
-  // savings already past the starter buffer → emergency gets exactly its 25% share
+test("no boost, no taper: split is the plain percentage split", () => {
+  // no emergency target → no starter boost and no funded-taper → exact weights
   const state = {
     accounts: [acct("chk", "checking"), acct("sav", "savings")],
     snapshots: [snap("chk", 5000), snap("sav", 5000)],
     debts: [],
-    profile: { checkingFloor: 3000, emergencyTarget: 20000, strategy: "balanced" },
+    profile: { checkingFloor: 3000, emergencyTarget: 0, strategy: "balanced" },
     transactions: [],
   };
   const p = buildPlan(state, 4000);
@@ -194,6 +194,25 @@ test("no boost needed: split is the plain percentage split", () => {
   assert.equal(amt("retirement"), 1200); // 30%
   assert.equal(amt("checking_flex"), 600); // 15%
   assert.equal(amt("brokerage"), 1200); // 30%
+});
+
+test("emergency-aware taper: a funded safety net shifts savings toward investing", () => {
+  const base = {
+    accounts: [acct("chk", "checking"), acct("sav", "savings")],
+    debts: [],
+    profile: { checkingFloor: 3000, emergencyTarget: 10000, strategy: "balanced" },
+    transactions: [],
+  };
+  const unfunded = buildPlan({ ...base, snapshots: [snap("chk", 5000), snap("sav", 0)] }, 4000);
+  const funded = buildPlan({ ...base, snapshots: [snap("chk", 5000), snap("sav", 10000)] }, 4000);
+  const amt = (p, k) => p.steps.filter((s) => s.key === k).reduce((a, s) => a + s.amount, 0);
+  // funded → less to savings, more to investing; but savings never disappears
+  assert.ok(amt(funded, "emergency") < amt(unfunded, "emergency"), "savings tapers when funded");
+  assert.ok(amt(funded, "emergency") > 0, "savings stays a visible category");
+  assert.ok(
+    amt(funded, "brokerage") > amt(unfunded, "brokerage"),
+    "freed weight flows to investing",
+  );
 });
 
 test("preview: strategyOverride changes the split without touching profile", () => {

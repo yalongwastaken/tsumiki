@@ -1,7 +1,10 @@
 // QuickAdd.jsx — fast-logging bottom sheet (amount first, ~3 taps, <15s).
 import { useState, useMemo, useRef, useEffect } from "react";
+import { Ban } from "lucide-react";
 import { fmt } from "./format.js";
 import { bucketLabel } from "./buckets.js";
+
+export const NO_SPEND_CAT = "No-spend day";
 
 // amount first, frequency-sorted categories, recents to repeat
 const TYPES = [
@@ -26,7 +29,8 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
   const orderedCats = useMemo(() => {
     const count = {};
     for (const t of transactions) {
-      if (t.type === "spending" && t.cat) {
+      // ignore no-spend days ($0) so they don't rank as a real category
+      if (t.type === "spending" && t.cat && t.amount > 0 && t.cat !== NO_SPEND_CAT) {
         count[t.cat] = (count[t.cat] || 0) + 1;
       }
     }
@@ -52,6 +56,10 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
     const out = [],
       seen = new Set();
     for (const t of [...transactions].reverse()) {
+      // skip no-spend days — there's a dedicated button, no point repeating a $0
+      if (t.type === "spending" && t.amount <= 0) {
+        continue;
+      }
       const sig = `${t.type}|${t.cat || t.bucket || ""}|${t.amount}`;
       if (seen.has(sig)) {
         continue;
@@ -108,12 +116,18 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
     });
     onClose();
   }
+  // log a day with no spending — keeps your logging streak without an amount
+  function logNoSpend() {
+    onLog({ type: "spending", amount: 0, cat: NO_SPEND_CAT, note: note || null });
+    onClose();
+  }
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
       role="dialog"
       aria-modal="true"
+      aria-label="Log a transaction"
     >
       <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
       <div
@@ -231,6 +245,14 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
           </div>
         )}
 
+        {type === "spending" && !(parseFloat(amount) > 0) && (
+          <button
+            onClick={logNoSpend}
+            className="w-full py-2 mb-2 text-sm text-slate-500 border border-slate-200 rounded-xl hover:bg-slate-50 inline-flex items-center justify-center gap-1.5"
+          >
+            <Ban size={14} /> Log a no-spend day
+          </button>
+        )}
         <button
           onClick={submit}
           disabled={!(parseFloat(amount) > 0)}

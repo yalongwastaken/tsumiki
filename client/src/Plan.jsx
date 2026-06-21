@@ -7,6 +7,7 @@ import { typicalIncome } from "./income.js";
 import { BUCKETS, bucketOf } from "./buckets.js";
 import { thisMonth, monthKey, sumLatestByType } from "./selectors.js";
 import PlanSplitChart from "./PlanSplitChart.jsx";
+import Recurring from "./Recurring.jsx";
 
 // this month's pooled income → engine targets per bucket vs your actual
 // contributions, what's left to allocate, and a forward-looking checking watch
@@ -14,13 +15,6 @@ const BUCKET_META = BUCKETS.map((b) => [b.key, b.label, b.color]);
 const monthName = () => new Date().toLocaleDateString(undefined, { month: "long" });
 const STRAT_LABEL = { short_term: "Safety", balanced: "Balanced", long_term: "Growth" };
 const stratLabel = (s) => STRAT_LABEL[s] || "Balanced";
-const cadenceLabel = (c) =>
-  ({
-    weekly: "weekly",
-    biweekly: "every 2 weeks",
-    semimonthly: "twice a month",
-    monthly: "monthly",
-  })[c] || "monthly";
 
 /** The living monthly plan: recurring transfers, split chart, plan-vs-actual, and the strategy preview. */
 export default function Plan({
@@ -66,7 +60,6 @@ export default function Plan({
 
   const [plan, setPlan] = useState(null);
   const [err, setErr] = useState("");
-  const [perCheck, setPerCheck] = useState(true); // recurring per-paycheck is the default frame
   useEffect(() => {
     const n = Number.isFinite(Number(amount)) ? Number(amount) : 0;
     getPlan(n, preview)
@@ -119,39 +112,6 @@ export default function Plan({
   const leftToAllocate = incomeThisMonth - assigned - spendThisMonth;
 
   const rows = BUCKET_META.filter(([k]) => target[k] > 0 || actual[k] > 0);
-
-  // where each step's money should physically go (the core "split my paycheck" advice)
-  const STEP_COLOR = (k) =>
-    ({
-      essentials: "#94A3B8",
-      min_debt: "#E05656",
-      high_debt: "#E05656",
-      floor: "#378ADD",
-      checking_flex: "#378ADD",
-      emergency: "#3FA9C9",
-      match: "#A78BFA",
-      retirement: "#A78BFA",
-      brokerage: "#1D9E75",
-    })[k] || "#94A3B8";
-  const acctName = (type) => accounts.find((a) => a.type === type)?.name;
-  const routeFor = (k) => {
-    if (k === "essentials" || k === "floor" || k === "min_debt" || k === "checking_flex") {
-      return acctName("checking") || "your checking";
-    }
-    if (k === "emergency") {
-      return acctName("savings") || "a savings account";
-    }
-    if (k === "match" || k === "retirement") {
-      return acctName("ira") || "your 401k / IRA";
-    }
-    if (k === "brokerage") {
-      return acctName("brokerage") || "a brokerage account";
-    }
-    if (k === "high_debt") {
-      return "your highest-rate debt";
-    }
-    return "—";
-  };
 
   return (
     <>
@@ -244,116 +204,8 @@ export default function Plan({
         </div>
       )}
 
-      {/* recurring transfers — paycheck-cadence-aware, framed as repeatable auto-transfers */}
-      {plan?.steps?.length > 0 &&
-        (() => {
-          const per = plan.paychecksPerMonth || 1;
-          const canSplit = per > 1.05; // monthly pay → only one view
-          const show = perCheck && canSplit ? per : 1; // divisor: per-paycheck vs monthly
-          const each = show > 1;
-          const sumKeys = (...ks) =>
-            plan.steps.filter((s) => ks.includes(s.key)).reduce((a, s) => a + s.amount, 0);
-          // money that stays put in checking to cover bills & everyday spending
-          const stays =
-            sumKeys("essentials", "floor", "checking_flex", "min_debt") + (plan.leftover || 0);
-          // recurring transfers OUT of checking, one per destination account
-          const transfers = [
-            {
-              label: "Extra debt payment",
-              color: STEP_COLOR("high_debt"),
-              to: routeFor("high_debt"),
-              amt: sumKeys("high_debt"),
-            },
-            {
-              label: "Savings",
-              color: STEP_COLOR("emergency"),
-              to: routeFor("emergency"),
-              amt: sumKeys("emergency"),
-            },
-            {
-              label: "Retirement",
-              color: STEP_COLOR("retirement"),
-              to: routeFor("retirement"),
-              amt: sumKeys("match", "retirement"),
-            },
-            {
-              label: "Personal investment",
-              color: STEP_COLOR("brokerage"),
-              to: routeFor("brokerage"),
-              amt: sumKeys("brokerage"),
-            },
-          ].filter((t) => t.amt > 0.5);
-          return (
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center justify-between mb-2 gap-2">
-                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Recurring transfers
-                </div>
-                {canSplit && (
-                  <div className="flex text-xs rounded-lg overflow-hidden border border-slate-200">
-                    <button
-                      onClick={() => setPerCheck(true)}
-                      className={`px-2 py-1 ${perCheck ? "bg-brand-600 text-white" : "text-slate-500"}`}
-                    >
-                      Per paycheck
-                    </button>
-                    <button
-                      onClick={() => setPerCheck(false)}
-                      className={`px-2 py-1 ${!perCheck ? "bg-brand-600 text-white" : "text-slate-500"}`}
-                    >
-                      Monthly
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="text-xs text-slate-400 mb-3">
-                {each
-                  ? `You're paid ${cadenceLabel(plan.cadence)} (~${per.toFixed(1)}× / month). Set these to auto-transfer every payday — same amounts each time.`
-                  : `Set these to auto-transfer each month — same amounts each time.`}
-              </div>
-              {transfers.length > 0 ? (
-                <div className="space-y-2.5">
-                  {transfers.map((t, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <span
-                        className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                        style={{ background: t.color }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-slate-700">{t.label}</div>
-                        <div className="text-xs text-slate-400 truncate">→ {t.to}</div>
-                      </div>
-                      <span className="text-sm font-mono font-semibold text-slate-900">
-                        {fmt(t.amt / show)}
-                        <span className="text-slate-300 text-xs">{each ? "/check" : "/mo"}</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-slate-500">
-                  Nothing to transfer out {each ? "per paycheck" : "this month"} yet — it all stays
-                  in checking for now.
-                </div>
-              )}
-              {stays > 0.5 && (
-                <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-50">
-                  <span
-                    className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                    style={{ background: STEP_COLOR("checking_flex") }}
-                  />
-                  <div className="flex-1 text-sm text-slate-500">
-                    Stays in checking · bills & everyday spending
-                  </div>
-                  <span className="text-sm font-mono text-slate-500">
-                    {fmt(stays / show)}
-                    <span className="text-slate-300 text-xs">{each ? "/check" : "/mo"}</span>
-                  </span>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+      {/* recurring transfers, split per income source by its own paycheck cadence */}
+      <Recurring plan={plan} profile={profile} accounts={accounts} />
 
       {/* donut of the split + strategy alternatives (tap to preview) */}
       <PlanSplitChart

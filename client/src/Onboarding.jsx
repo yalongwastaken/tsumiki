@@ -16,18 +16,51 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
   const [name, setName] = useState(initial.name || "");
   const [srcName, setSrcName] = useState("");
   const [srcAmount, setSrcAmount] = useState("");
+  const [srcCadence, setSrcCadence] = useState("biweekly");
+  const [srcPayday, setSrcPayday] = useState("");
+  const [balChecking, setBalChecking] = useState("");
+  const [balSavings, setBalSavings] = useState("");
+  const [emergencyTarget, setEmergencyTarget] = useState("");
   const [strategy, setStrategy] = useState(initial.strategy || "balanced");
   if (!open) {
     return null;
   }
 
-  const steps = ["welcome", "income", "strategy", "how"];
+  const steps = ["welcome", "income", "accounts", "emergency", "strategy", "how"];
   const last = step === steps.length - 1;
   function finish() {
     const source = srcName.trim()
-      ? { id: uid(), name: srcName.trim(), type: "salary", typicalMonthly: Number(srcAmount || 0) }
+      ? {
+          id: uid(),
+          name: srcName.trim(),
+          type: "salary",
+          typicalMonthly: Number(srcAmount || 0),
+          cadence: srcCadence,
+          payday: srcPayday || null,
+        }
       : null;
-    onComplete({ name: name.trim(), strategy, source });
+    // optional starting balances → accounts + snapshots
+    const accounts = [];
+    const snapshots = [];
+    const now = new Date().toISOString();
+    const addAcct = (val, accName, type) => {
+      if (val === "" || Number.isNaN(Number(val))) {
+        return;
+      }
+      const id = uid();
+      accounts.push({ id, name: accName, type, color: "#94A3B8" });
+      snapshots.push({ id: uid(), accountId: id, date: now, balance: Number(val) });
+    };
+    addAcct(balChecking, "Checking", "checking");
+    addAcct(balSavings, "Savings", "savings");
+    onComplete({
+      name: name.trim(),
+      strategy,
+      source,
+      accounts,
+      snapshots,
+      emergencyTarget: emergencyTarget === "" ? null : Number(emergencyTarget),
+    });
   }
 
   return (
@@ -86,13 +119,87 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
               placeholder="e.g. Day job"
               className={field + " mb-2"}
             />
-            <div className="relative">
+            <div className="relative mb-2">
               <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
               <input
                 type="number"
                 value={srcAmount}
                 onChange={(e) => setSrcAmount(e.target.value)}
                 placeholder="typical / month"
+                className={field + " pl-7"}
+              />
+            </div>
+            <div className="flex gap-2">
+              <select
+                value={srcCadence}
+                onChange={(e) => setSrcCadence(e.target.value)}
+                className={field}
+              >
+                <option value="weekly">paid weekly</option>
+                <option value="biweekly">every 2 weeks</option>
+                <option value="semimonthly">twice a month</option>
+                <option value="monthly">monthly</option>
+              </select>
+              <input
+                type="date"
+                value={srcPayday}
+                onChange={(e) => setSrcPayday(e.target.value)}
+                title="Next payday"
+                className={field}
+              />
+            </div>
+            <div className="text-xs text-slate-400 mt-1">
+              A payday date unlocks dated transfer reminders + a cashflow forecast.
+            </div>
+          </div>
+        )}
+
+        {steps[step] === "accounts" && (
+          <div>
+            <div className="text-lg font-bold text-slate-900 mb-1">Where's your money now?</div>
+            <div className="text-sm text-slate-500 mb-4">
+              Optional starting balances so I can track net worth and watch your buffer. Add more
+              accounts later.
+            </div>
+            <div className="space-y-2">
+              <div className="relative">
+                <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
+                <input
+                  type="number"
+                  value={balChecking}
+                  onChange={(e) => setBalChecking(e.target.value)}
+                  placeholder="checking balance"
+                  className={field + " pl-7"}
+                />
+              </div>
+              <div className="relative">
+                <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
+                <input
+                  type="number"
+                  value={balSavings}
+                  onChange={(e) => setBalSavings(e.target.value)}
+                  placeholder="savings balance"
+                  className={field + " pl-7"}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {steps[step] === "emergency" && (
+          <div>
+            <div className="text-lg font-bold text-slate-900 mb-1">Your safety net</div>
+            <div className="text-sm text-slate-500 mb-4">
+              How big should your emergency fund be? A common target is 3–6 months of expenses. The
+              plan builds toward this first.
+            </div>
+            <div className="relative">
+              <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
+              <input
+                type="number"
+                value={emergencyTarget}
+                onChange={(e) => setEmergencyTarget(e.target.value)}
+                placeholder="emergency fund target"
                 className={field + " pl-7"}
               />
             </div>

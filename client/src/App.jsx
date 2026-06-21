@@ -190,7 +190,7 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  const [derivedInvest, setDerivedInvest] = useState(null); // monthly investable per the plan (§7)
+  const [derivedInvest, setDerivedInvest] = useState(null); // monthly investable per the plan
   const revRef = useRef(0); // last server rev (optimistic concurrency)
   const saveChain = useRef(Promise.resolve()); // serialize writes so rapid saves can't self-conflict
 
@@ -272,7 +272,7 @@ export default function App() {
   const investedTotal = contributions.reduce((s, c) => s + c.amount, 0); // "contributed by you" — only goes up
   const netWorth = snapshots.length ? realNetWorth : investedTotal;
 
-  // §7 reality check: contributions since you started tracking vs the actual
+  // reality check: contributions since you started tracking vs the actual
   // change in net worth. The gap is the market (or unlogged spending) at work.
   const realityCheck = useMemo(() => {
     if (snapshots.length < 2) {
@@ -396,14 +396,30 @@ export default function App() {
       }
     });
   }
-  function finishOnboarding({ name, strategy, source }) {
+  function finishOnboarding({
+    name,
+    strategy,
+    source,
+    accounts: newAccts = [],
+    snapshots: newSnaps = [],
+    emergencyTarget,
+  }) {
     const sources = source
       ? [...(profile.incomeSources || []), source]
       : profile.incomeSources || [];
     const typical = sources.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
     save({
       ...data,
-      profile: { ...profile, name, strategy, incomeSources: sources, typicalIncome: typical },
+      accounts: [...accounts, ...newAccts],
+      snapshots: [...snapshots, ...newSnaps],
+      profile: {
+        ...profile,
+        name,
+        strategy,
+        incomeSources: sources,
+        typicalIncome: typical,
+        ...(emergencyTarget != null ? { emergencyTarget } : {}),
+      },
       settings: { ...settings, onboarded: true },
     });
     setShowOnboard(false);
@@ -553,6 +569,8 @@ export default function App() {
                 profile={profile}
                 transactions={transactions}
                 snapshots={snapshots}
+                accounts={accounts}
+                debts={debts}
                 income={income}
                 realNetWorth={realNetWorth}
                 investedTotal={investedTotal}
