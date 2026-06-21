@@ -330,7 +330,7 @@ export default function App() {
             {tab === "home" && <Home profile={profile} transactions={transactions} accounts={accounts} snapshots={snapshots}
               income={income} realNetWorth={realNetWorth} investedTotal={investedTotal} milestoneList={milestoneList} freezes={freezes} onGo={setTab} />}
 
-            {tab === "plan" && <Plan transactions={transactions} accounts={accounts} snapshots={snapshots} profile={profile} onGoSetup={() => setTab("settings")} />}
+            {tab === "plan" && <Plan transactions={transactions} accounts={accounts} snapshots={snapshots} profile={profile} onGoSetup={() => setTab("settings")} onSetStrategy={(s) => save({ ...data, profile: { ...profile, strategy: s } })} />}
 
             {tab === "activity" && <Activity transactions={transactions} profile={profile} sources={incomeSources} onDelete={deleteTx} />}
 

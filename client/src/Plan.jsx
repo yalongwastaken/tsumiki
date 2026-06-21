@@ -4,6 +4,7 @@ import { getPlan } from "./api.js";
 import { fmt } from "./format.js";
 import { typicalIncome } from "./income.js";
 import { BUCKETS, bucketOf } from "./buckets.js";
+import PlanSplitChart from "./PlanSplitChart.jsx";
 
 // I3 — the living monthly plan. This month's pooled income → engine targets per
 // bucket vs your actual contributions, what's left to allocate, and a
@@ -11,7 +12,7 @@ import { BUCKETS, bucketOf } from "./buckets.js";
 const BUCKET_META = BUCKETS.map((b) => [b.key, b.label, b.color]);
 const monthName = () => new Date().toLocaleDateString(undefined, { month: "long" });
 
-export default function Plan({ transactions = [], accounts = [], snapshots = [], profile = {}, onGoSetup }) {
+export default function Plan({ transactions = [], accounts = [], snapshots = [], profile = {}, onGoSetup, onSetStrategy }) {
   const ym = new Date().toISOString().slice(0, 7);
   const monthTx = useMemo(() => transactions.filter((t) => new Date(t.date).toISOString().slice(0, 7) === ym), [transactions, ym]);
   const incomeThisMonth = monthTx.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
@@ -68,10 +69,10 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
   const rows = BUCKET_META.filter(([k]) => target[k] > 0 || actual[k] > 0);
 
   // where each step's money should physically go (the core "split my paycheck" advice)
-  const STEP_COLOR = (k) => ({ essentials: "#94A3B8", min_debt: "#E05656", high_debt: "#E05656", floor: "#378ADD", emergency: "#378ADD", match: "#A78BFA", retirement: "#A78BFA", brokerage: "#1D9E75" }[k] || "#94A3B8");
+  const STEP_COLOR = (k) => ({ essentials: "#94A3B8", min_debt: "#E05656", high_debt: "#E05656", floor: "#378ADD", checking_flex: "#378ADD", emergency: "#3FA9C9", match: "#A78BFA", retirement: "#A78BFA", brokerage: "#1D9E75" }[k] || "#94A3B8");
   const acctName = (type) => accounts.find((a) => a.type === type)?.name;
   const routeFor = (k) => {
-    if (k === "essentials" || k === "floor" || k === "min_debt") return acctName("checking") || "your checking";
+    if (k === "essentials" || k === "floor" || k === "min_debt" || k === "checking_flex") return acctName("checking") || "your checking";
     if (k === "emergency") return acctName("savings") || "a savings account";
     if (k === "match" || k === "retirement") return acctName("ira") || "your 401k / IRA";
     if (k === "brokerage") return acctName("brokerage") || "a brokerage account";
@@ -136,6 +137,9 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
           </div>
         </div>
       )}
+
+      {/* donut of the split + strategy alternatives */}
+      <PlanSplitChart plan={plan} strategy={profile.strategy || "balanced"} onSetStrategy={onSetStrategy} />
 
       {/* per-bucket plan vs actual */}
       {rows.length > 0 && (

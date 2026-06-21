@@ -25,12 +25,25 @@ function balancesByType(accounts, snapshots) {
   return byType;
 }
 
-// strategy → ordered list of bucket keys. `emergency` may be split via caps below.
-const ORDER = {
-  short_term: ["min_debt", "floor", "match", "high_debt", "emergency", "retirement", "brokerage"],
-  balanced:   ["min_debt", "floor", "match", "high_debt", "emergency_half", "retirement", "emergency_rest", "brokerage"],
-  long_term:  ["min_debt", "floor", "match", "high_debt", "retirement", "brokerage", "emergency_rest"],
+// After the non-negotiables (essentials, min debt, checking floor, employer
+// match, high-interest debt), the leftover is SPLIT across the four
+// destinations — savings, retirement, personal investment, and flexible
+// checking — instead of draining into one. Strategy sets the default weights.
+const STRATEGY_SPLIT = {
+  short_term: { savings: 0.35, retirement: 0.20, invest: 0.15, checking: 0.30 },
+  balanced:   { savings: 0.25, retirement: 0.30, invest: 0.30, checking: 0.15 },
+  long_term:  { savings: 0.10, retirement: 0.40, invest: 0.40, checking: 0.10 },
 };
+// custom override via profile.split (percentages); else strategy defaults
+function splitWeights(profile, strategy) {
+  const c = profile.split;
+  if (c && (c.savings != null || c.retirement != null || c.invest != null || c.checking != null)) {
+    const s = Math.max(0, c.savings || 0), r = Math.max(0, c.retirement || 0), i = Math.max(0, c.invest || 0), k = Math.max(0, c.checking || 0);
+    const tot = s + r + i + k;
+    if (tot > 0) return { savings: s / tot, retirement: r / tot, invest: i / tot, checking: k / tot };
+  }
+  return STRATEGY_SPLIT[strategy] || STRATEGY_SPLIT.balanced;
+}
 
 const money = (n) => "$" + Math.round(n).toLocaleString();
 
@@ -55,7 +68,7 @@ export function typicalIncome(state) {
 export function buildPlan(state, incomeArg) {
   const { accounts = [], snapshots = [], debts = [], profile = {}, transactions = [] } = state;
   const income = Math.max(0, Math.round(Number(incomeArg) || 0));
-  const strategy = ORDER[profile.strategy] ? profile.strategy : "balanced";
+  const strategy = STRATEGY_SPLIT[profile.strategy] ? profile.strategy : "balanced";
 
   const bal = balancesByType(accounts, snapshots);
   const floor = Math.max(0, profile.checkingFloor || 0);
@@ -63,7 +76,6 @@ export function buildPlan(state, incomeArg) {
   const matchPct = profile.employerMatch?.pct || 0;
   const highApr = profile.highApr ?? DEFAULT_HIGH_APR;
   const iraLimit = profile.retirementLimits?.ira ?? profile.iraLimit ?? DEFAULT_IRA_LIMIT;
-  const iraMonthly = iraLimit / 12;
 
   // YTD retirement contributions → remaining annual room (so we never over-contribute)
   const yr = new Date().getFullYear();
@@ -101,58 +113,36 @@ export function buildPlan(state, incomeArg) {
     }
   };
 
-  // essentials come first — money already spoken for can't be allocated
+  // ── non-negotiables first (these always come before the split) ──
   give("essentials", "Essentials (bills & fixed costs)", essentials,
     essentialsSource === "bills" ? "Rent, bills, and fixed costs come off the top." : "Estimated from your typical spending.");
+  give("min_debt", "Minimum debt payments", minPay, "Never miss a minimum — protects credit and avoids fees.");
+  give("floor", "Top up checking buffer", floorGap, `Keep at least ${money(floor)} in checking as a cushion.`);
+  give("match", "401k — capture employer match", matchTarget, `Contribute ~${matchPct}% to grab the full match. It's free money.`);
+  give("high_debt", "Pay down high-interest debt", highDebtBalance,
+    topDebt
+      ? (snowball
+          ? `Knock out ${topDebt.name} first (${money(topDebt.balance)}) — snowball for a quick win.`
+          : `Attack ${topDebt.name} first (${topDebt.apr}% APR) — avalanche saves the most interest.`)
+      : `Debt at/above ${highApr}% APR costs more than markets return — kill it.`);
 
-  for (const key of ORDER[strategy]) {
-    if (remaining <= 0) break;
-    switch (key) {
-      case "min_debt":
-        give("min_debt", "Minimum debt payments", minPay, "Never miss a minimum — protects credit and avoids fees.");
-        break;
-      case "floor":
-        give("floor", "Top up checking buffer", floorGap, `Keep at least ${money(floor)} in checking as a cushion.`);
-        break;
-      case "match":
-        give("match", "401k — capture employer match", matchTarget, `Contribute ~${matchPct}% to grab the full match. It's free money.`);
-        break;
-      case "high_debt":
-        give("high_debt", "Pay down high-interest debt", highDebtBalance,
-          topDebt
-            ? (snowball
-                ? `Knock out ${topDebt.name} first (${money(topDebt.balance)}) — snowball for a quick win.`
-                : `Attack ${topDebt.name} first (${topDebt.apr}% APR) — avalanche saves the most interest.`)
-            : `Debt at/above ${highApr}% APR costs more than markets return — kill it.`);
-        break;
-      case "emergency":
-        give("emergency", "Build emergency fund", emGap, `Work toward ${money(emTarget)} (3–6 months of expenses).`);
-        break;
-      case "emergency_half":
-        give("emergency", "Build emergency fund", emGap * 0.5, `Fund part of your ${money(emTarget)} safety net now, the rest after investing.`);
-        break;
-      case "emergency_rest": {
-        const done = steps.filter((s) => s.key === "emergency").reduce((a, s) => a + s.amount, 0);
-        give("emergency", "Top up emergency fund", Math.max(0, emGap - done), `Finish your ${money(emTarget)} safety net.`);
-        break;
-      }
-      case "retirement": {
-        const room = retirementRoom - retireUsed; // already-captured match counts against the cap
-        give("retirement", "Invest for retirement (IRA)", Math.min(iraMonthly, room),
-          room <= 0 ? "" : `Tax-advantaged growth — ${money(room)} of room left this year.`);
-        break;
-      }
-      case "brokerage":
-        give("brokerage", "Invest in brokerage", remaining, "Everything left compounds in your taxable brokerage.");
-        break;
-    }
-  }
-  if (remaining > 0) give("brokerage", "Invest in brokerage", remaining, "Everything left compounds in your taxable brokerage.");
+  // ── split what's left across the four destinations (no single drain) ──
+  const w = splitWeights(profile, strategy);
+  const surplus = remaining;
+  const roomLeft = Math.max(0, retirementRoom - retireUsed);
+  const eAmt = Math.min(surplus * w.savings, emGap);          // savings → capped at emergency target
+  const rAmt = Math.min(surplus * w.retirement, roomLeft);    // retirement → capped at annual room
+  const cAmt = surplus * w.checking;                          // flexible, kept in checking
+  give("emergency", "Savings — emergency fund", eAmt, emGap > 0 ? `Toward your ${money(emTarget)} safety net.` : "Safety cushion.");
+  give("retirement", "Retirement investment", rAmt, roomLeft > 0 ? `Tax-advantaged — ${money(roomLeft)} of room left this year.` : "Retirement.");
+  give("checking_flex", "Keep in checking", cAmt, "Flexible spending money you keep liquid.");
+  // everything still unallocated (the invest share + any capped overflow) → personal investment
+  give("brokerage", "Personal investment", remaining, "Taxable brokerage for long-term growth.");
 
   const investable = steps.filter((s) => s.key === "retirement" || s.key === "brokerage").reduce((a, s) => a + s.amount, 0);
 
   return {
-    income, strategy, allocated: income - remaining, leftover: remaining, investable, steps,
+    income, strategy, allocated: income - remaining, leftover: remaining, investable, steps, split: w,
     essentials, essentialsSource,
     context: { checking: bal.checking, savings: bal.savings, floor, emergencyTarget: emTarget, emergencyGap: emGap, minPay, highDebtBalance, matchPct, retirementRoom, ytdRetirement, highApr, iraLimit, essentials, essentialsSource },
   };

@@ -91,8 +91,27 @@ test("A1: bills are reserved as essentials before the waterfall", () => {
   const ess = p.steps.find((s) => s.key === "essentials");
   assert.equal(ess.amount, 2000);
   assert.equal(p.essentialsSource, "bills");
-  // only 3000 left to invest after essentials
-  assert.equal(p.investable, 3000);
+  // essentials reserved, the rest is split + allocated
+  assert.equal(p.allocated, 5000);
+});
+
+test("split: surplus is shared across destinations, not drained into one", () => {
+  const state = {
+    accounts: [acct("chk", "checking"), acct("sav", "savings")],
+    snapshots: [snap("chk", 5000), snap("sav", 0)], // checking funded, savings empty
+    debts: [],
+    profile: { checkingFloor: 3000, emergencyTarget: 20000, strategy: "balanced" }, // big emergency gap
+    transactions: [],
+  };
+  const p = buildPlan(state, 4000);
+  const amt = (k) => p.steps.filter((s) => s.key === k).reduce((a, s) => a + s.amount, 0);
+  // even with a huge unmet emergency target, money still reaches retirement + investing
+  assert.ok(amt("emergency") > 0, "savings funded");
+  assert.ok(amt("retirement") > 0, "retirement funded");
+  assert.ok(amt("brokerage") > 0, "personal investment funded");
+  // savings does NOT swallow everything
+  assert.ok(amt("emergency") < 4000, "savings is only a share, not the whole paycheck");
+  assert.equal(p.allocated + p.leftover, 4000);
 });
 
 test("A1: with no bills, essentials fall back to learned avg spending", () => {
