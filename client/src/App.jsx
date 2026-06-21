@@ -6,6 +6,8 @@ import { computeAdherence } from "./streak.js";
 import Setup from "./Setup.jsx";
 import Plan from "./Plan.jsx";
 import QuickAdd from "./QuickAdd.jsx";
+import Calendar from "./Calendar.jsx";
+import Onboarding from "./Onboarding.jsx";
 import Milestones from "./Milestones.jsx";
 import MoneyTargets from "./MoneyTargets.jsx";
 import { computeMilestones } from "./milestones.js";
@@ -29,6 +31,7 @@ const EMPTY = {
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
 
 function useCountUp(target, dur = 900) {
   const [val, setVal] = useState(target);
@@ -165,6 +168,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [showOnboard, setShowOnboard] = useState(false);
   const [derivedInvest, setDerivedInvest] = useState(null); // monthly investable per the plan (§7)
   const revRef = useRef(0);            // last server rev (optimistic concurrency)
   const saveChain = useRef(Promise.resolve()); // serialize writes so rapid saves can't self-conflict
@@ -174,6 +178,7 @@ export default function App() {
       const fresh = await getState();
       revRef.current = fresh.rev ?? 0;
       setData({ ...EMPTY, ...fresh });
+      if (!fresh.settings?.onboarded) setShowOnboard(true); // first run
       try { setDerivedInvest((await getPlan()).investable); } catch (_) {}
     }
     catch (e) { setError(String(e.message || e)); }
@@ -302,6 +307,16 @@ export default function App() {
       }
     });
   }
+  function finishOnboarding({ name, strategy, source }) {
+    const sources = source ? [...(profile.incomeSources || []), source] : (profile.incomeSources || []);
+    const typical = sources.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
+    save({ ...data, profile: { ...profile, name, strategy, incomeSources: sources, typicalIncome: typical }, settings: { ...settings, onboarded: true } });
+    setShowOnboard(false);
+  }
+  function skipOnboarding() {
+    save({ ...data, settings: { ...settings, onboarded: true } });
+    setShowOnboard(false);
+  }
   function setNetWorth(value) {
     let acctId = accounts[0]?.id, accts = accounts;
     if (!acctId) { acctId = "primary"; accts = [{ id: acctId, name: "Net worth", type: "other", color: "#94A3B8" }]; }
@@ -321,6 +336,7 @@ export default function App() {
       )}
       {/* Hero */}
       <div className="bg-white border-b border-slate-200 px-5 pt-5 pb-5">
+        {profile?.name && <div className="text-sm text-slate-500 mb-2">{greeting()}, {profile.name}.</div>}
         <div className="flex items-start justify-between">
           <div>
             <div className="text-xs text-slate-400 tracking-widest uppercase font-medium mb-1">
@@ -344,7 +360,7 @@ export default function App() {
 
       {/* Tabs */}
       <div className="bg-white border-b border-slate-200 flex">
-        {["Plan","Dashboard","Grow","Log","Goals","Setup"].map(t => (
+        {["Plan","Calendar","Dashboard","Grow","Log","Goals","Setup"].map(t => (
           <button key={t} onClick={() => setTab(t.toLowerCase())}
             className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
               tab === t.toLowerCase() ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
@@ -355,6 +371,8 @@ export default function App() {
       <ErrorBoundary key={tab}>
       <div className="px-4 pt-5 space-y-4 max-w-lg mx-auto">
         {tab === "plan" && <Plan transactions={transactions} accounts={accounts} snapshots={snapshots} profile={profile} onGoSetup={() => setTab("setup")} />}
+
+        {tab === "calendar" && <Calendar transactions={transactions} profile={profile} />}
 
         {tab === "dashboard" && <>
           {realityCheck && (
@@ -384,7 +402,7 @@ export default function App() {
             <Projection start={netWorth} derivedInvest={derivedInvest} settings={settings} onChange={(s) => save({ ...data, settings: s })} />
             <NetWorthHistory data={nwSeries} />
           </Suspense>
-          <Fire netWorth={netWorth} monthlyInvest={monthlyForFire} returnRate={settings.returnRate} annualExpenses={annualExpenses} />
+          <Fire netWorth={netWorth} monthlyInvest={monthlyForFire} returnRate={settings.returnRate} annualExpenses={annualExpenses} birthYear={profile?.birthYear} retireAge={profile?.retireAge} />
           <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
         </>}
 
@@ -396,7 +414,7 @@ export default function App() {
           <MoneyTargets targets={profile?.moneyTargets || []} onChange={(list) => save({ ...data, profile: { ...profile, moneyTargets: list } })} />
         </>}
 
-        {tab === "setup" && <Setup data={data} onSave={save} />}
+        {tab === "setup" && <Setup data={data} onSave={save} onReplayIntro={() => setShowOnboard(true)} />}
       </div>
       </ErrorBoundary>
 
@@ -407,6 +425,7 @@ export default function App() {
       </button>
       <QuickAdd open={showAdd} onClose={() => setShowAdd(false)} onLog={logTx}
         cats={CATS} sources={incomeSources} transactions={transactions} />
+      <Onboarding open={showOnboard} initial={profile} onComplete={finishOnboarding} onSkip={skipOnboarding} />
     </div>
   );
 }

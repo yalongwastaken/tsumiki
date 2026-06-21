@@ -13,7 +13,7 @@ function yearsToTarget(start, monthly, rate, target) {
 const yr = (years) => (years === Infinity ? "—" : `${years.toFixed(years < 10 ? 1 : 0)} yr`);
 const whenYear = (years) => (years === Infinity ? "" : `~${new Date().getFullYear() + Math.round(years)}`);
 
-export default function Fire({ netWorth, monthlyInvest, returnRate, annualExpenses }) {
+export default function Fire({ netWorth, monthlyInvest, returnRate, annualExpenses, birthYear, retireAge }) {
   if (!annualExpenses || annualExpenses <= 0) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -26,6 +26,13 @@ export default function Fire({ netWorth, monthlyInvest, returnRate, annualExpens
   const atPace = yearsToTarget(netWorth, monthlyInvest, returnRate, fireNumber);
   const coast = netWorth >= fireNumber ? 0 : (netWorth > 0 ? Math.log(fireNumber / netWorth) / Math.log(1 + returnRate) : Infinity);
   const pct = Math.min(100, (netWorth / fireNumber) * 100);
+
+  // Coast-FI: are you "coasting"? If today's net worth grows (no new contributions)
+  // to the FIRE number by your retirement age, you've reached Coast-FI.
+  const age = birthYear ? new Date().getFullYear() - birthYear : null;
+  const yearsToRetire = age != null && retireAge ? Math.max(0, retireAge - age) : null;
+  const coastNumberAtRetire = yearsToRetire != null ? fireNumber / Math.pow(1 + returnRate, yearsToRetire) : null;
+  const isCoasting = coastNumberAtRetire != null && netWorth >= coastNumberAtRetire;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -55,6 +62,14 @@ export default function Fire({ netWorth, monthlyInvest, returnRate, annualExpens
           <div className="text-xs text-slate-400">growth alone gets you there</div>
         </div>
       </div>
+
+      {coastNumberAtRetire != null && (
+        <div className={`mt-3 rounded-lg p-3 text-sm ${isCoasting ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
+          {isCoasting
+            ? `🎉 You've hit Coast-FI — current savings alone grow to your FIRE number by age ${retireAge}. New contributions just get you there sooner.`
+            : `Coast-FI at age ${retireAge}: you'd need ${fmt(coastNumberAtRetire)} invested today (you have ${fmt(netWorth)}) to coast to FIRE without adding more.`}
+        </div>
+      )}
     </div>
   );
 }

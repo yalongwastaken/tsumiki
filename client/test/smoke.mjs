@@ -40,8 +40,14 @@ const STATE = {
     { id: "t2", type: "spending", amount: 1200, date: "2026-06-12T00:00:00Z", cat: "Dining Out" },
     { id: "t3", type: "income", amount: 5000, date: "2026-06-05T00:00:00Z" },
   ],
-  profile: { incomeType: "salary", typicalIncome: 5000, strategy: "balanced", checkingFloor: 3000, emergencyTarget: 10000 },
-  settings: { returnRate: 0.07, monthlyInvest: null },
+  profile: {
+    name: "Sam", birthYear: 1995, retireAge: 60,
+    incomeSources: [{ id: "job", name: "Day job", type: "salary", typicalMonthly: 5000 }],
+    strategy: "balanced", debtStrategy: "avalanche", checkingFloor: 3000, emergencyTarget: 10000,
+    bills: [{ id: "rent", name: "Rent", amount: 1500, dayOfMonth: 1 }],
+    moneyTargets: [{ id: "t", label: "Save $5k", amount: 5000, metric: "contributed" }],
+  },
+  settings: { returnRate: 0.07, monthlyInvest: null, onboarded: true },
 };
 const PLAN = { income: 5000, strategy: "balanced", allocated: 5000, leftover: 0, investable: 2000, steps: [{ key: "brokerage", label: "Invest", amount: 2000, why: "x" }] };
 globalThis.fetch = async (url) => ({ ok: true, status: 200, json: async () => (String(url).includes("/api/plan") ? PLAN : STATE), text: async () => "" });
@@ -60,7 +66,7 @@ const fails = [];
 await act(async () => { root.render(React.createElement(App)); });
 await new Promise((r) => setTimeout(r, 250));
 
-for (const name of ["Dashboard", "Goals", "Log", "Setup", "Plan"]) {
+for (const name of ["Calendar", "Dashboard", "Goals", "Log", "Setup", "Plan"]) {
   const btn = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === name);
   try {
     if (btn) await act(async () => { btn.click(); });
