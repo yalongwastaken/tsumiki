@@ -77,7 +77,7 @@ const navTo = async (label) => {
   return true;
 };
 
-for (const name of ["Plan", "Calendar", "Money", "Grow", "Goals", "Setup", "Home"]) {
+for (const name of ["Plan", "Activity", "Grow", "Goals", "Settings", "Home"]) {
   try {
     if (!(await navTo(name))) { fails.push(`${name}: no nav button`); continue; }
     const len = document.querySelector("main")?.innerHTML.length || 0;
@@ -110,27 +110,26 @@ try { // open quick-add, switch types, enter an amount, log
   else console.log("  ✓ quick-add: log");
 } catch (e) { fails.push(`quick-add interaction: ${e.message}`); }
 
-try { // delete a ledger row
-  await navTo("Money");
-  const del = btnByText("✕");
+try { // Activity → List view → delete a ledger row
+  await navTo("Activity");
+  const listBtn = btnByText("List"); if (listBtn) await act(async () => listBtn.click());
+  await new Promise((r) => setTimeout(r, 80));
+  const del = document.querySelector('button[aria-label="Delete"]');
   if (!del) fails.push("ledger: no delete button found");
-  else { await act(async () => del.click()); await new Promise((r) => setTimeout(r, 80)); console.log("  ✓ ledger: delete"); }
-} catch (e) { fails.push(`ledger interaction: ${e.message}`); }
+  else { await act(async () => del.click()); await new Promise((r) => setTimeout(r, 80)); console.log("  ✓ activity: list delete"); }
+} catch (e) { fails.push(`activity interaction: ${e.message}`); }
 
-try { // setup: save profile
-  await navTo("Setup");
+try { // Settings: save profile + dark-mode toggle (now in Appearance)
+  await navTo("Settings");
   const save = btnByText("Save profile");
-  if (!save) fails.push("setup: no Save profile button found");
-  else { await act(async () => save.click()); await new Promise((r) => setTimeout(r, 80)); console.log("  ✓ setup: save profile"); }
-} catch (e) { fails.push(`setup interaction: ${e.message}`); }
-
-try { // dark-mode toggle applies the .dark class
-  const t = document.querySelector('button[aria-label="Toggle dark mode"]');
-  if (!t) fails.push("theme: no toggle button");
-  else { await act(async () => t.click()); await new Promise((r) => setTimeout(r, 60));
-    if (document.documentElement.classList.contains("dark")) console.log("  ✓ dark mode toggle");
+  if (!save) fails.push("settings: no Save profile button found");
+  else { await act(async () => save.click()); await new Promise((r) => setTimeout(r, 80)); console.log("  ✓ settings: save profile"); }
+  const darkBtn = btnByText("Dark");
+  if (!darkBtn) fails.push("theme: no Dark button in Settings");
+  else { await act(async () => darkBtn.click()); await new Promise((r) => setTimeout(r, 60));
+    if (document.documentElement.classList.contains("dark")) console.log("  ✓ settings: dark mode");
     else fails.push("theme: .dark class not applied"); }
-} catch (e) { fails.push(`theme interaction: ${e.message}`); }
+} catch (e) { fails.push(`settings interaction: ${e.message}`); }
 
 if (errors.length) fails.push(...errors.map((e) => `render error: ${e}`));
 if (fails.length) { console.error("\nSMOKE TEST FAILED:\n - " + fails.join("\n - ")); process.exit(1); }

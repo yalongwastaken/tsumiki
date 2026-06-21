@@ -6,9 +6,10 @@ import { computeAdherence } from "./streak.js";
 import Setup from "./Setup.jsx";
 import Plan from "./Plan.jsx";
 import QuickAdd from "./QuickAdd.jsx";
-import Calendar from "./Calendar.jsx";
+import Activity from "./Activity.jsx";
 import Onboarding from "./Onboarding.jsx";
 import Home from "./Home.jsx";
+import { Home as HomeIcon, Target, History, TrendingUp, Trophy, Settings as SettingsIcon, Flame, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import Milestones from "./Milestones.jsx";
 import MoneyTargets from "./MoneyTargets.jsx";
 import { computeMilestones } from "./milestones.js";
@@ -63,7 +64,7 @@ function StreakPanel({ transactions, freezes = 0 }) {
         <div className="text-xs text-slate-400">{"❄️".repeat(freezesLeft) || "no freezes"} · longest {longest} wk</div>
       </div>
       <div className="flex items-center gap-3 mb-3">
-        <div className="text-4xl">{current > 0 ? "🔥" : "💤"}</div>
+        <Flame size={34} className={current > 0 ? "text-orange-500" : "text-slate-300"} />
         <div>
           <div className="text-3xl font-mono font-bold text-slate-900">{current}</div>
           <div className="text-xs text-slate-400">{current === 1 ? "week" : "weeks"} in a row</div>
@@ -96,6 +97,8 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false);
   const [showOnboard, setShowOnboard] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem("tsumiki-rail") === "1"; } catch { return false; } });
+  const toggleRail = () => setCollapsed(c => { const n = !c; try { localStorage.setItem("tsumiki-rail", n ? "1" : "0"); } catch {} return n; });
   const [derivedInvest, setDerivedInvest] = useState(null); // monthly investable per the plan (§7)
   const revRef = useRef(0);            // last server rev (optimistic concurrency)
   const saveChain = useRef(Promise.resolve()); // serialize writes so rapid saves can't self-conflict
@@ -135,9 +138,12 @@ export default function App() {
   }
 
   const { transactions, settings, accounts, snapshots, profile, debts } = data;
-  // apply dark/light theme to <html> whenever it changes
-  useEffect(() => { document.documentElement.classList.toggle("dark", settings?.theme === "dark"); }, [settings?.theme]);
-  const toggleTheme = () => save({ ...data, settings: { ...settings, theme: settings?.theme === "dark" ? "light" : "dark" } });
+  // apply theme to <html> — supports light / dark / system
+  useEffect(() => {
+    const t = settings?.theme;
+    const sysDark = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", t === "dark" || (t === "system" && sysDark));
+  }, [settings?.theme]);
   const incomeSources = profile?.incomeSources || [];
   // typical monthly income — learned from history when available (A3)
   const income = useMemo(() => typicalIncome(profile, transactions), [profile, transactions]);
@@ -262,23 +268,27 @@ export default function App() {
       {/* mobile overlay */}
       {menuOpen && <div className="fixed inset-0 bg-slate-900/40 z-30 md:hidden" onClick={() => setMenuOpen(false)} />}
 
-      {/* nav — persistent sidebar on desktop, slide-in drawer on mobile */}
-      <aside className={`fixed z-40 inset-y-0 left-0 w-60 bg-white border-r border-slate-200 flex flex-col transform transition-transform duration-300 ease-out md:static md:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="px-5 py-4 flex items-center gap-2 border-b border-slate-100">
-          <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true">
+      {/* nav — collapsible icon-rail on desktop, slide-in drawer on mobile */}
+      <aside className={`fixed z-40 inset-y-0 left-0 bg-white border-r border-slate-200 flex flex-col transform transition-all duration-300 ease-out md:static md:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "w-60 md:w-16" : "w-60"}`}>
+        <div className="px-4 py-4 flex items-center gap-2 border-b border-slate-100">
+          <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true" className="flex-shrink-0">
             <rect x="6" y="40" width="18" height="18" rx="3" fill="#C9C0FB" /><rect x="23" y="26" width="18" height="18" rx="3" fill="#9B8AFA" /><rect x="40" y="12" width="18" height="18" rx="3" fill="#7C6FE8" />
           </svg>
-          <span className="font-bold text-slate-800">Tsumiki</span>
+          <span className={`font-bold text-slate-800 ${collapsed ? "md:hidden" : ""}`}>Tsumiki</span>
         </div>
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {NAV.map(([key, label, icon]) => (
-            <button key={key} onClick={() => { setTab(key); setMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${tab === key ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-50"}`}>
-              <span className="text-base">{icon}</span>{label}
+          {NAV.map(([key, label, Icon]) => (
+            <button key={key} onClick={() => { setTab(key); setMenuOpen(false); }} title={label}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "md:justify-center" : ""} ${tab === key ? "bg-brand-100 text-brand-700" : "text-slate-600 hover:bg-slate-50"}`}>
+              <Icon size={20} className="flex-shrink-0" />
+              <span className={collapsed ? "md:hidden" : ""}>{label}</span>
             </button>
           ))}
         </nav>
-        {profile?.name && <div className="px-5 py-3 border-t border-slate-100 text-xs text-slate-400">Hi, {profile.name}</div>}
+        <button onClick={toggleRail} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="hidden md:flex items-center gap-2 px-4 py-3 border-t border-slate-100 text-slate-400 hover:text-slate-600 text-sm">
+          {collapsed ? <PanelLeftOpen size={18} /> : <><PanelLeftClose size={18} /> Collapse</>}
+        </button>
       </aside>
 
       {/* main column */}
@@ -298,9 +308,6 @@ export default function App() {
             {toast ? <span className="text-xs text-emerald-500">{toast}</span> : (
               <span className="text-sm font-mono font-bold text-slate-700">{fmt(netWorthDisplay)} <span className="text-xs font-sans font-normal text-slate-400">net worth</span></span>
             )}
-            <button onClick={toggleTheme} aria-label="Toggle dark mode" className="text-lg leading-none text-slate-500 hover:text-slate-700">
-              {settings?.theme === "dark" ? "☀️" : "🌙"}
-            </button>
           </div>
         </header>
 
@@ -309,11 +316,9 @@ export default function App() {
             {tab === "home" && <Home profile={profile} transactions={transactions} accounts={accounts} snapshots={snapshots}
               income={income} realNetWorth={realNetWorth} investedTotal={investedTotal} milestoneList={milestoneList} freezes={freezes} onGo={setTab} />}
 
-            {tab === "plan" && <Plan transactions={transactions} accounts={accounts} snapshots={snapshots} profile={profile} onGoSetup={() => setTab("setup")} />}
+            {tab === "plan" && <Plan transactions={transactions} accounts={accounts} snapshots={snapshots} profile={profile} onGoSetup={() => setTab("settings")} />}
 
-            {tab === "calendar" && <Calendar transactions={transactions} profile={profile} />}
-
-            {tab === "money" && <Ledger transactions={transactions} sources={incomeSources} onDelete={deleteTx} />}
+            {tab === "activity" && <Activity transactions={transactions} profile={profile} sources={incomeSources} onDelete={deleteTx} />}
 
             {tab === "grow" && <>
               {realityCheck && (
@@ -339,7 +344,8 @@ export default function App() {
               <MoneyTargets targets={profile?.moneyTargets || []} onChange={(list) => save({ ...data, profile: { ...profile, moneyTargets: list } })} />
             </>}
 
-            {tab === "setup" && <Setup data={data} onSave={save} onReplayIntro={() => setShowOnboard(true)} />}
+            {tab === "settings" && <Setup data={data} onSave={save} onReplayIntro={() => setShowOnboard(true)}
+              theme={settings?.theme || "light"} onSetTheme={(t) => save({ ...data, settings: { ...settings, theme: t } })} />}
           </main>
         </ErrorBoundary>
       </div>
@@ -356,50 +362,12 @@ export default function App() {
   );
 }
 
-// section nav (clean-rename IA)
+// section nav (clean-rename IA + lucide icons)
 const NAV = [
-  ["home", "Home", "🏠"],
-  ["plan", "Plan", "🎯"],
-  ["calendar", "Calendar", "📅"],
-  ["money", "Money", "💸"],
-  ["grow", "Grow", "📈"],
-  ["goals", "Goals", "🏆"],
-  ["setup", "Setup", "⚙️"],
+  ["home", "Home", HomeIcon],
+  ["plan", "Plan", Target],
+  ["activity", "Activity", History],
+  ["grow", "Grow", TrendingUp],
+  ["goals", "Goals", Trophy],
+  ["settings", "Settings", SettingsIcon],
 ];
-
-// I4 — read-only ledger (logging happens via the + button). Filter + delete.
-function Ledger({ transactions, sources, onDelete }) {
-  const [filter, setFilter] = useState("all");
-  const sourceName = (id) => sources.find((s) => s.id === id)?.name || "income";
-  const bucketName = (b) => ({ emergency: "Emergency", retirement: "Retirement", invest: "Invest", debt: "Debt" }[b] || "Invest");
-  const rows = [...transactions].filter((t) => filter === "all" || t.type === filter).sort((a, b) => new Date(b.date) - new Date(a.date));
-  const meta = (t) => t.type === "spending" ? (t.cat || "Spending") : t.type === "income" ? sourceName(t.sourceId) : bucketName(t.bucket);
-  const color = (t) => t.type === "income" ? "text-emerald-600" : t.type === "contribution" ? "text-brand-600" : "text-slate-700";
-  return <>
-    <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
-      {[["all", "All"], ["income", "Income"], ["spending", "Spending"], ["contribution", "Saved"]].map(([v, l]) => (
-        <button key={v} onClick={() => setFilter(v)}
-          className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${filter === v ? "bg-slate-100 text-slate-800" : "text-slate-500"}`}>{l}</button>
-      ))}
-    </div>
-    {rows.length === 0 ? (
-      <div className="text-center py-12 text-slate-400 text-sm">Nothing logged yet. Tap <span className="font-semibold text-brand-500">+</span> to start.</div>
-    ) : (
-      <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-50">
-        {rows.map((t) => (
-          <div key={t.id} className="flex items-center justify-between px-4 py-2.5">
-            <div>
-              <div className="text-sm text-slate-700">{meta(t)}</div>
-              {t.note && <div className="text-xs text-slate-400">{t.note}</div>}
-              <div className="text-xs text-slate-300">{new Date(t.date).toLocaleDateString()}</div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className={`text-sm font-mono ${color(t)}`}>{t.type === "spending" ? "−" : "+"}{fmt(t.amount)}</span>
-              <button onClick={() => onDelete(t.id)} className="text-slate-300 hover:text-rose-400 text-xs">✕</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </>;
-}

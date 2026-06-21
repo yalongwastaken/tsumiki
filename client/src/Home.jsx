@@ -3,6 +3,7 @@ import { fmt } from "./format.js";
 import { getPlan } from "./api.js";
 import { computeAdherence } from "./streak.js";
 import { nextMilestone } from "./milestones.js";
+import { Flame } from "lucide-react";
 import SankeyFlow from "./Sankey.jsx";
 import Calendar from "./Calendar.jsx";
 
@@ -92,7 +93,7 @@ export default function Home({ profile = {}, transactions = [], accounts = [], s
       {/* game summary */}
       <Card title="Your progress" onGo={() => onGo?.("goals")}>
         <div className="flex items-center gap-3 mb-2">
-          <div className="text-3xl">{adh.current > 0 ? "🔥" : "💤"}</div>
+          <Flame size={28} className={adh.current > 0 ? "text-orange-500" : "text-slate-300"} />
           <div>
             <div className="text-2xl font-mono font-bold text-slate-900">{adh.current}<span className="text-sm font-sans font-normal text-slate-400"> wk streak</span></div>
             <div className="text-xs text-slate-500">This week: {adh.objective.label} {adh.metThisWeek ? "✓" : ""}</div>

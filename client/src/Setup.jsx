@@ -30,7 +30,7 @@ function Money({ value, onChange, placeholder }) {
   );
 }
 
-export default function Setup({ data, onSave, onReplayIntro }) {
+export default function Setup({ data, onSave, onReplayIntro, theme = "light", onSetTheme }) {
   const { profile = {}, accounts = [], debts = [], transactions = [], snapshots = [] } = data;
   const incomeSources = profile.incomeSources || [];
   const totalTypical = incomeSources.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
@@ -361,6 +361,17 @@ export default function Setup({ data, onSave, onReplayIntro }) {
           <Money value={debt.minPayment} onChange={(v) => setDebt({ ...debt, minPayment: v })} placeholder="Min/mo" />
         </div>
         <button onClick={addDebt} className="w-full py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add debt</button>
+      </div>
+
+      {/* Appearance */}
+      <div className={card}>
+        <div className={label + " mb-3"}>Appearance</div>
+        <div className="flex gap-1 p-1 bg-slate-50 rounded-xl">
+          {[["light", "Light"], ["dark", "Dark"], ["system", "System"]].map(([v, l]) => (
+            <button key={v} onClick={() => onSetTheme?.(v)}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${theme === v ? "bg-white shadow-sm text-brand-700" : "text-slate-500"}`}>{l}</button>
+          ))}
+        </div>
       </div>
 
       {/* Backup: export / import */}
