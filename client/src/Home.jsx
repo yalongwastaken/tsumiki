@@ -3,9 +3,10 @@ import { fmt } from "./format.js";
 import { getPlan } from "./api.js";
 import { computeAdherence } from "./streak.js";
 import { nextMilestone } from "./milestones.js";
-import { Flame } from "lucide-react";
+import { Flame, Check } from "lucide-react";
 import SankeyFlow from "./Sankey.jsx";
 import Calendar from "./Calendar.jsx";
+import MilestoneIcon from "./MilestoneIcon.jsx";
 
 // The landing screen — the valuable stuff at a glance, with tap-through to detail.
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
@@ -104,13 +105,13 @@ export default function Home({ profile = {}, transactions = [], accounts = [], s
           <Flame size={28} className={adh.current > 0 ? "text-orange-500" : "text-slate-300"} />
           <div>
             <div className="text-2xl font-mono font-bold text-slate-900">{adh.current}<span className="text-sm font-sans font-normal text-slate-400"> wk streak</span></div>
-            <div className="text-xs text-slate-500">This week: {adh.objective.label} {adh.metThisWeek ? "✓" : ""}</div>
+            <div className="text-xs text-slate-500 inline-flex items-center gap-1">This week: {adh.objective.label} {adh.metThisWeek && <Check size={13} className="text-emerald-600" />}</div>
           </div>
         </div>
         {next && (
           <div>
             <div className="flex items-baseline justify-between text-xs text-slate-500 mb-1">
-              <span>Next: {next.icon} {next.label}</span><span className="font-mono">{fmt(next.cur)} / {fmt(next.target)}</span>
+              <span className="inline-flex items-center gap-1">Next: <MilestoneIcon name={next.icon} size={12} /> {next.label}</span><span className="font-mono">{fmt(next.cur)} / {fmt(next.target)}</span>
             </div>
             <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div className="h-full bg-amber-400 rounded-full" style={{ width: `${Math.min(100, (next.cur / next.target) * 100)}%` }} />

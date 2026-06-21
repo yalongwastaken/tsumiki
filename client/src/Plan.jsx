@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { Check } from "lucide-react";
 import { getPlan } from "./api.js";
 import { fmt } from "./format.js";
 import { typicalIncome } from "./income.js";
@@ -165,7 +166,7 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
                   <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
                 </div>
                 {tgt > 0 && !done && <div className="text-xs text-slate-400 mt-1">{fmt(tgt - act)} to go this month</div>}
-                {done && <div className="text-xs text-emerald-600 mt-1">target met ✓</div>}
+                {done && <div className="text-xs text-emerald-600 mt-1 inline-flex items-center gap-1"><Check size={13} /> target met</div>}
               </div>
             );
           })}

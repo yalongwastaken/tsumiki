@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { X } from "lucide-react";
 import { fmt } from "./format.js";
 
 // I4 — user-defined, auto-tracked money goals (the gamified "save $X" targets).
@@ -30,7 +31,7 @@ export default function MoneyTargets({ targets = [], onChange }) {
               <div className="text-sm text-slate-700">{t.label} <span className="text-xs text-slate-400">· {metricLabel(t.metric)}</span></div>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono text-slate-500">{fmt(t.amount)}</span>
-                <button onClick={() => onChange(targets.filter((x) => x.id !== t.id))} className="text-slate-300 hover:text-rose-400 text-xs">✕</button>
+                <button onClick={() => onChange(targets.filter((x) => x.id !== t.id))} className="text-slate-300 hover:text-rose-400" aria-label="Remove"><X size={14} /></button>
               </div>
             </div>
           ))}

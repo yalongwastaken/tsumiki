@@ -9,7 +9,8 @@ import QuickAdd from "./QuickAdd.jsx";
 import Activity from "./Activity.jsx";
 import Onboarding from "./Onboarding.jsx";
 import Home from "./Home.jsx";
-import { Home as HomeIcon, Target, History, TrendingUp, Trophy, Settings as SettingsIcon, Flame, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Home as HomeIcon, Target, History, TrendingUp, Trophy, Settings as SettingsIcon, Wallet, Flame, PanelLeftClose, PanelLeftOpen, Menu, Snowflake, Check, PartyPopper, Plus } from "lucide-react";
+import MilestoneIcon from "./MilestoneIcon.jsx";
 import Milestones from "./Milestones.jsx";
 import MoneyTargets from "./MoneyTargets.jsx";
 import { computeMilestones } from "./milestones.js";
@@ -61,7 +62,10 @@ function StreakPanel({ transactions, freezes = 0 }) {
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Adherence streak</div>
-        <div className="text-xs text-slate-400">{"❄️".repeat(freezesLeft) || "no freezes"} · longest {longest} wk</div>
+        <div className="flex items-center gap-1 text-xs text-slate-400">
+          {Array.from({ length: freezesLeft }).map((_, i) => <Snowflake key={i} size={12} className="text-blue-400" />)}
+          <span>longest {longest} wk</span>
+        </div>
       </div>
       <div className="flex items-center gap-3 mb-3">
         <Flame size={34} className={current > 0 ? "text-orange-500" : "text-slate-300"} />
@@ -70,8 +74,8 @@ function StreakPanel({ transactions, freezes = 0 }) {
           <div className="text-xs text-slate-400">{current === 1 ? "week" : "weeks"} in a row</div>
         </div>
       </div>
-      <div className={`rounded-lg px-3 py-2 mb-3 text-sm ${metThisWeek ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
-        <span className="font-semibold">This week: </span>{objective.label} {metThisWeek ? "✓" : ""}
+      <div className={`rounded-lg px-3 py-2 mb-3 text-sm flex items-center gap-1.5 ${metThisWeek ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
+        <span className="font-semibold">This week:</span> {objective.label} {metThisWeek && <Check size={14} />}
       </div>
       <div className="flex gap-1.5">
         {cells.map((c, i) => (
@@ -295,14 +299,17 @@ export default function App() {
       <div className="flex-1 min-w-0 flex flex-col min-h-screen">
         {celebrate && (
           <button onClick={() => setCelebrate(null)}
-            className="w-full text-left bg-gradient-to-r from-amber-400 to-orange-400 text-white px-5 py-2.5 text-sm font-semibold">
-            🎉 Milestone{celebrate.length > 1 ? "s" : ""}: {celebrate.map(m => `${m.icon} ${m.label}`).join("  ·  ")} <span className="opacity-70 font-normal">— tap to dismiss</span>
+            className="w-full flex items-center gap-2 flex-wrap bg-gradient-to-r from-amber-400 to-orange-400 text-white px-5 py-2.5 text-sm font-semibold">
+            <PartyPopper size={16} />
+            <span>Milestone{celebrate.length > 1 ? "s" : ""}:</span>
+            {celebrate.map((m, i) => <span key={i} className="inline-flex items-center gap-1"><MilestoneIcon name={m.icon} size={14} />{m.label}</span>)}
+            <span className="opacity-70 font-normal">— tap to dismiss</span>
           </button>
         )}
         {error && <div className="bg-rose-50 border-b border-rose-200 text-rose-600 text-xs px-5 py-2">{error}</div>}
 
         <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-3 px-4 py-3">
-          <button onClick={() => setMenuOpen(true)} className="md:hidden text-2xl leading-none text-slate-600" aria-label="Open menu">☰</button>
+          <button onClick={() => setMenuOpen(true)} className="md:hidden text-slate-600" aria-label="Open menu"><Menu size={22} /></button>
           <div className="font-semibold text-slate-800">{sectionLabel}</div>
           <div className="ml-auto flex items-center gap-3">
             {toast ? <span className="text-xs text-emerald-500">{toast}</span> : (
@@ -344,7 +351,9 @@ export default function App() {
               <MoneyTargets targets={profile?.moneyTargets || []} onChange={(list) => save({ ...data, profile: { ...profile, moneyTargets: list } })} />
             </>}
 
-            {tab === "settings" && <Setup data={data} onSave={save} onReplayIntro={() => setShowOnboard(true)}
+            {tab === "accounts" && <Setup section="accounts" data={data} onSave={save} />}
+
+            {tab === "settings" && <Setup section="settings" data={data} onSave={save} onReplayIntro={() => setShowOnboard(true)}
               theme={settings?.theme || "light"} onSetTheme={(t) => save({ ...data, settings: { ...settings, theme: t } })} />}
           </main>
         </ErrorBoundary>
@@ -352,8 +361,8 @@ export default function App() {
 
       {/* always-available fast logging (SPEC §9) */}
       <button onClick={() => setShowAdd(true)} aria-label="Log a transaction"
-        className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-brand-600 hover:bg-brand-700 text-white text-3xl leading-none shadow-lg flex items-center justify-center">
-        +
+        className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-brand-600 hover:bg-brand-700 text-white shadow-lg flex items-center justify-center">
+        <Plus size={26} />
       </button>
       <QuickAdd open={showAdd} onClose={() => setShowAdd(false)} onLog={logTx}
         cats={CATS} sources={incomeSources} transactions={transactions} />
@@ -369,5 +378,6 @@ const NAV = [
   ["activity", "Activity", History],
   ["grow", "Grow", TrendingUp],
   ["goals", "Goals", Trophy],
+  ["accounts", "Accounts", Wallet],
   ["settings", "Settings", SettingsIcon],
 ];

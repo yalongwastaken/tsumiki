@@ -7,7 +7,7 @@ import { weekKey, objectiveForWeek } from "./streak.js";
 //  • spending heatmap (day cell tint)
 //  • activity dots (income = green, contribution = indigo)
 //  • bill due-dates (amber dot, from profile.bills[].dayOfMonth)
-//  • per-week adherence marker (flame icon when that week's objective was met)
+//  • per-week adherence marker (🔥 if that week's rotating objective was met)
 //  • tap a day to see what happened that day
 const DOW = ["M", "T", "W", "T", "F", "S", "S"];
 

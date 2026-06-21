@@ -1,3 +1,4 @@
+import { PartyPopper } from "lucide-react";
 import { fmt } from "./format.js";
 
 // M6 — FIRE / Coast-FI readout. Pure math, no chart deps.
@@ -64,10 +65,11 @@ export default function Fire({ netWorth, monthlyInvest, returnRate, annualExpens
       </div>
 
       {coastNumberAtRetire != null && (
-        <div className={`mt-3 rounded-lg p-3 text-sm ${isCoasting ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
-          {isCoasting
-            ? `🎉 You've hit Coast-FI — current savings alone grow to your FIRE number by age ${retireAge}. New contributions just get you there sooner.`
-            : `Coast-FI at age ${retireAge}: you'd need ${fmt(coastNumberAtRetire)} invested today (you have ${fmt(netWorth)}) to coast to FIRE without adding more.`}
+        <div className={`mt-3 rounded-lg p-3 text-sm flex gap-2 ${isCoasting ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
+          {isCoasting && <PartyPopper size={16} className="flex-shrink-0 mt-0.5" />}
+          <span>{isCoasting
+            ? `You've hit Coast-FI — current savings alone grow to your FIRE number by age ${retireAge}. New contributions just get you there sooner.`
+            : `Coast-FI at age ${retireAge}: you'd need ${fmt(coastNumberAtRetire)} invested today (you have ${fmt(netWorth)}) to coast to FIRE without adding more.`}</span>
         </div>
       )}
     </div>

@@ -37,7 +37,9 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
 
         {steps[step] === "welcome" && (
           <div>
-            <div className="text-3xl mb-2">🧱</div>
+            <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true" className="mb-2">
+              <rect x="6" y="40" width="18" height="18" rx="3" fill="#C9C0FB" /><rect x="23" y="26" width="18" height="18" rx="3" fill="#9B8AFA" /><rect x="40" y="12" width="18" height="18" rx="3" fill="#7C6FE8" />
+            </svg>
             <div className="text-xl font-bold text-slate-900 mb-1">Welcome to Tsumiki</div>
             <div className="text-sm text-slate-500 mb-4">Building wealth, one block at a time. Let's set you up — takes a minute.</div>
             <div className="text-sm text-slate-600 mb-1">What should we call you?</div>
@@ -78,7 +80,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
             <div className="text-lg font-bold text-slate-900 mb-3">How Tsumiki works</div>
             <div className="space-y-3 text-sm">
               <div><span className="font-semibold text-brand-600">Plan</span> — tells you where each dollar should go this month.</div>
-              <div><span className="font-semibold text-brand-600">＋ button</span> — log income & spending in seconds, from any screen.</div>
+              <div><span className="font-semibold text-brand-600">Add button</span> — log income & spending in seconds, from any screen.</div>
               <div><span className="font-semibold text-brand-600">Calendar</span> — your month at a glance: spending, activity, bills.</div>
               <div><span className="font-semibold text-brand-600">Goals</span> — streaks & milestones keep you motivated.</div>
             </div>

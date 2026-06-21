@@ -77,7 +77,7 @@ const navTo = async (label) => {
   return true;
 };
 
-for (const name of ["Plan", "Activity", "Grow", "Goals", "Settings", "Home"]) {
+for (const name of ["Plan", "Activity", "Grow", "Goals", "Accounts", "Settings", "Home"]) {
   try {
     if (!(await navTo(name))) { fails.push(`${name}: no nav button`); continue; }
     const len = document.querySelector("main")?.innerHTML.length || 0;

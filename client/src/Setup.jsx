@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from "react";
+import { X } from "lucide-react";
 import { fmt } from "./format.js";
 import { importData, exportUrl } from "./api.js";
 
@@ -30,7 +31,7 @@ function Money({ value, onChange, placeholder }) {
   );
 }
 
-export default function Setup({ data, onSave, onReplayIntro, theme = "light", onSetTheme }) {
+export default function Setup({ data, onSave, onReplayIntro, theme = "light", onSetTheme, section = "settings" }) {
   const { profile = {}, accounts = [], debts = [], transactions = [], snapshots = [] } = data;
   const incomeSources = profile.incomeSources || [];
   const totalTypical = incomeSources.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
@@ -163,6 +164,7 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
 
   return (
     <>
+      {section === "accounts" && (<>
       {/* Income sources */}
       <div className={card}>
         <div className="flex items-baseline justify-between mb-3">
@@ -177,7 +179,7 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
                   <div className="text-sm text-slate-700">{s.name} <span className="text-xs text-slate-400">· {s.type.replace("_", " ")}</span></div>
                   <div className="text-xs text-slate-400">{s.basis ? `${srcDetail(s)} → ` : ""}~{fmt(s.typicalMonthly || 0)}/mo</div>
                 </div>
-                <button onClick={() => removeSource(s.id)} className="text-slate-300 hover:text-rose-400 text-xs">✕</button>
+                <button onClick={() => removeSource(s.id)} className="text-slate-300 hover:text-rose-400" aria-label="Remove"><X size={14} /></button>
               </div>
             ))}
           </div>
@@ -205,6 +207,90 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
         </div>
       </div>
 
+      {/* Accounts */}
+      <div className={card}>
+        <div className={label + " mb-3"}>Accounts</div>
+        {accounts.length > 0 && (
+          <div className="divide-y divide-slate-50 mb-3">
+            {accounts.map((a) => (
+              <div key={a.id} className="flex items-center justify-between py-2.5">
+                <div>
+                  <div className="text-sm text-slate-700">{a.name} <span className="text-xs text-slate-400">· {a.type}</span></div>
+                  {latestBalance(a.id) != null && <div className="text-xs text-slate-400">{fmt(latestBalance(a.id))}</div>}
+                </div>
+                <button onClick={() => removeAccount(a.id)} className="text-slate-300 hover:text-rose-400" aria-label="Remove"><X size={14} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <input value={acct.name} onChange={(e) => setAcct({ ...acct, name: e.target.value })} placeholder="Account name" className={field} />
+          <select value={acct.type} onChange={(e) => setAcct({ ...acct, type: e.target.value })} className={field}>
+            {ACCOUNT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <div className="flex-1"><Money value={acct.balance} onChange={(v) => setAcct({ ...acct, balance: v })} placeholder="Current balance (optional)" /></div>
+          <button onClick={addAccount} className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add</button>
+        </div>
+      </div>
+
+      {/* Recurring bills (essentials) */}
+      <div className={card}>
+        <div className="flex items-baseline justify-between mb-3">
+          <div className={label}>Recurring bills</div>
+          <div className="text-xs text-slate-400">~{fmt(billsTotal)}/mo reserved</div>
+        </div>
+        {bills.length > 0 && (
+          <div className="divide-y divide-slate-50 mb-3">
+            {bills.map((b) => (
+              <div key={b.id} className="flex items-center justify-between py-2">
+                <div className="text-sm text-slate-700">{b.name}{b.dayOfMonth ? <span className="text-xs text-slate-400"> · due {b.dayOfMonth}{ordinal(b.dayOfMonth)}</span> : null}</div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-mono text-slate-500">{fmt(b.amount)}</span>
+                  <button onClick={() => removeBill(b.id)} className="text-slate-300 hover:text-rose-400" aria-label="Remove"><X size={14} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <input value={bill.name} onChange={(e) => setBill({ ...bill, name: e.target.value })} placeholder="Bill (e.g. Rent)" className={field + " flex-1"} />
+          <div className="relative" style={{ width: 100 }}><Money value={bill.amount} onChange={(v) => setBill({ ...bill, amount: v })} placeholder="/mo" /></div>
+          <input type="number" min="1" max="31" value={bill.dayOfMonth} onChange={(e) => setBill({ ...bill, dayOfMonth: e.target.value })} placeholder="day" className={field} style={{ width: 64 }} />
+          <button onClick={addBill} className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add</button>
+        </div>
+        <div className="text-xs text-slate-400 mt-2">Reserved before the plan allocates. Not logged — you still log real spending.</div>
+      </div>
+
+      {/* Debts */}
+      <div className={card}>
+        <div className={label + " mb-3"}>Debts</div>
+        {debts.length > 0 && (
+          <div className="divide-y divide-slate-50 mb-3">
+            {debts.map((d) => (
+              <div key={d.id} className="flex items-center justify-between py-2.5">
+                <div>
+                  <div className="text-sm text-slate-700">{d.name}</div>
+                  <div className="text-xs text-slate-400">{fmt(d.balance)} · {d.apr}% APR · {fmt(d.minPayment)}/mo min</div>
+                </div>
+                <button onClick={() => removeDebt(d.id)} className="text-slate-300 hover:text-rose-400" aria-label="Remove"><X size={14} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+        <input value={debt.name} onChange={(e) => setDebt({ ...debt, name: e.target.value })} placeholder="Debt name (e.g. Chase card)" className={field + " mb-2"} />
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          <Money value={debt.balance} onChange={(v) => setDebt({ ...debt, balance: v })} placeholder="Balance" />
+          <input type="number" value={debt.apr} onChange={(e) => setDebt({ ...debt, apr: e.target.value })} placeholder="APR %" className={field} />
+          <Money value={debt.minPayment} onChange={(v) => setDebt({ ...debt, minPayment: v })} placeholder="Min/mo" />
+        </div>
+        <button onClick={addDebt} className="w-full py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add debt</button>
+      </div>
+
+      </>)}
+
+      {section === "settings" && (<>
       {/* Profile */}
       <div className={card}>
         <div className={label + " mb-3"}>Your profile</div>
@@ -282,87 +368,6 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
         </div>
       </div>
 
-      {/* Accounts */}
-      <div className={card}>
-        <div className={label + " mb-3"}>Accounts</div>
-        {accounts.length > 0 && (
-          <div className="divide-y divide-slate-50 mb-3">
-            {accounts.map((a) => (
-              <div key={a.id} className="flex items-center justify-between py-2.5">
-                <div>
-                  <div className="text-sm text-slate-700">{a.name} <span className="text-xs text-slate-400">· {a.type}</span></div>
-                  {latestBalance(a.id) != null && <div className="text-xs text-slate-400">{fmt(latestBalance(a.id))}</div>}
-                </div>
-                <button onClick={() => removeAccount(a.id)} className="text-slate-300 hover:text-rose-400 text-xs">✕</button>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-2 mb-2">
-          <input value={acct.name} onChange={(e) => setAcct({ ...acct, name: e.target.value })} placeholder="Account name" className={field} />
-          <select value={acct.type} onChange={(e) => setAcct({ ...acct, type: e.target.value })} className={field}>
-            {ACCOUNT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-        <div className="flex gap-2">
-          <div className="flex-1"><Money value={acct.balance} onChange={(v) => setAcct({ ...acct, balance: v })} placeholder="Current balance (optional)" /></div>
-          <button onClick={addAccount} className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add</button>
-        </div>
-      </div>
-
-      {/* Recurring bills (essentials) */}
-      <div className={card}>
-        <div className="flex items-baseline justify-between mb-3">
-          <div className={label}>Recurring bills</div>
-          <div className="text-xs text-slate-400">~{fmt(billsTotal)}/mo reserved</div>
-        </div>
-        {bills.length > 0 && (
-          <div className="divide-y divide-slate-50 mb-3">
-            {bills.map((b) => (
-              <div key={b.id} className="flex items-center justify-between py-2">
-                <div className="text-sm text-slate-700">{b.name}{b.dayOfMonth ? <span className="text-xs text-slate-400"> · due {b.dayOfMonth}{ordinal(b.dayOfMonth)}</span> : null}</div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono text-slate-500">{fmt(b.amount)}</span>
-                  <button onClick={() => removeBill(b.id)} className="text-slate-300 hover:text-rose-400 text-xs">✕</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="flex gap-2">
-          <input value={bill.name} onChange={(e) => setBill({ ...bill, name: e.target.value })} placeholder="Bill (e.g. Rent)" className={field + " flex-1"} />
-          <div className="relative" style={{ width: 100 }}><Money value={bill.amount} onChange={(v) => setBill({ ...bill, amount: v })} placeholder="/mo" /></div>
-          <input type="number" min="1" max="31" value={bill.dayOfMonth} onChange={(e) => setBill({ ...bill, dayOfMonth: e.target.value })} placeholder="day" className={field} style={{ width: 64 }} />
-          <button onClick={addBill} className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add</button>
-        </div>
-        <div className="text-xs text-slate-400 mt-2">Reserved before the plan allocates. Not logged — you still log real spending.</div>
-      </div>
-
-      {/* Debts */}
-      <div className={card}>
-        <div className={label + " mb-3"}>Debts</div>
-        {debts.length > 0 && (
-          <div className="divide-y divide-slate-50 mb-3">
-            {debts.map((d) => (
-              <div key={d.id} className="flex items-center justify-between py-2.5">
-                <div>
-                  <div className="text-sm text-slate-700">{d.name}</div>
-                  <div className="text-xs text-slate-400">{fmt(d.balance)} · {d.apr}% APR · {fmt(d.minPayment)}/mo min</div>
-                </div>
-                <button onClick={() => removeDebt(d.id)} className="text-slate-300 hover:text-rose-400 text-xs">✕</button>
-              </div>
-            ))}
-          </div>
-        )}
-        <input value={debt.name} onChange={(e) => setDebt({ ...debt, name: e.target.value })} placeholder="Debt name (e.g. Chase card)" className={field + " mb-2"} />
-        <div className="grid grid-cols-3 gap-2 mb-2">
-          <Money value={debt.balance} onChange={(v) => setDebt({ ...debt, balance: v })} placeholder="Balance" />
-          <input type="number" value={debt.apr} onChange={(e) => setDebt({ ...debt, apr: e.target.value })} placeholder="APR %" className={field} />
-          <Money value={debt.minPayment} onChange={(v) => setDebt({ ...debt, minPayment: v })} placeholder="Min/mo" />
-        </div>
-        <button onClick={addDebt} className="w-full py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add debt</button>
-      </div>
-
       {/* Appearance */}
       <div className={card}>
         <div className={label + " mb-3"}>Appearance</div>
@@ -390,6 +395,7 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
         <div className={label + " mb-3"}>Help</div>
         <button onClick={() => onReplayIntro?.()} className="w-full py-2 border border-slate-300 text-slate-700 hover:border-slate-400 text-sm font-semibold rounded-lg">Replay intro & tips</button>
       </div>
+      </>)}
     </>
   );
 }
