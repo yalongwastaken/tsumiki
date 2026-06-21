@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { fmt } from "./format.js";
+import { bucketLabel } from "./buckets.js";
 
 // M3 — fast logging (SPEC §9). Always-available bottom sheet: amount first,
 // frequency-sorted categories, recents to repeat. Goal: ~3 taps, <15s.
@@ -8,13 +9,8 @@ const TYPES = [
   ["income", "Income", "#10B981"],
   ["contribution", "Contribution", "#6366F1"],
 ];
-// contributions now target an engine bucket, not a goal (goals are the game layer)
-const BUCKETS = [
-  ["emergency", "Emergency"],
-  ["retirement", "Retirement"],
-  ["invest", "Invest"],
-  ["debt", "Debt paydown"],
-];
+// contributions target an engine bucket; labels come from buckets.js (single source)
+const BUCKET_KEYS = ["emergency", "retirement", "invest", "debt"];
 
 export default function QuickAdd({ open, onClose, onLog, cats, sources = [], transactions }) {
   const [type, setType] = useState("spending");
@@ -59,7 +55,6 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
 
   if (!open) return null;
 
-  const bucketLabel = (b) => (BUCKETS.find(([v]) => v === b)?.[1] || "Invest");
   function repeat(t) {
     setType(t.type); setAmount(String(t.amount));
     if (t.type === "spending") setCat(t.cat);
@@ -114,9 +109,9 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
         )}
         {type === "contribution" && (
           <div className="flex flex-wrap gap-2 mb-4">
-            {BUCKETS.map(([v, l]) => (
+            {BUCKET_KEYS.map((v) => (
               <button key={v} onClick={() => setBucket(v)}
-                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${bucket === v ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}>{l}</button>
+                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${bucket === v ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}>{bucketLabel(v)}</button>
             ))}
           </div>
         )}
