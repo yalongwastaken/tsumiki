@@ -28,7 +28,7 @@ cd server && npm install && npm start
 cd client && npm install && npm run dev
 ```
 
-Requires **Node ≥ 22.5** (for the built-in `node:sqlite`).
+Requires **Node ≥ 22.12** (server uses the built-in `node:sqlite`; client uses Vite 8).
 
 ## Run it as one server (prod / on the mini PC)
 
