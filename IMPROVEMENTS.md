@@ -126,6 +126,52 @@ Avalanche debt ordering (highest APR first) · YTD-aware retirement (toward annu
 
 ---
 
+## Round 2 — proactive improvement proposals (elaborated; pick before building)
+
+### Algorithm / coaching
+
+**A1. Spending-aware allocation** ⭐ biggest realism gap
+- *Problem:* the engine allocates the *entire* income through the waterfall, as if none of it is already claimed by rent/bills/groceries. So it over-recommends saving/debt-paydown vs. reality.
+- *Fix:* reserve **essential spending** first, then run the waterfall on the *surplus*. The plan reads "after ~$X essentials, here's where the rest goes."
+- *Where essentials come from (decision):* (a) a single profile number "typical monthly essentials", (b) the recurring-bills model (A?/S4), or (c) a rolling average of logged spending. Lean: start with (a) + (c) blended; upgrade to bills later.
+- *Cost:* medium. Touches engine + a profile field + Plan display.
+
+**A2. Avalanche or snowball** — quick win
+- Add `profile.debtStrategy = "avalanche" | "snowball"`. Avalanche = highest APR first (math-optimal, current behavior). Snowball = smallest balance first (motivational quick wins). Engine sorts the high-interest list accordingly and names the target debt.
+- *Cost:* tiny. Setup toggle + one sort line. No risk.
+
+**A3. Typical income from history**
+- Today "typical income" = sum of the amounts you typed per source. Improve by computing a **rolling average of actually-logged income** (last 3–6 months) and using it when richer than the typed estimate.
+- *Decision:* prefer history when ≥N months exist, else fall back to typed; optionally show both.
+- *Cost:* low–medium. Pure computation; surfaces on Plan + Setup.
+
+**A4. Plan-adherence streak**
+- Reframe the streak from "logged any contribution this week" to "**your actuals met the plan** this period." Richer signal, ties the game to the coach.
+- *Decision (the hard part):* what counts as "met"? e.g., a month where contributions hit ≥X% of the plan's structured targets. Risk: stricter = more discouraging; needs a per-period target snapshot.
+- *Cost:* medium. Pairs with the monthly-plan model from I3.
+
+### System / robustness
+
+**S1. Engine + milestones unit tests** ⭐ low-risk, high-leverage
+- The engine + milestones are *pure functions* — ideal to lock with tests (Node's built-in `node:test`). Covers avalanche order, YTD cap, floor/match, each strategy, milestone tiers. `npm test`.
+- *Cost:* low. Pure upside — catches coaching regressions the smoke test can't see.
+
+**S2. Data export / import**
+- `GET /api/export` → download the whole dataset as JSON; `POST /api/import` → validate + replace (with a confirm in the UI). Real backup/restore beyond copying the SQLite file; also enables moving between machines.
+- *Cost:* low. Export ≈ getState; import ≈ validate + putState. Setup buttons.
+
+**S3. Lean "add transaction" API**
+- Today every log re-sends the *entire* state via PUT. Add `POST /api/transactions` to append one row server-side. Smaller payloads as history grows, and no rev-clobber on the most common action (logging).
+- *Decision:* dual write paths (granular for tx, full-state for the rest) — some added complexity.
+- *Cost:* medium.
+
+**S4. Recurring bills model**
+- `bills: [{ name, amount, dayOfMonth?, category }]`. Bills count as essential spending (feeds A1), appear in the Sankey, and optionally auto-log each month.
+- *Decision:* inform-only vs. auto-log. Lean: inform-only first (simpler, no surprise entries).
+- *Cost:* medium–high. Strong pairing with A1.
+
+**Suggested pairings / order:** S1 first (safety, fast) → A2 (trivial, satisfying) → A1+S4 together (the realism upgrade) → A3 → S2 → S3 → A4 (most design-heavy).
+
 ## Decisions log
 - Nav/tabs: **keep current tabs for now**; a dedicated UX pass will redesign navigation + interaction (the 5-tab IA is the working target, not built yet).
 - Build order confirmed: **I1 first** (robustness), then I2 → I3 → I4 → I5.

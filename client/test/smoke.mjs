@@ -71,6 +71,42 @@ for (const name of ["Dashboard", "Goals", "Log", "Setup", "Plan"]) {
   } catch (e) { fails.push(`${name}: ${e.message}`); }
 }
 
+// ── interaction smoke: exercise the main mutation handlers (user-triggered) ──
+const setValue = (el, v) => {
+  Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value").set.call(el, v);
+  el.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+};
+const btnByText = (txt, root = document) => [...root.querySelectorAll("button")].find((b) => b.textContent.trim() === txt);
+
+try { // open quick-add, switch types, enter an amount, log
+  const fab = document.querySelector('button[aria-label="Log a transaction"]');
+  if (!fab) throw new Error("no + button");
+  await act(async () => fab.click());
+  await new Promise((r) => setTimeout(r, 80));
+  const dialog = document.querySelector('[role="dialog"]');
+  if (!dialog) throw new Error("quick-add sheet did not open");
+  for (const t of ["Income", "Contribution", "Spending"]) { const b = btnByText(t, dialog); if (b) await act(async () => b.click()); }
+  const amt = dialog.querySelector('input[type="number"]');
+  if (amt) await act(async () => setValue(amt, "50"));
+  const logBtn = [...dialog.querySelectorAll("button")].find((b) => b.textContent.trim().startsWith("Log"));
+  if (logBtn) await act(async () => logBtn.click());
+  await new Promise((r) => setTimeout(r, 150));
+  if (document.querySelector('[role="dialog"]')) fails.push("quick-add: sheet didn't close after logging");
+  else console.log("  ✓ quick-add: log");
+} catch (e) { fails.push(`quick-add interaction: ${e.message}`); }
+
+try { // delete a ledger row
+  const logTab = btnByText("Log"); if (logTab) await act(async () => logTab.click());
+  await new Promise((r) => setTimeout(r, 80));
+  const del = btnByText("✕"); if (del) { await act(async () => del.click()); await new Promise((r) => setTimeout(r, 80)); console.log("  ✓ ledger: delete"); }
+} catch (e) { fails.push(`ledger interaction: ${e.message}`); }
+
+try { // setup: change strategy + save profile
+  const setupTab = btnByText("Setup"); if (setupTab) await act(async () => setupTab.click());
+  await new Promise((r) => setTimeout(r, 80));
+  const save = btnByText("Save profile"); if (save) { await act(async () => save.click()); await new Promise((r) => setTimeout(r, 80)); console.log("  ✓ setup: save profile"); }
+} catch (e) { fails.push(`setup interaction: ${e.message}`); }
+
 if (errors.length) fails.push(...errors.map((e) => `render error: ${e}`));
 if (fails.length) { console.error("\nSMOKE TEST FAILED:\n - " + fails.join("\n - ")); process.exit(1); }
 console.log("\nSMOKE TEST PASSED");

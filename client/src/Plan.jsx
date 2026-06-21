@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { getPlan } from "./api.js";
 import { fmt } from "./format.js";
+import { typicalIncome } from "./income.js";
 
 // I3 — the living monthly plan. This month's pooled income → engine targets per
 // bucket vs your actual contributions, what's left to allocate, and a
@@ -26,8 +27,7 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
   const incomeThisMonth = monthTx.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const spendThisMonth = monthTx.filter((t) => t.type === "spending").reduce((s, t) => s + t.amount, 0);
 
-  const sources = profile.incomeSources || [];
-  const typical = sources.length ? sources.reduce((s, x) => s + (x.typicalMonthly || 0), 0) : (profile.typicalIncome || 0);
+  const typical = useMemo(() => typicalIncome(profile, transactions), [profile, transactions]);
   const planIncome = incomeThisMonth > 0 ? incomeThisMonth : typical;
 
   const [amount, setAmount] = useState(planIncome);
@@ -35,7 +35,10 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
 
   const [plan, setPlan] = useState(null);
   const [err, setErr] = useState("");
-  useEffect(() => { getPlan(amount === "" ? 0 : amount).then(setPlan).catch((e) => setErr(String(e.message || e))); }, [amount]);
+  useEffect(() => {
+    const n = Number.isFinite(Number(amount)) ? Number(amount) : 0;
+    getPlan(n).then(setPlan).catch((e) => setErr(String(e.message || e)));
+  }, [amount]);
 
   // actuals this month, by bucket
   const actual = useMemo(() => {
@@ -64,6 +67,7 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
     return accounts.filter((a) => a.type === "checking").reduce((sum, a) => sum + (latest[a.id]?.balance || 0), 0);
   }, [accounts, snapshots]);
   const floor = profile.checkingFloor || 0;
+  const hasCheckingContext = accounts.some((a) => a.type === "checking") || floor > 0;
   const dayOfMonth = new Date().getDate();
   const dailySpend = spendThisMonth / Math.max(1, dayOfMonth);
   const daysToFloor = dailySpend > 0 ? (checkingBalance - floor) / dailySpend : Infinity;
@@ -89,13 +93,18 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
           <span className="text-xs text-slate-500">Plan for</span>
           <div className="relative" style={{ width: 120 }}>
             <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
-            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
+            <input type="number" value={amount} onChange={(e) => { const v = e.target.value; setAmount(v === "" || Number.isNaN(Number(v)) ? "" : Number(v)); }}
               className="w-full pl-7 pr-2 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700" />
           </div>
           {incomeThisMonth > 0 && Number(amount) !== incomeThisMonth && (
             <button onClick={() => setAmount(incomeThisMonth)} className="text-xs text-indigo-600">use this month</button>
           )}
         </div>
+        {plan?.essentials > 0 && (
+          <div className="text-xs text-slate-400 mt-2">
+            {fmt(plan.essentials)} reserved for essentials {plan.essentialsSource === "bills" ? "(your bills)" : "(est. from spending)"} — the rest is allocated below.
+          </div>
+        )}
       </div>
 
       {err && <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3">{err}</div>}
@@ -136,7 +145,8 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
         </div>
       </div>
 
-      {/* checking minimum watch */}
+      {/* checking minimum watch — only when there's something to watch */}
+      {hasCheckingContext && (
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Checking buffer</div>
         <div className="flex items-baseline justify-between mb-1">
@@ -153,6 +163,7 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
           <div className="text-sm text-emerald-600 font-medium">Above your floor.</div>
         )}
       </div>
+      )}
     </>
   );
 }

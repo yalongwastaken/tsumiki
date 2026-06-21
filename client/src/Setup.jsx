@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { fmt } from "./format.js";
+import { importData, exportUrl } from "./api.js";
 
 // M1 — the personalization profile + accounts/debts the engine (M2) runs on.
 // Single editable screen (MVP). SPEC.md §11.
@@ -47,9 +48,12 @@ export default function Setup({ data, onSave }) {
   // local profile form, committed with a Save button
   const [form, setForm] = useState({
     strategy: profile.strategy ?? "balanced",
+    debtStrategy: profile.debtStrategy ?? "avalanche",
     checkingFloor: profile.checkingFloor ?? "",
     emergencyTarget: profile.emergencyTarget ?? "",
     employerMatchPct: profile.employerMatch?.pct ?? "",
+    highApr: profile.highApr ?? "",
+    iraLimit: profile.retirementLimits?.ira ?? profile.iraLimit ?? "",
   });
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
   const num = (v) => (v === "" || v == null ? null : Number(v));
@@ -60,9 +64,12 @@ export default function Setup({ data, onSave }) {
       profile: {
         ...profile,
         strategy: form.strategy,
+        debtStrategy: form.debtStrategy,
         checkingFloor: num(form.checkingFloor) ?? 0,
         emergencyTarget: num(form.emergencyTarget) ?? 0,
         employerMatch: form.employerMatchPct === "" ? null : { pct: Number(form.employerMatchPct) },
+        highApr: num(form.highApr),
+        iraLimit: num(form.iraLimit),
       },
     };
     onSave(next);
@@ -100,6 +107,28 @@ export default function Setup({ data, onSave }) {
     if (!ss.length) return null;
     return ss.reduce((a, b) => (new Date(b.date) > new Date(a.date) ? b : a)).balance;
   };
+
+  // recurring bills (essentials — inform-only, A1/S4)
+  const bills = profile.bills || [];
+  const billsTotal = bills.reduce((s, b) => s + (b.amount || 0), 0);
+  const [bill, setBill] = useState({ name: "", amount: "" });
+  function addBill() {
+    if (!bill.name.trim()) return;
+    onSave({ ...data, profile: { ...profile, bills: [...bills, { id: uid(), name: bill.name.trim(), amount: Number(bill.amount || 0) }] } });
+    setBill({ name: "", amount: "" });
+  }
+  function removeBill(id) { onSave({ ...data, profile: { ...profile, bills: bills.filter((b) => b.id !== id) } }); }
+
+  // backup: export (download) + import (replace)
+  const fileRef = useRef(null);
+  async function onImportFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!window.confirm("Import will REPLACE all current data. Continue?")) { e.target.value = ""; return; }
+    try { await importData(JSON.parse(await file.text())); location.reload(); }
+    catch (err) { window.alert("Import failed: " + (err.message || err)); }
+    e.target.value = "";
+  }
 
   // debts
   const [debt, setDebt] = useState({ name: "", balance: "", apr: "", minPayment: "" });
@@ -184,6 +213,27 @@ export default function Setup({ data, onSave }) {
             <div className="text-sm text-slate-600 mb-1">Employer 401k match % <span className="text-slate-400">(optional)</span></div>
             <input type="number" value={form.employerMatchPct} onChange={(e) => set("employerMatchPct")(e.target.value)} placeholder="e.g. 4" className={field} />
           </div>
+          <div>
+            <div className="text-sm text-slate-600 mb-1">Debt payoff order</div>
+            <div className="grid grid-cols-2 gap-2">
+              {[["avalanche", "Avalanche", "Highest APR first — least interest."], ["snowball", "Snowball", "Smallest balance first — quick wins."]].map(([v, l, desc]) => (
+                <button key={v} onClick={() => set("debtStrategy")(v)} title={desc}
+                  className={`px-3 py-2 rounded-lg border text-sm text-left transition-colors ${form.debtStrategy === v ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                  <div className="font-medium">{l}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <div className="text-sm text-slate-600 mb-1">High-interest APR <span className="text-slate-400">(opt)</span></div>
+              <input type="number" value={form.highApr} onChange={(e) => set("highApr")(e.target.value)} placeholder="10%" className={field} />
+            </div>
+            <div>
+              <div className="text-sm text-slate-600 mb-1">IRA annual limit <span className="text-slate-400">(opt)</span></div>
+              <input type="number" value={form.iraLimit} onChange={(e) => set("iraLimit")(e.target.value)} placeholder="7000" className={field} />
+            </div>
+          </div>
           <button onClick={saveProfile} className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors">
             Save profile
           </button>
@@ -218,6 +268,33 @@ export default function Setup({ data, onSave }) {
         </div>
       </div>
 
+      {/* Recurring bills (essentials) */}
+      <div className={card}>
+        <div className="flex items-baseline justify-between mb-3">
+          <div className={label}>Recurring bills</div>
+          <div className="text-xs text-slate-400">~{fmt(billsTotal)}/mo reserved</div>
+        </div>
+        {bills.length > 0 && (
+          <div className="divide-y divide-slate-50 mb-3">
+            {bills.map((b) => (
+              <div key={b.id} className="flex items-center justify-between py-2">
+                <div className="text-sm text-slate-700">{b.name}</div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-mono text-slate-500">{fmt(b.amount)}</span>
+                  <button onClick={() => removeBill(b.id)} className="text-slate-300 hover:text-rose-400 text-xs">✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <input value={bill.name} onChange={(e) => setBill({ ...bill, name: e.target.value })} placeholder="Bill (e.g. Rent)" className={field + " flex-1"} />
+          <div className="relative" style={{ width: 120 }}><Money value={bill.amount} onChange={(v) => setBill({ ...bill, amount: v })} placeholder="/mo" /></div>
+          <button onClick={addBill} className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add</button>
+        </div>
+        <div className="text-xs text-slate-400 mt-2">Reserved before the plan allocates. Not logged — you still log real spending.</div>
+      </div>
+
       {/* Debts */}
       <div className={card}>
         <div className={label + " mb-3"}>Debts</div>
@@ -241,6 +318,17 @@ export default function Setup({ data, onSave }) {
           <Money value={debt.minPayment} onChange={(v) => setDebt({ ...debt, minPayment: v })} placeholder="Min/mo" />
         </div>
         <button onClick={addDebt} className="w-full py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Add debt</button>
+      </div>
+
+      {/* Backup: export / import */}
+      <div className={card}>
+        <div className={label + " mb-3"}>Backup</div>
+        <div className="flex gap-2">
+          <a href={exportUrl()} className="flex-1 text-center py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg">Export data</a>
+          <button onClick={() => fileRef.current?.click()} className="flex-1 py-2 border border-slate-300 text-slate-700 hover:border-slate-400 text-sm font-semibold rounded-lg">Import data</button>
+          <input ref={fileRef} type="file" accept="application/json,.json" onChange={onImportFile} className="hidden" />
+        </div>
+        <div className="text-xs text-slate-400 mt-2">Export downloads everything as JSON. Import replaces all current data.</div>
       </div>
     </>
   );

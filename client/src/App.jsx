@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
-import { getState, putState, getPlan } from "./api.js";
+import { getState, putState, getPlan, addTransaction } from "./api.js";
 import { fmt } from "./format.js";
+import { typicalIncome } from "./income.js";
+import { computeAdherence } from "./streak.js";
 import Setup from "./Setup.jsx";
 import Plan from "./Plan.jsx";
 import QuickAdd from "./QuickAdd.jsx";
@@ -26,30 +28,7 @@ const EMPTY = {
 };
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-const weekKey = (d) => { const x = new Date(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); x.setHours(0,0,0,0); return x.getTime(); };
-const WEEK = 7 * 86400000;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-
-// M5: a freeze budget bridges missed weeks so one slip doesn't reset a long run.
-function computeStreak(contributions, freezes = 0) {
-  const weeks = new Set(contributions.map(c => weekKey(c.date)));
-  if (weeks.size === 0) return { current: 0, longest: 0, weeks, freezesUsed: 0 };
-  let cur = weekKey(Date.now());
-  if (!weeks.has(cur)) cur -= WEEK; // current week may not be logged yet
-  let current = 0, fz = freezes, used = 0;
-  while (true) {
-    if (weeks.has(cur)) { current++; cur -= WEEK; }
-    else if (fz > 0 && current > 0) { fz--; used++; cur -= WEEK; } // freeze covers a gap
-    else break;
-  }
-  const sorted = [...weeks].sort((a,b) => a-b);
-  let longest = 1, run = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    run = sorted[i] - sorted[i-1] === WEEK ? run + 1 : 1;
-    longest = Math.max(longest, run);
-  }
-  return { current, longest: Math.max(longest, current), weeks, freezesUsed: used };
-}
 
 function useCountUp(target, dur = 900) {
   const [val, setVal] = useState(target);
@@ -144,33 +123,30 @@ function NetWorthCard({ realNetWorth, onSet }) {
   );
 }
 
-// ─── Streak ───────────────────────────────────────────────────────────────────
-function StreakPanel({ contributions, freezes = 0 }) {
-  const { current, longest, weeks, freezesUsed } = computeStreak(contributions, freezes);
+// ─── Streak ─── plan-adherence with a rotating weekly objective (A4) ───────────
+function StreakPanel({ transactions, freezes = 0 }) {
+  const { current, longest, freezesUsed, cells, objective, metThisWeek } = computeAdherence(transactions, freezes);
   const freezesLeft = Math.max(0, freezes - freezesUsed);
-  const thisWeek = weekKey(Date.now());
-  const cells = [];
-  for (let i = 11; i >= 0; i--) {
-    const wk = thisWeek - i*WEEK;
-    cells.push({ wk, active: weeks.has(wk), isNow: wk === thisWeek });
-  }
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Discipline streak</div>
+        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Adherence streak</div>
         <div className="text-xs text-slate-400">{"❄️".repeat(freezesLeft) || "no freezes"} · longest {longest} wk</div>
       </div>
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-3">
         <div className="text-4xl">{current > 0 ? "🔥" : "💤"}</div>
         <div>
           <div className="text-3xl font-mono font-bold text-slate-900">{current}</div>
           <div className="text-xs text-slate-400">{current === 1 ? "week" : "weeks"} in a row</div>
         </div>
       </div>
+      <div className={`rounded-lg px-3 py-2 mb-3 text-sm ${metThisWeek ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
+        <span className="font-semibold">This week: </span>{objective.label} {metThisWeek ? "✓" : ""}
+      </div>
       <div className="flex gap-1.5">
-        {cells.map((c,i) => (
+        {cells.map((c, i) => (
           <div key={i} title={new Date(c.wk).toLocaleDateString()}
-            className={`flex-1 rounded transition-colors ${c.active ? "bg-orange-400" : "bg-slate-100"} ${c.isNow ? "ring-2 ring-orange-300" : ""}`}
+            className={`flex-1 rounded transition-colors ${c.met ? "bg-orange-400" : "bg-slate-100"} ${c.isNow ? "ring-2 ring-orange-300" : ""}`}
             style={{ height: 28 }} />
         ))}
       </div>
@@ -212,19 +188,24 @@ export default function App() {
         revRef.current = saved.rev ?? revRef.current;
         setToast("Saved"); setTimeout(() => setToast(""), 1200);
       } catch (e) {
-        if (e.status === 409) { // changed elsewhere (another tab/device)
-          try { const fresh = await getState(); revRef.current = fresh.rev ?? 0; setData({ ...EMPTY, ...fresh }); setToast("Reloaded — changed elsewhere"); setTimeout(() => setToast(""), 1800); } catch (_) {}
-        } else { setError(String(e.message || e)); }
+        // 409 = changed elsewhere; any other failure means the write didn't
+        // persist, so re-sync from the server rather than leave stale optimistic UI.
+        try {
+          const fresh = await getState();
+          revRef.current = fresh.rev ?? 0;
+          setData({ ...EMPTY, ...fresh });
+          setError(e.status === 409 ? "" : String(e.message || e));
+          setToast(e.status === 409 ? "Reloaded — changed elsewhere" : "Couldn't save — reloaded");
+          setTimeout(() => setToast(""), 1800);
+        } catch (_) { setError(String(e.message || e)); }
       }
     });
   }
 
   const { transactions, settings, accounts, snapshots, profile, debts } = data;
   const incomeSources = profile?.incomeSources || [];
-  // derived typical monthly income = sum of sources (fallback to legacy single field)
-  const income = incomeSources.length
-    ? incomeSources.reduce((s, x) => s + (x.typicalMonthly || 0), 0)
-    : (profile?.typicalIncome || 0);
+  // typical monthly income — learned from history when available (A3)
+  const income = useMemo(() => typicalIncome(profile, transactions), [profile, transactions]);
 
   // derived views off the single ledger (SPEC.md §6)
   const contributions = useMemo(
@@ -262,7 +243,7 @@ export default function App() {
     for (const s of snapshots) if (!latest[s.accountId] || new Date(s.date) > new Date(latest[s.accountId].date)) latest[s.accountId] = s;
     return accounts.filter(a => a.type === "savings").reduce((sum, a) => sum + (latest[a.id]?.balance || 0), 0);
   }, [accounts, snapshots]);
-  const streakNow = useMemo(() => computeStreak(contributions, freezes).current, [contributions, freezes]);
+  const streakNow = useMemo(() => computeAdherence(transactions, freezes).current, [transactions, freezes]);
   const milestoneList = useMemo(() => computeMilestones({
     realNetWorth, investedTotal, savings: savingsBalance,
     emergencyTarget: profile?.emergencyTarget || 0, debts, streak: streakNow,
@@ -306,8 +287,20 @@ export default function App() {
   function deleteTx(id) {
     save({ ...data, transactions: transactions.filter(t => t.id !== id) });
   }
-  function logTx({ type, amount, cat = null, goalId = null, sourceId = null, bucket = null, note = null }) {
-    save({ ...data, transactions: [...transactions, { id: uid(), type, amount, date: new Date().toISOString(), cat, goalId, sourceId, bucket, note }] });
+  // S3: append via the lean endpoint instead of re-sending the whole state.
+  function logTx({ type, amount, cat = null, sourceId = null, bucket = null, note = null }) {
+    const tx = { id: uid(), type, amount, date: new Date().toISOString(), cat, goalId: null, sourceId, bucket, note };
+    setData({ ...data, transactions: [...transactions, tx] }); // optimistic
+    saveChain.current = saveChain.current.then(async () => {
+      try {
+        const saved = await addTransaction(tx);
+        revRef.current = saved.rev ?? revRef.current;
+        setToast("Saved"); setTimeout(() => setToast(""), 1200);
+      } catch (e) {
+        try { const fresh = await getState(); revRef.current = fresh.rev ?? 0; setData({ ...EMPTY, ...fresh }); } catch (_) {}
+        setError(String(e.message || e));
+      }
+    });
   }
   function setNetWorth(value) {
     let acctId = accounts[0]?.id, accts = accounts;
@@ -398,7 +391,7 @@ export default function App() {
         {tab === "log" && <Ledger transactions={transactions} sources={incomeSources} onDelete={deleteTx} />}
 
         {tab === "goals" && <>
-          <StreakPanel contributions={contributions} freezes={freezes} />
+          <StreakPanel transactions={transactions} freezes={freezes} />
           <Milestones list={milestoneList} />
           <MoneyTargets targets={profile?.moneyTargets || []} onChange={(list) => save({ ...data, profile: { ...profile, moneyTargets: list } })} />
         </>}

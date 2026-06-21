@@ -88,6 +88,7 @@ const DEFAULT_PROFILE = {
   customRules: null,
   incomeSources: [], // [{ id, name, type, typicalMonthly }] — replaces single income field
   moneyTargets: [],  // [{ id, label, amount, metric }] — user-defined game goals (I4)
+  bills: [],         // [{ id, name, amount }] — recurring essentials (A1/S4, inform-only)
 };
 const DEFAULT_SETTINGS = { returnRate: 0.07, monthlyInvest: null, streakFreezes: 0 };
 
@@ -110,13 +111,44 @@ export function validateState(s) {
   if (!s || typeof s !== "object") return "body must be an object";
   for (const k of ["accounts", "snapshots", "goals", "debts", "transactions"])
     if (s[k] != null && !Array.isArray(s[k])) return `${k} must be an array`;
+  for (const a of s.accounts || []) {
+    if (!a?.id || !a?.type) return "account needs an id and type";
+    if (!a.name || !String(a.name).trim()) return "account needs a name";
+  }
   for (const t of s.transactions || []) {
     if (!TX_TYPES.has(t?.type)) return `bad transaction type: ${t?.type}`;
     if (typeof t.amount !== "number" || !isFinite(t.amount)) return "transaction.amount must be a finite number";
   }
-  for (const sn of s.snapshots || [])
+  for (const sn of s.snapshots || []) {
+    if (!sn?.accountId) return "snapshot needs an accountId";
     if (typeof sn.balance !== "number" || !isFinite(sn.balance)) return "snapshot.balance must be a finite number";
+  }
+  for (const d of s.debts || []) if (!d?.id || !d?.name) return "debt needs an id and name";
   return null; // ok
+}
+
+export function validateTransaction(t) {
+  if (!t || typeof t !== "object") return "transaction must be an object";
+  if (!t.id) return "transaction needs an id";
+  if (!TX_TYPES.has(t.type)) return `bad transaction type: ${t.type}`;
+  if (typeof t.amount !== "number" || !isFinite(t.amount)) return "transaction.amount must be a finite number";
+  if (!t.date) return "transaction needs a date";
+  return null;
+}
+
+// S3: append a single transaction without re-sending the whole state.
+export function addTransaction(t) {
+  db.exec("BEGIN");
+  try {
+    db.prepare("INSERT INTO transactions(id,type,amount,date,note,cat,goal_id,source_id,bucket) VALUES(@id,@type,@amount,@date,@note,@cat,@goalId,@sourceId,@bucket)")
+      .run({ note: null, cat: null, goalId: null, sourceId: null, bucket: null, ...t });
+    setMeta("rev", getRev() + 1);
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+  return getState();
 }
 
 // ── full state assembly (what GET /api/state returns) ─────────────────────────

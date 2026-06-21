@@ -4,9 +4,9 @@ import express from "express";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
-import { getState, putState, validateState, ConflictError } from "./db.js";
+import { getState, putState, validateState, validateTransaction, addTransaction, ConflictError } from "./db.js";
 import { migrateLegacy } from "./migrate.js";
-import { buildPlan } from "./engine.js";
+import { buildPlan, typicalIncome } from "./engine.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -31,15 +31,33 @@ app.put("/api/state", (req, res) => {
   }
 });
 
+// append a single transaction (the common case — no full-state PUT, no rev clash)
+app.post("/api/transactions", (req, res) => {
+  const t = req.body || {};
+  const bad = validateTransaction(t);
+  if (bad) return res.status(400).json({ error: bad });
+  try { res.json(addTransaction(t)); }
+  catch (e) { res.status(400).json({ error: String(e.message || e) }); }
+});
+
 // the allocation engine — "where should this money go?" (SPEC §1.5)
 app.get("/api/plan", (req, res) => {
   const state = getState();
-  const sources = state.profile.incomeSources || [];
-  const typical = sources.length
-    ? sources.reduce((s, x) => s + (x.typicalMonthly || 0), 0)
-    : (state.profile.typicalIncome ?? 0);
-  const income = req.query.income != null ? Number(req.query.income) : typical;
+  const income = req.query.income != null ? Number(req.query.income) : typicalIncome(state);
   res.json(buildPlan(state, income));
+});
+
+// data export (download the whole dataset) + import (validated full replace)
+app.get("/api/export", (_req, res) => {
+  res.setHeader("Content-Disposition", `attachment; filename="tsumiki-${new Date().toISOString().slice(0, 10)}.json"`);
+  res.json(getState());
+});
+app.post("/api/import", (req, res) => {
+  const body = req.body || {};
+  const bad = validateState(body);
+  if (bad) return res.status(400).json({ error: bad });
+  try { res.json(putState(body)); } // no rev check — deliberate replace
+  catch (e) { res.status(400).json({ error: String(e.message || e) }); }
 });
 
 // one-time import of old window.storage JSON → unified model

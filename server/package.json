@@ -6,7 +6,8 @@
   "description": "Personal money-coach backend (mini-PC brain). See ../SPEC.md §12.",
   "scripts": {
     "start": "node --experimental-sqlite index.js",
-    "dev": "node --experimental-sqlite --watch index.js"
+    "dev": "node --experimental-sqlite --watch index.js",
+    "test": "node --test"
   },
   "engines": { "node": ">=22.5" },
   "dependencies": {

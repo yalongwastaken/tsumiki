@@ -19,5 +19,8 @@ async function call(method, path, body) {
 
 export const getState = () => call("GET", "/api/state");
 export const getPlan = (income) => call("GET", `/api/plan${income != null ? `?income=${encodeURIComponent(income)}` : ""}`);
+export const addTransaction = (tx) => call("POST", "/api/transactions", tx);
 export const putState = (state) => call("PUT", "/api/state", state);
 export const migrateLegacy = (legacy) => call("POST", "/api/migrate", legacy);
+export const importData = (state) => call("POST", "/api/import", state);
+export const exportUrl = () => (BASE || "") + "/api/export";
