@@ -22,7 +22,7 @@ const SPLIT_SEG = [
   ["checking", "#378ADD"], ["savings", "#3FA9C9"], ["retirement", "#A78BFA"], ["invest", "#1D9E75"],
 ];
 
-export default function PlanSplitChart({ plan, strategy, onSetStrategy }) {
+export default function PlanSplitChart({ plan, strategy, saved, onSetStrategy }) {
   if (!plan?.steps?.length) return null;
   const byKey = {};
   for (const s of plan.steps) byKey[s.key] = (byKey[s.key] || 0) + s.amount;
@@ -61,12 +61,14 @@ export default function PlanSplitChart({ plan, strategy, onSetStrategy }) {
 
       {/* alternative strategies — even though one is active, show the others */}
       <div className="mt-4 pt-3 border-t border-slate-50">
-        <div className="text-xs text-slate-400 mb-2">Surplus split by strategy {onSetStrategy ? "— tap to switch" : ""}</div>
+        <div className="text-xs text-slate-400 mb-2">Surplus split by strategy {onSetStrategy ? "— tap to preview" : ""}</div>
         <div className="space-y-1.5">
           {STRATS.map(([key, label, w]) => (
             <button key={key} onClick={() => onSetStrategy?.(key)} disabled={!onSetStrategy}
-              className={`w-full flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${strategy === key ? "bg-brand-50" : "hover:bg-slate-50"} ${onSetStrategy ? "cursor-pointer" : "cursor-default"}`}>
-              <span className={`text-xs w-16 text-left ${strategy === key ? "font-semibold text-brand-700" : "text-slate-500"}`}>{label}</span>
+              className={`w-full flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${strategy === key ? "bg-brand-50 ring-1 ring-brand-200" : "hover:bg-slate-50"} ${onSetStrategy ? "cursor-pointer" : "cursor-default"}`}>
+              <span className={`text-xs w-24 text-left flex items-center gap-1 ${strategy === key ? "font-semibold text-brand-700" : "text-slate-500"}`}>
+                {label}{saved === key && <span className="text-[10px] font-normal text-slate-400">· default</span>}
+              </span>
               <span className="flex-1 flex h-3 rounded-full overflow-hidden">
                 {SPLIT_SEG.map(([k, color]) => <span key={k} style={{ width: `${w[k] * 100}%`, background: color }} title={`${k} ${Math.round(w[k] * 100)}%`} />)}
               </span>

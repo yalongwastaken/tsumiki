@@ -11,8 +11,11 @@ import PlanSplitChart from "./PlanSplitChart.jsx";
 // forward-looking checking minimum watch. SPEC §1.5 + IMPROVEMENTS I3.
 const BUCKET_META = BUCKETS.map((b) => [b.key, b.label, b.color]);
 const monthName = () => new Date().toLocaleDateString(undefined, { month: "long" });
+const STRAT_LABEL = { short_term: "Safety", balanced: "Balanced", long_term: "Growth" };
+const stratLabel = (s) => STRAT_LABEL[s] || "Balanced";
+const cadenceLabel = (c) => ({ weekly: "weekly", biweekly: "every 2 weeks", semimonthly: "twice a month", monthly: "monthly" }[c] || "monthly");
 
-export default function Plan({ transactions = [], accounts = [], snapshots = [], profile = {}, onGoSetup, onSetStrategy }) {
+export default function Plan({ transactions = [], accounts = [], snapshots = [], profile = {}, onGoSetup, onApplyMonth, onClearMonth }) {
   const ym = new Date().toISOString().slice(0, 7);
   const monthTx = useMemo(() => transactions.filter((t) => new Date(t.date).toISOString().slice(0, 7) === ym), [transactions, ym]);
   const incomeThisMonth = monthTx.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
@@ -24,12 +27,22 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
   const [amount, setAmount] = useState(planIncome);
   useEffect(() => { setAmount(planIncome); }, [planIncome]);
 
+  // saved strategy stays put; an optional one-month override applies this month;
+  // a preview lets you *look* at another strategy without saving anything.
+  const savedStrategy = profile.strategy || "balanced";
+  const monthStrategy = (profile.monthOverride?.ym === ym && profile.monthOverride?.strategy) || null;
+  const effective = monthStrategy || savedStrategy;
+  const [preview, setPreview] = useState(effective);
+  useEffect(() => { setPreview(effective); }, [effective]);
+  const previewing = preview !== effective;
+
   const [plan, setPlan] = useState(null);
   const [err, setErr] = useState("");
+  const [perCheck, setPerCheck] = useState(false);
   useEffect(() => {
     const n = Number.isFinite(Number(amount)) ? Number(amount) : 0;
-    getPlan(n).then(setPlan).catch((e) => setErr(String(e.message || e)));
-  }, [amount]);
+    getPlan(n, preview).then(setPlan).catch((e) => setErr(String(e.message || e)));
+  }, [amount, preview]);
 
   // actuals this month, by bucket
   const actual = useMemo(() => {
@@ -110,12 +123,45 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
         )}
       </div>
 
+      {/* preview / one-month override banner — main strategy is never changed by previewing */}
+      {previewing ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-3 flex-wrap">
+          <span className="text-xs text-amber-800 flex-1">
+            Previewing <b>{stratLabel(preview)}</b> — not saved. Your strategy stays <b>{stratLabel(savedStrategy)}</b>.
+          </span>
+          {onApplyMonth && <button onClick={() => onApplyMonth(preview)} className="text-xs font-medium bg-amber-600 text-white rounded-lg px-2.5 py-1 hover:bg-amber-700">Use for {monthName()} only</button>}
+          <button onClick={() => setPreview(effective)} className="text-xs text-amber-700 hover:text-amber-900">Reset</button>
+        </div>
+      ) : monthStrategy ? (
+        <div className="bg-brand-50 border border-brand-200 rounded-xl p-3 flex items-center gap-3 flex-wrap">
+          <span className="text-xs text-brand-800 flex-1">
+            Using <b>{stratLabel(monthStrategy)}</b> for {monthName()} only · your default is <b>{stratLabel(savedStrategy)}</b>.
+          </span>
+          {onClearMonth && <button onClick={onClearMonth} className="text-xs text-brand-700 hover:text-brand-900">Back to default</button>}
+        </div>
+      ) : null}
+
       {err && <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3">{err}</div>}
 
       {/* paycheck → accounts routing (the core advice) */}
-      {plan?.steps?.length > 0 && (
+      {plan?.steps?.length > 0 && (() => {
+        const per = plan.paychecksPerMonth || 1;
+        const canSplit = per > 1.05;                 // monthly pay → no per-paycheck view
+        const show = perCheck && canSplit ? per : 1; // divisor for the displayed amounts
+        return (
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Send this money to…</div>
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Send this money to…</div>
+            {canSplit && (
+              <div className="flex text-xs rounded-lg overflow-hidden border border-slate-200">
+                <button onClick={() => setPerCheck(false)} className={`px-2 py-1 ${!perCheck ? "bg-brand-600 text-white" : "text-slate-500"}`}>Monthly</button>
+                <button onClick={() => setPerCheck(true)} className={`px-2 py-1 ${perCheck ? "bg-brand-600 text-white" : "text-slate-500"}`}>Per paycheck</button>
+              </div>
+            )}
+          </div>
+          {perCheck && canSplit && (
+            <div className="text-xs text-slate-400 mb-3">You're paid {cadenceLabel(plan.cadence)} (~{per.toFixed(1)}× / month). Set each of these up as an automatic transfer every payday — same split every time.</div>
+          )}
           <div className="space-y-2.5">
             {plan.steps.map((s, i) => (
               <div key={i} className="flex items-center gap-3">
@@ -124,22 +170,23 @@ export default function Plan({ transactions = [], accounts = [], snapshots = [],
                   <div className="text-sm text-slate-700">{s.label}</div>
                   <div className="text-xs text-slate-400 truncate">→ {routeFor(s.key)}</div>
                 </div>
-                <span className="text-sm font-mono font-semibold text-slate-900">{fmt(s.amount)}</span>
+                <span className="text-sm font-mono font-semibold text-slate-900">{fmt(s.amount / show)}{show > 1 ? <span className="text-slate-300 text-xs">/check</span> : null}</span>
               </div>
             ))}
             {plan.leftover > 0 && (
               <div className="flex items-center gap-3 pt-1 border-t border-slate-50">
                 <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0 bg-slate-300" />
                 <div className="flex-1 text-sm text-slate-500">Leftover · flexible in checking</div>
-                <span className="text-sm font-mono text-slate-500">{fmt(plan.leftover)}</span>
+                <span className="text-sm font-mono text-slate-500">{fmt(plan.leftover / show)}</span>
               </div>
             )}
           </div>
         </div>
-      )}
+        );
+      })()}
 
-      {/* donut of the split + strategy alternatives */}
-      <PlanSplitChart plan={plan} strategy={profile.strategy || "balanced"} onSetStrategy={onSetStrategy} />
+      {/* donut of the split + strategy alternatives (tap to preview) */}
+      <PlanSplitChart plan={plan} strategy={preview} saved={savedStrategy} onSetStrategy={setPreview} />
 
       {/* per-bucket plan vs actual */}
       {rows.length > 0 && (

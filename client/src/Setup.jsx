@@ -84,7 +84,7 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
   }
 
   // income sources (commit immediately; keep profile.typicalIncome = derived sum)
-  const [src, setSrc] = useState({ name: "", type: "salary", basis: "annual", amount: "", hours: "40" });
+  const [src, setSrc] = useState({ name: "", type: "salary", basis: "annual", amount: "", hours: "40", cadence: "biweekly" });
   const [editingSrc, setEditingSrc] = useState(null);
   // convert any pay basis to a monthly figure
   const toMonthly = (s) => {
@@ -100,19 +100,19 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
   }
   function addSource() {
     if (!src.name.trim()) return;
-    const fields = { name: src.name.trim(), type: src.type, basis: src.basis, amount: Number(src.amount || 0), hours: Number(src.hours || 0), typicalMonthly: toMonthly(src) };
+    const fields = { name: src.name.trim(), type: src.type, basis: src.basis, amount: Number(src.amount || 0), hours: Number(src.hours || 0), cadence: src.cadence || "biweekly", typicalMonthly: toMonthly(src) };
     commitSources(editingSrc
       ? incomeSources.map((s) => (s.id === editingSrc ? { ...s, ...fields } : s))
       : [...incomeSources, { id: uid(), ...fields }]);
-    setSrc({ name: "", type: "salary", basis: "annual", amount: "", hours: "40" });
+    setSrc({ name: "", type: "salary", basis: "annual", amount: "", hours: "40", cadence: "biweekly" });
     setEditingSrc(null);
   }
   function editSource(s) {
-    setSrc({ name: s.name, type: s.type, basis: s.basis || "monthly", amount: String(s.amount ?? s.typicalMonthly ?? ""), hours: String(s.hours || 40) });
+    setSrc({ name: s.name, type: s.type, basis: s.basis || "monthly", amount: String(s.amount ?? s.typicalMonthly ?? ""), hours: String(s.hours || 40), cadence: s.cadence || "biweekly" });
     setEditingSrc(s.id);
   }
   const srcDetail = (s) => s.basis === "hourly" ? `$${s.amount}/hr · ${s.hours}h/wk` : s.basis === "annual" ? `${fmt(s.amount)}/yr` : `${fmt(s.amount)}/mo`;
-  function removeSource(id) { commitSources(incomeSources.filter((s) => s.id !== id)); if (editingSrc === id) { setEditingSrc(null); setSrc({ name: "", type: "salary", basis: "annual", amount: "", hours: "40" }); } }
+  function removeSource(id) { commitSources(incomeSources.filter((s) => s.id !== id)); if (editingSrc === id) { setEditingSrc(null); setSrc({ name: "", type: "salary", basis: "annual", amount: "", hours: "40", cadence: "biweekly" }); } }
 
   // accounts
   const [acct, setAcct] = useState({ name: "", type: "checking", balance: "" });
@@ -224,6 +224,16 @@ export default function Setup({ data, onSave, onReplayIntro, theme = "light", on
           {src.basis === "hourly"
             ? <input type="number" value={src.hours} onChange={(e) => setSrc({ ...src, hours: e.target.value })} placeholder="hrs/wk" className={field} />
             : <div className="flex items-center text-xs text-slate-400">≈ {fmt(toMonthly(src))}/mo</div>}
+        </div>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs text-slate-500">Paid</span>
+          <select value={src.cadence} onChange={(e) => setSrc({ ...src, cadence: e.target.value })} className={field}>
+            <option value="weekly">weekly</option>
+            <option value="biweekly">every 2 weeks</option>
+            <option value="semimonthly">twice a month</option>
+            <option value="monthly">monthly</option>
+          </select>
+          <span className="text-xs text-slate-400">— sets per-paycheck amounts on your plan</span>
         </div>
         <div className="flex items-center justify-between gap-2">
           {src.basis === "hourly" && <span className="text-xs text-slate-400">≈ {fmt(toMonthly(src))}/mo</span>}

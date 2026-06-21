@@ -44,7 +44,7 @@ app.post("/api/transactions", (req, res) => {
 app.get("/api/plan", (req, res) => {
   const state = getState();
   const income = req.query.income != null ? Number(req.query.income) : typicalIncome(state);
-  res.json(buildPlan(state, income));
+  res.json(buildPlan(state, income, { strategy: req.query.strategy }));
 });
 
 // data export (download the whole dataset) + import (validated full replace)

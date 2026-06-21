@@ -114,6 +114,70 @@ test("split: surplus is shared across destinations, not drained into one", () =>
   assert.equal(p.allocated + p.leftover, 4000);
 });
 
+test("starter buffer: with empty savings, savings is boosted past its split share", () => {
+  // big essentials so the $1k+ starter clearly exceeds the 25% balanced savings share
+  const state = {
+    accounts: [acct("chk", "checking"), acct("sav", "savings")],
+    snapshots: [snap("chk", 5000), snap("sav", 0)],
+    debts: [],
+    profile: { checkingFloor: 3000, emergencyTarget: 20000, strategy: "balanced", bills: [{ id: "r", name: "Rent", amount: 1800 }] },
+    transactions: [],
+  };
+  // surplus after $1800 essentials = ~$1200; plain 25% share would be ~$300,
+  // but the starter ($1800) forces savings to take the lot first.
+  const p = buildPlan(state, 3000);
+  const amt = (k) => p.steps.filter((s) => s.key === k).reduce((a, s) => a + s.amount, 0);
+  assert.ok(amt("emergency") > 300, `savings boosted past its share (${amt("emergency")})`);
+  assert.equal(p.allocated + p.leftover, 3000);
+});
+
+test("no boost needed: split is the plain percentage split", () => {
+  // savings already past the starter buffer → emergency gets exactly its 25% share
+  const state = {
+    accounts: [acct("chk", "checking"), acct("sav", "savings")],
+    snapshots: [snap("chk", 5000), snap("sav", 5000)],
+    debts: [],
+    profile: { checkingFloor: 3000, emergencyTarget: 20000, strategy: "balanced" },
+    transactions: [],
+  };
+  const p = buildPlan(state, 4000);
+  const amt = (k) => p.steps.filter((s) => s.key === k).reduce((a, s) => a + s.amount, 0);
+  assert.equal(amt("emergency"), 1000);   // 25% of 4000
+  assert.equal(amt("retirement"), 1200);  // 30%
+  assert.equal(amt("checking_flex"), 600);// 15%
+  assert.equal(amt("brokerage"), 1200);   // 30%
+});
+
+test("preview: strategyOverride changes the split without touching profile", () => {
+  const state = {
+    accounts: [acct("chk", "checking"), acct("sav", "savings")],
+    snapshots: [snap("chk", 5000), snap("sav", 5000)],
+    debts: [], profile: { checkingFloor: 3000, emergencyTarget: 20000, strategy: "balanced" }, transactions: [],
+  };
+  const base = buildPlan(state, 4000);
+  const growth = buildPlan(state, 4000, { strategy: "long_term" });
+  assert.equal(base.strategy, "balanced");
+  assert.equal(growth.strategy, "long_term");
+  // growth invests more than balanced
+  assert.ok(growth.investable > base.investable);
+});
+
+test("cadence: paychecksPerMonth derives from the dominant income source", () => {
+  const state = {
+    accounts: [acct("chk", "checking")], snapshots: [snap("chk", 5000)], debts: [],
+    profile: { checkingFloor: 0, strategy: "balanced", incomeSources: [
+      { id: "a", typicalMonthly: 4000, cadence: "biweekly" },
+      { id: "b", typicalMonthly: 500, cadence: "monthly" },
+    ] },
+    transactions: [],
+  };
+  const p = buildPlan(state, 5000);
+  assert.equal(p.cadence, "biweekly");
+  assert.ok(p.paychecksPerMonth > 2 && p.paychecksPerMonth < 2.5);
+  // default when no sources
+  assert.equal(buildPlan({ profile: {} }, 1000).cadence, "monthly");
+});
+
 test("A1: with no bills, essentials fall back to learned avg spending", () => {
   const state = {
     accounts: [acct("chk", "checking")], snapshots: [snap("chk", 9000)], debts: [],

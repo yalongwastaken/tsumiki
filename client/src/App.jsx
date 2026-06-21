@@ -330,7 +330,9 @@ export default function App() {
             {tab === "home" && <Home profile={profile} transactions={transactions} accounts={accounts} snapshots={snapshots}
               income={income} realNetWorth={realNetWorth} investedTotal={investedTotal} milestoneList={milestoneList} freezes={freezes} onGo={setTab} />}
 
-            {tab === "plan" && <Plan transactions={transactions} accounts={accounts} snapshots={snapshots} profile={profile} onGoSetup={() => setTab("settings")} onSetStrategy={(s) => save({ ...data, profile: { ...profile, strategy: s } })} />}
+            {tab === "plan" && <Plan transactions={transactions} accounts={accounts} snapshots={snapshots} profile={profile} onGoSetup={() => setTab("settings")}
+              onApplyMonth={(s) => save({ ...data, profile: { ...profile, monthOverride: { ym: new Date().toISOString().slice(0, 7), strategy: s } } })}
+              onClearMonth={() => { const { monthOverride, ...rest } = profile; save({ ...data, profile: rest }); }} />}
 
             {tab === "activity" && <Activity transactions={transactions} profile={profile} sources={incomeSources} onDelete={deleteTx} />}
 

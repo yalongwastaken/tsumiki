@@ -6,6 +6,7 @@
 
 const DEFAULT_HIGH_APR = 10;   // % — at/above this, debt is "high interest"
 const DEFAULT_IRA_LIMIT = 7000; // annual retirement contribution cap
+const CADENCE = { weekly: 4.345, biweekly: 2.1725, semimonthly: 2, monthly: 1 }; // paychecks/month
 
 // ── read current balances from the latest snapshot per account ────────────────
 // average monthly logged spending — fallback "essentials" estimate when no bills
@@ -65,10 +66,14 @@ export function typicalIncome(state) {
   return typed;
 }
 
-export function buildPlan(state, incomeArg) {
+export function buildPlan(state, incomeArg, opts = {}) {
   const { accounts = [], snapshots = [], debts = [], profile = {}, transactions = [] } = state;
   const income = Math.max(0, Math.round(Number(incomeArg) || 0));
-  const strategy = STRATEGY_SPLIT[profile.strategy] ? profile.strategy : "balanced";
+  const ym = new Date().toISOString().slice(0, 7);
+  // strategy precedence: explicit preview (opts) → this-month override → main
+  const mo = profile.monthOverride;
+  const overrideStrategy = mo && mo.ym === ym && STRATEGY_SPLIT[mo.strategy] ? mo.strategy : null;
+  const strategy = (STRATEGY_SPLIT[opts.strategy] && opts.strategy) || overrideStrategy || (STRATEGY_SPLIT[profile.strategy] ? profile.strategy : "balanced");
 
   const bal = balancesByType(accounts, snapshots);
   const floor = Math.max(0, profile.checkingFloor || 0);
@@ -127,13 +132,26 @@ export function buildPlan(state, incomeArg) {
       : `Debt at/above ${highApr}% APR costs more than markets return — kill it.`);
 
   // ── split what's left across the four destinations (no single drain) ──
+  // Algorithm: savings takes its strategy share, but is BOOSTED to first secure a
+  // one-month "starter" safety net before the rest goes to investing. The other
+  // three destinations then split what remains in proportion — so when no boost
+  // is needed this reproduces the plain percentage split exactly.
   const w = splitWeights(profile, strategy);
   const surplus = remaining;
   const roomLeft = Math.max(0, retirementRoom - retireUsed);
-  const eAmt = Math.min(surplus * w.savings, emGap);          // savings → capped at emergency target
-  const rAmt = Math.min(surplus * w.retirement, roomLeft);    // retirement → capped at annual room
-  const cAmt = surplus * w.checking;                          // flexible, kept in checking
-  give("emergency", "Savings — emergency fund", eAmt, emGap > 0 ? `Toward your ${money(emTarget)} safety net.` : "Safety cushion.");
+  const starter = Math.min(emTarget, Math.max(1000, Math.round(essentials)));   // ~1 month of essentials (min $1,000)
+  const starterGap = Math.max(0, starter - bal.savings);
+  const eAmt = Math.min(Math.max(surplus * w.savings, starterGap), emGap, surplus);
+  const boosted = eAmt > surplus * w.savings + 0.5;
+  give("emergency", "Savings — emergency fund", eAmt,
+    boosted ? `Securing a ${money(starter)} starter safety net before investing the rest.`
+      : emGap > 0 ? `Toward your ${money(emTarget)} safety net.` : "Safety cushion.");
+
+  // remaining splits among retirement / checking / invest by their relative weights
+  const rest = remaining;
+  const rw = (w.retirement + w.checking + w.invest) || 1;
+  const rAmt = Math.min(rest * (w.retirement / rw), roomLeft);   // capped at annual room
+  const cAmt = rest * (w.checking / rw);                         // flexible, kept liquid
   give("retirement", "Retirement investment", rAmt, roomLeft > 0 ? `Tax-advantaged — ${money(roomLeft)} of room left this year.` : "Retirement.");
   give("checking_flex", "Keep in checking", cAmt, "Flexible spending money you keep liquid.");
   // everything still unallocated (the invest share + any capped overflow) → personal investment
@@ -141,9 +159,15 @@ export function buildPlan(state, incomeArg) {
 
   const investable = steps.filter((s) => s.key === "retirement" || s.key === "brokerage").reduce((a, s) => a + s.amount, 0);
 
+  // pay cadence → how many paychecks land per month (drives per-paycheck amounts)
+  const srcs = profile.incomeSources || [];
+  const primary = srcs.slice().sort((a, b) => (b.typicalMonthly || 0) - (a.typicalMonthly || 0))[0];
+  const cadence = primary?.cadence && CADENCE[primary.cadence] ? primary.cadence : "monthly";
+  const paychecksPerMonth = CADENCE[cadence];
+
   return {
     income, strategy, allocated: income - remaining, leftover: remaining, investable, steps, split: w,
-    essentials, essentialsSource,
-    context: { checking: bal.checking, savings: bal.savings, floor, emergencyTarget: emTarget, emergencyGap: emGap, minPay, highDebtBalance, matchPct, retirementRoom, ytdRetirement, highApr, iraLimit, essentials, essentialsSource },
+    essentials, essentialsSource, cadence, paychecksPerMonth,
+    context: { checking: bal.checking, savings: bal.savings, floor, emergencyTarget: emTarget, emergencyGap: emGap, starter, minPay, highDebtBalance, matchPct, retirementRoom, ytdRetirement, highApr, iraLimit, essentials, essentialsSource },
   };
 }
