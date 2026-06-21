@@ -3,7 +3,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { nextPaydays, paydaysInMonth } from "../src/paydays.js";
 
-const iso = (d) => d.toISOString().slice(0, 10);
+// format as a LOCAL calendar date — paydays are local-midnight dates, so asserting
+// via toISOString() (UTC) would shift a day in non-UTC timezones.
+const iso = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const FROM = new Date("2026-06-21T12:00:00Z"); // a Sunday
 
 test("biweekly projects forward from a past anchor", () => {

@@ -91,6 +91,18 @@ personalized, nothing about you leaves the device).
 No port-forwarding and no public URL — the server is only reachable by your own devices
 on the encrypted tailnet.
 
+### Install it as an app (iPhone / Android)
+
+Tsumiki is an installable PWA, so it runs like a native app — no App Store needed:
+
+1. (Optional) enable **MagicDNS** in Tailscale so the address is a name like
+   `http://minipc:4000` instead of a raw IP.
+2. Open that URL in **Safari** (iOS) or **Chrome** (Android).
+3. **Share → Add to Home Screen** (iOS) / **⋮ → Install app** (Android).
+
+It installs with the Tsumiki icon and launches fullscreen (no browser chrome),
+with a theme color that follows light/dark mode.
+
 ## Back up your data
 
 The whole database is one file, so a copy is a full backup:
