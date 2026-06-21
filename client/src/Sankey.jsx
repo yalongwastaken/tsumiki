@@ -6,8 +6,8 @@ import { CAT_COLORS, bucketLabel, bucketColor, bucketOf } from "./buckets.js";
 
 const clip = (s) => (s.length > 16 ? s.slice(0, 15) + "…" : s);
 export default function SankeyFlow({ transactions, fallbackIncome }) {
-  // wider viewBox + right padding so labels never run off the edge
-  const W = 700, LX = 50, LW = 16, RX = 380, RW = 16, PTOP = 12, PBOT = 16, GAP = 6, MIN_H = 30, SCALE = 140;
+  // left gutter (LX) leaves room for the income label so it isn't clipped
+  const W = 720, LX = 110, LW = 16, RX = 400, RW = 16, PTOP = 12, PBOT = 16, GAP = 6, MIN_H = 30, SCALE = 140;
   const ym = new Date().toISOString().slice(0, 7);
   const month = transactions.filter((t) => new Date(t.date).toISOString().slice(0, 7) === ym);
   const incomeActual = month.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
@@ -25,11 +25,13 @@ export default function SankeyFlow({ transactions, fallbackIncome }) {
     ...Object.entries(contribMap).map(([b, a]) => ({ label: bucketLabel(b), amount: a, color: bucketColor(b) })),
     ...topCats.map(([c, a], i) => ({ label: c, amount: a, color: CAT_COLORS[i % CAT_COLORS.length] })),
   ];
-  if (!income || income <= 0)
-    return <div className="text-center py-6 text-slate-400 text-sm">Log income and spending to see this month's flow.</div>;
+  // nothing real to show yet (no spending/contributions logged this month) →
+  // a single full-height "leftover" block is just a gray blob, so prompt instead
+  const hasFlow = items.length > 0;
+  if (!income || income <= 0 || !hasFlow)
+    return <div className="text-center py-8 text-slate-400 text-sm">Log income, spending, or a contribution to see this month's flow.</div>;
   const freeAmt = income - items.reduce((s, x) => s + x.amount, 0);
   if (freeAmt > 0) items.push({ label: "Leftover", amount: freeAmt, color: "#94A3B8" });
-  if (items.length === 0) return <div className="text-center py-6 text-slate-400 text-sm">Log spending or contributions to see your flow.</div>;
 
   let ry = PTOP;
   const right = items.map((it) => { const h = MIN_H + (it.amount / income) * SCALE; const r = { ...it, y: ry, h }; ry += h + GAP; return r; });
