@@ -8,6 +8,7 @@ import Milestones from "./Milestones.jsx";
 import { computeMilestones } from "./milestones.js";
 
 import Fire from "./Fire.jsx";
+import ErrorBoundary from "./ErrorBoundary.jsx";
 // recharts is heavy and only used on the Grow tab — load it on demand.
 const Projection = lazy(() => import("./Projection.jsx"));
 const NetWorthHistory = lazy(() => import("./NetWorthHistory.jsx"));
@@ -282,20 +283,33 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [derivedInvest, setDerivedInvest] = useState(null); // monthly investable per the plan (§7)
+  const revRef = useRef(0);            // last server rev (optimistic concurrency)
+  const saveChain = useRef(Promise.resolve()); // serialize writes so rapid saves can't self-conflict
 
   useEffect(() => { (async () => {
     try {
-      setData({ ...EMPTY, ...(await getState()) });
+      const fresh = await getState();
+      revRef.current = fresh.rev ?? 0;
+      setData({ ...EMPTY, ...fresh });
       try { setDerivedInvest((await getPlan()).investable); } catch (_) {}
     }
     catch (e) { setError(String(e.message || e)); }
     setLoading(false);
   })(); }, []);
 
-  async function save(next) {
-    setData(next);
-    try { await putState(next); setToast("Saved"); setTimeout(() => setToast(""), 1200); }
-    catch (e) { setError(String(e.message || e)); }
+  function save(next) {
+    setData(next); // optimistic UI
+    saveChain.current = saveChain.current.then(async () => {
+      try {
+        const saved = await putState({ ...next, rev: revRef.current });
+        revRef.current = saved.rev ?? revRef.current;
+        setToast("Saved"); setTimeout(() => setToast(""), 1200);
+      } catch (e) {
+        if (e.status === 409) { // changed elsewhere (another tab/device)
+          try { const fresh = await getState(); revRef.current = fresh.rev ?? 0; setData({ ...EMPTY, ...fresh }); setToast("Reloaded — changed elsewhere"); setTimeout(() => setToast(""), 1800); } catch (_) {}
+        } else { setError(String(e.message || e)); }
+      }
+    });
   }
 
   const { goals, transactions, settings, accounts, snapshots, profile, debts } = data;
@@ -447,6 +461,7 @@ export default function App() {
         ))}
       </div>
 
+      <ErrorBoundary key={tab}>
       <div className="px-4 pt-5 space-y-4 max-w-lg mx-auto">
         {tab === "plan" && <Plan defaultIncome={profile?.typicalIncome ?? undefined} onGoSetup={() => setTab("setup")} />}
 
@@ -491,6 +506,7 @@ export default function App() {
 
         {tab === "setup" && <Setup data={data} onSave={save} />}
       </div>
+      </ErrorBoundary>
 
       {/* always-available fast logging (SPEC §9) */}
       <button onClick={() => setShowAdd(true)} aria-label="Log a transaction"

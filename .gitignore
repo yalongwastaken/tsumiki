@@ -3,6 +3,7 @@ node_modules/
 
 # build output
 client/dist/
+client/test/.tmp/
 *.timestamp-*.mjs
 
 # SQLite data + backups (never commit personal finance data)

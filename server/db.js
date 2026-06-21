@@ -90,9 +90,28 @@ function setMeta(key, obj) {
   ).run(key, JSON.stringify(obj));
 }
 
+// ── optimistic-concurrency rev (guards against two tabs clobbering) ───────────
+function getRev() { return getMeta("rev", 0); }
+
+// ── lightweight validation: reject obviously malformed PUTs (I1) ──────────────
+const TX_TYPES = new Set(["income", "spending", "contribution"]);
+export function validateState(s) {
+  if (!s || typeof s !== "object") return "body must be an object";
+  for (const k of ["accounts", "snapshots", "goals", "debts", "transactions"])
+    if (s[k] != null && !Array.isArray(s[k])) return `${k} must be an array`;
+  for (const t of s.transactions || []) {
+    if (!TX_TYPES.has(t?.type)) return `bad transaction type: ${t?.type}`;
+    if (typeof t.amount !== "number" || !isFinite(t.amount)) return "transaction.amount must be a finite number";
+  }
+  for (const sn of s.snapshots || [])
+    if (typeof sn.balance !== "number" || !isFinite(sn.balance)) return "snapshot.balance must be a finite number";
+  return null; // ok
+}
+
 // ── full state assembly (what GET /api/state returns) ─────────────────────────
 export function getState() {
   return {
+    rev: getRev(),
     accounts: db.prepare("SELECT id, name, type, color FROM accounts").all(),
     snapshots: db
       .prepare("SELECT id, account_id AS accountId, date, balance FROM snapshots ORDER BY date")
@@ -141,11 +160,16 @@ function replaceAll(state) {
 }
 
 // node:sqlite has no .transaction() helper — wrap manually so a bad PUT can't
-// leave the tables half-written.
-export function putState(state) {
+// leave the tables half-written. `expectedRev` enables optimistic concurrency:
+// if the caller's rev is stale, we refuse rather than clobber a newer write.
+export class ConflictError extends Error {}
+export function putState(state, expectedRev) {
+  if (expectedRev != null && Number(expectedRev) !== getRev())
+    throw new ConflictError("state changed since you loaded it");
   db.exec("BEGIN");
   try {
     replaceAll(state);
+    setMeta("rev", getRev() + 1);
     db.exec("COMMIT");
   } catch (e) {
     db.exec("ROLLBACK");

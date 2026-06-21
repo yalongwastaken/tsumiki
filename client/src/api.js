@@ -8,7 +8,12 @@ async function call(method, path, body) {
     headers: body ? { "content-type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(`${method} ${path} → ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const text = await res.text();
+    const err = new Error(`${method} ${path} → ${res.status}: ${text}`);
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 
