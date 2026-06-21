@@ -28,9 +28,11 @@ function Slider({ label, value, min, max, step, suffix = "", fmt: f, onChange })
   );
 }
 
-export default function Projection({ start, settings, onChange }) {
+export default function Projection({ start, settings, onChange, derivedInvest }) {
   const [years, setYears] = useState(10);
-  const monthly = settings.monthlyInvest ?? 3000;
+  // §7: default to what your actual plan invests; the slider is an override.
+  const monthly = settings.monthlyInvest ?? (derivedInvest != null ? derivedInvest : 3000);
+  const usingDerived = settings.monthlyInvest == null && derivedInvest != null;
   const data = projectSeries(start, monthly, settings.returnRate, years);
   const end = data[data.length - 1];
   const gains = end.value - end.contributed;
@@ -63,7 +65,7 @@ export default function Projection({ start, settings, onChange }) {
       </div>
       <div className="space-y-4 mt-4">
         <Slider label="Time horizon" value={years} min={1} max={30} step={1} suffix=" yr" onChange={setYears} />
-        <Slider label="Monthly invested" value={monthly} min={0} max={6000} step={100}
+        <Slider label={usingDerived ? "Monthly invested (from your plan)" : "Monthly invested"} value={monthly} min={0} max={6000} step={100}
           fmt={fmt} onChange={(v) => onChange({ ...settings, monthlyInvest: v })} />
         <Slider label="Annual return" value={settings.returnRate} min={0.02} max={0.12} step={0.005}
           fmt={(v) => (v * 100).toFixed(1) + "%"} onChange={(v) => onChange({ ...settings, returnRate: v })} />

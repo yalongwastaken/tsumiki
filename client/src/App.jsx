@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
-import { getState, putState } from "./api.js";
+import { getState, putState, getPlan } from "./api.js";
 import { fmt } from "./format.js";
 import Setup from "./Setup.jsx";
 import Plan from "./Plan.jsx";
@@ -65,17 +65,33 @@ function useCountUp(target, dur = 900) {
 }
 
 // ─── Sankey Flow ──────────────────────────────────────────────────────────────
-function SankeyFlow({ goals, expenses, income }) {
+// M4 (§7): real money flow for the current month — actual income on the left,
+// actual spending + contributions + leftover on the right. Honest, not planned.
+function SankeyFlow({ transactions, goals, fallbackIncome }) {
   const W = 580, LX = 50, LW = 16, RX = 405, RW = 16, PTOP = 12, PBOT = 16, GAP = 6, MIN_H = 30, SCALE = 140;
-  const catMap = expenses.reduce((a,e) => { a[e.cat] = (a[e.cat]||0)+e.amount; return a; }, {});
-  const topCats = Object.entries(catMap).sort((a,b) => b[1]-a[1]).slice(0,4);
+  const ym = new Date().toISOString().slice(0, 7);
+  const month = transactions.filter(t => new Date(t.date).toISOString().slice(0, 7) === ym);
+  const incomeActual = month.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const income = incomeActual > 0 ? incomeActual : fallbackIncome;
+  const usingFallback = incomeActual <= 0;
+
+  const catMap = {};
+  for (const t of month) if (t.type === "spending") catMap[t.cat || "Other"] = (catMap[t.cat || "Other"] || 0) + t.amount;
+  const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 4);
+
+  const goalName = (id) => (id === "brokerage" ? "Brokerage" : goals.find(g => g.id === id)?.name || "Savings");
+  const contribMap = {};
+  for (const t of month) if (t.type === "contribution") contribMap[t.goalId || "brokerage"] = (contribMap[t.goalId || "brokerage"] || 0) + t.amount;
+
   const items = [
-    ...goals.map(g => ({ label: g.name, amount: g.pledge, color: g.color })),
-    ...topCats.map(([c,a],i) => ({ label: c, amount: a, color: CAT_COLORS[i % CAT_COLORS.length] })),
+    ...Object.entries(contribMap).map(([id, a], i) => ({ label: goalName(id), amount: a, color: goals.find(g => g.id === id)?.color || "#10B981" })),
+    ...topCats.map(([c, a], i) => ({ label: c, amount: a, color: CAT_COLORS[i % CAT_COLORS.length] })),
   ];
-  const freeAmt = income - items.reduce((s,x) => s+x.amount, 0);
-  if (freeAmt > 0) items.push({ label: "To brokerage", amount: freeAmt, color: "#94A3B8" });
-  if (items.length === 0) return <div className="text-center py-6 text-slate-400 text-sm">Add goals or log spending to see your flow.</div>;
+  if (!income || income <= 0)
+    return <div className="text-center py-6 text-slate-400 text-sm">Log income and spending to see this month's flow.</div>;
+  const freeAmt = income - items.reduce((s, x) => s + x.amount, 0);
+  if (freeAmt > 0) items.push({ label: "Unspent / to invest", amount: freeAmt, color: "#94A3B8" });
+  if (items.length === 0) return <div className="text-center py-6 text-slate-400 text-sm">Log spending or contributions to see your flow.</div>;
 
   let ry = PTOP;
   const right = items.map(it => { const h = MIN_H + (it.amount/income)*SCALE; const r = {...it, y:ry, h}; ry += h+GAP; return r; });
@@ -95,7 +111,7 @@ function SankeyFlow({ goals, expenses, income }) {
           <text x={RX+RW+10} y={m-7} dominantBaseline="central" fontSize="11" fill={lc} fontWeight="600">{r.label}</text>
           <text x={RX+RW+10} y={m+7} dominantBaseline="central" fontSize="11" fill="#94A3B8">{fmt(r.amount)}/mo</text>
         </g>); })}
-      <text x={LX-10} y={cY-8} textAnchor="end" dominantBaseline="central" fontSize="11" fill="#94A3B8">Monthly</text>
+      <text x={LX-10} y={cY-8} textAnchor="end" dominantBaseline="central" fontSize="11" fill="#94A3B8">{usingFallback ? "Income (est.)" : "Income"}</text>
       <text x={LX-10} y={cY+8} textAnchor="end" dominantBaseline="central" fontSize="13" fill="#0F172A" fontWeight="bold">{fmt(income)}</text>
     </svg>
   );
@@ -228,9 +244,13 @@ export default function App() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [derivedInvest, setDerivedInvest] = useState(null); // monthly investable per the plan (§7)
 
   useEffect(() => { (async () => {
-    try { setData({ ...EMPTY, ...(await getState()) }); }
+    try {
+      setData({ ...EMPTY, ...(await getState()) });
+      try { setDerivedInvest((await getPlan()).investable); } catch (_) {}
+    }
     catch (e) { setError(String(e.message || e)); }
     setLoading(false);
   })(); }, []);
@@ -258,9 +278,23 @@ export default function App() {
     for (const s of snapshots) if (!latest[s.accountId] || new Date(s.date) > new Date(latest[s.accountId].date)) latest[s.accountId] = s;
     return Object.values(latest).reduce((a, s) => a + s.balance, 0);
   }, [snapshots]);
-  const investedTotal = contributions.reduce((s,c) => s+c.amount, 0);
+  const investedTotal = contributions.reduce((s,c) => s+c.amount, 0); // "contributed by you" — only goes up
   const netWorth = snapshots.length ? realNetWorth : investedTotal;
   const animNW = useCountUp(netWorth);
+
+  // §7 reality check: contributions since you started tracking vs the actual
+  // change in net worth. The gap is the market (or unlogged spending) at work.
+  const realityCheck = useMemo(() => {
+    if (snapshots.length < 2) return null;
+    const firstByAcct = {};
+    for (const s of snapshots) if (!firstByAcct[s.accountId] || new Date(s.date) < new Date(firstByAcct[s.accountId].date)) firstByAcct[s.accountId] = s;
+    const startNW = Object.values(firstByAcct).reduce((a, s) => a + s.balance, 0);
+    const startDate = Object.values(firstByAcct).reduce((a, s) => (new Date(s.date) < new Date(a) ? s.date : a), firstByAcct[Object.keys(firstByAcct)[0]].date);
+    const deltaNW = realNetWorth - startNW;
+    const contribSince = contributions.filter(c => new Date(c.date) >= new Date(startDate)).reduce((s, c) => s + c.amount, 0);
+    if (contribSince <= 0) return null;
+    return { gap: deltaNW - contribSince, deltaNW, contribSince };
+  }, [snapshots, contributions, realNetWorth]);
 
   function logContribution(goalId, amount) {
     save({ ...data, transactions: [...transactions, { id: uid(), type: "contribution", goalId, amount, date: new Date().toISOString(), note: null, cat: null }] });
@@ -289,10 +323,14 @@ export default function App() {
       <div className="bg-white border-b border-slate-200 px-5 pt-5 pb-5">
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-xs text-slate-400 tracking-widest uppercase font-medium mb-1">Net worth</div>
+            <div className="text-xs text-slate-400 tracking-widest uppercase font-medium mb-1">
+              {snapshots.length ? "Net worth" : "Contributed"}
+            </div>
             <div className="text-4xl font-mono font-bold text-slate-900 tabular-nums">{fmt(animNW)}</div>
             <div className="text-xs text-slate-400 mt-1">
-              {investedTotal > 0 ? `${fmt(investedTotal)} contributed so far` : "Start logging to grow this"}
+              {snapshots.length
+                ? (investedTotal > 0 ? `${fmt(investedTotal)} contributed by you` : "real balances · set in Setup")
+                : "log a balance in Setup for real net worth"}
             </div>
           </div>
           <div className="text-right">
@@ -319,16 +357,29 @@ export default function App() {
 
         {tab === "dashboard" && <>
           <QuickLog goals={goals} contributions={contributions} onLog={logContribution} />
+          {realityCheck && (
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Reality check</div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm text-slate-600">You contributed {fmt(realityCheck.contribSince)}; net worth changed {fmt(realityCheck.deltaNW)}.</span>
+              </div>
+              <div className={`text-sm mt-1 font-medium ${realityCheck.gap >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                {realityCheck.gap >= 0
+                  ? `+${fmt(realityCheck.gap)} on top — markets working for you.`
+                  : `${fmt(realityCheck.gap)} — markets or unlogged spending took a bite.`}
+              </div>
+            </div>
+          )}
           <StreakPanel contributions={contributions} />
           <div className="bg-white rounded-xl border border-slate-200 px-4 pt-4 pb-3">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Monthly flow — the engine</div>
-            <SankeyFlow goals={goals} expenses={expenses} income={income} />
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">This month's flow — actual</div>
+            <SankeyFlow transactions={transactions} goals={goals} fallbackIncome={income} />
           </div>
         </>}
 
         {tab === "grow" && <>
           <Suspense fallback={<div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-slate-400 text-sm">Loading projection…</div>}>
-            <Projection start={netWorth} settings={settings} onChange={(s) => save({ ...data, settings: s })} />
+            <Projection start={netWorth} derivedInvest={derivedInvest} settings={settings} onChange={(s) => save({ ...data, settings: s })} />
           </Suspense>
           <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
         </>}

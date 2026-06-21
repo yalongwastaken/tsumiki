@@ -85,11 +85,17 @@ export function buildPlan(state, incomeArg) {
   }
   if (remaining > 0) give("brokerage", "Invest in brokerage", remaining, "Everything left compounds in your taxable brokerage.");
 
+  // what this plan actually puts into growth assets (drives the projection, §7)
+  const investable = steps
+    .filter((s) => s.key === "retirement" || s.key === "brokerage")
+    .reduce((a, s) => a + s.amount, 0);
+
   return {
     income,
     strategy,
     allocated: income - remaining,
     leftover: remaining,
+    investable,
     steps,
     context: { checking: bal.checking, savings: bal.savings, floor, emergencyTarget: emTarget, emergencyGap: emGap, minPay, highDebtBalance, matchPct },
   };
