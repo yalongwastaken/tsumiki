@@ -1,6 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { getState, putState } from "./api.js";
+import { fmt, fmtK } from "./format.js";
+
+// recharts is heavy and only used on the Grow tab — load it on demand.
+const Projection = lazy(() => import("./Projection.jsx"));
 
 // M0 note: data model is now the unified shape from the server (SPEC.md §6).
 // Existing components are fed DERIVED views (contributions/expenses) off the
@@ -16,8 +19,6 @@ const EMPTY = {
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const weekKey = (d) => { const x = new Date(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); x.setHours(0,0,0,0); return x.getTime(); };
-const fmt  = (n) => "$" + Math.round(n).toLocaleString();
-const fmtK = (n) => n >= 1000 ? "$" + (n/1000).toFixed(n >= 10000 ? 0 : 1) + "k" : "$" + Math.round(n);
 const WEEK = 7 * 86400000;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -94,84 +95,6 @@ function SankeyFlow({ goals, expenses, income }) {
       <text x={LX-10} y={cY-8} textAnchor="end" dominantBaseline="central" fontSize="11" fill="#94A3B8">Monthly</text>
       <text x={LX-10} y={cY+8} textAnchor="end" dominantBaseline="central" fontSize="13" fill="#0F172A" fontWeight="bold">{fmt(income)}</text>
     </svg>
-  );
-}
-
-// ─── Projection ───────────────────────────────────────────────────────────────
-function projectSeries(start, monthly, rate, years) {
-  const data = [], mRate = rate/12, now = new Date().getFullYear();
-  let bal = start, contributed = start;
-  for (let m = 0; m <= years*12; m++) {
-    if (m % 12 === 0) data.push({ year: now + m/12, value: Math.round(bal), contributed: Math.round(contributed) });
-    bal = bal*(1+mRate) + monthly; contributed += monthly;
-  }
-  return data;
-}
-
-function Projection({ start, settings, onChange }) {
-  const [years, setYears] = useState(10);
-  const monthly = settings.monthlyInvest ?? 3000;
-  const data = projectSeries(start, monthly, settings.returnRate, years);
-  const end = data[data.length-1];
-  const gains = end.value - end.contributed;
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="flex items-baseline justify-between mb-1">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Projected net worth</div>
-        <div className="text-xs text-slate-400">in {years} {years === 1 ? "year" : "years"}</div>
-      </div>
-      <div className="flex items-baseline gap-2 mb-3">
-        <div className="text-3xl font-mono font-bold text-emerald-600">{fmt(end.value)}</div>
-        <div className="text-xs text-emerald-500">+{fmt(gains)} growth</div>
-      </div>
-      <div style={{ width: "100%", height: 180 }}>
-        <ResponsiveContainer>
-          <AreaChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#10B981" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="#10B981" stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="year" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={fmtK} tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} width={44} />
-            <Tooltip formatter={(v) => fmt(v)} labelFormatter={(l) => `Year ${l}`}
-              contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
-            <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2} fill="url(#g)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="space-y-4 mt-4">
-        <Slider label="Time horizon" value={years} min={1} max={30} step={1} suffix=" yr" onChange={setYears} />
-        <Slider label="Monthly invested" value={monthly} min={0} max={6000} step={100}
-          fmt={fmt} onChange={(v) => onChange({ ...settings, monthlyInvest: v })} />
-        <Slider label="Annual return" value={settings.returnRate} min={0.02} max={0.12} step={0.005}
-          fmt={(v) => (v*100).toFixed(1) + "%"} onChange={(v) => onChange({ ...settings, returnRate: v })} />
-      </div>
-      <div className="flex gap-2 mt-4">
-        {[["Conservative",0.05],["Market avg",0.07],["Aggressive",0.10]].map(([l,r]) => (
-          <button key={l} onClick={() => onChange({ ...settings, returnRate: r })}
-            className={`flex-1 py-1.5 text-xs rounded-lg border transition-colors ${
-              Math.abs(settings.returnRate-r)<0.001 ? "border-emerald-500 text-emerald-600 bg-emerald-50" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
-            {l}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Slider({ label, value, min, max, step, suffix = "", fmt: f, onChange }) {
-  return (
-    <div>
-      <div className="flex justify-between items-baseline mb-1">
-        <span className="text-sm text-slate-600">{label}</span>
-        <span className="text-sm font-mono font-semibold text-slate-800">{f ? f(value) : value + suffix}</span>
-      </div>
-      <input type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full accent-emerald-600" />
-    </div>
   );
 }
 
@@ -395,7 +318,9 @@ export default function App() {
         </>}
 
         {tab === "grow" && <>
-          <Projection start={netWorth} settings={settings} onChange={(s) => save({ ...data, settings: s })} />
+          <Suspense fallback={<div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-slate-400 text-sm">Loading projection…</div>}>
+            <Projection start={netWorth} settings={settings} onChange={(s) => save({ ...data, settings: s })} />
+          </Suspense>
           <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
         </>}
 
