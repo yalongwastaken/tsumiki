@@ -90,7 +90,7 @@ export default function CsvImport({ onImport }) {
 
       {parsed && cols.length > 0 && (
         <>
-          <div className="flex gap-2 flex-wrap">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <ColSelect
               label="Date column"
               cols={cols}

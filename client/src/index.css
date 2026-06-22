@@ -114,6 +114,20 @@ body {
 .dark .bg-slate-200 {
   background-color: #334155 !important;
 }
+/* solid neutral action buttons (Add / Save / Export) must lift off the dark card
+   (#1e293b) — slate-700/800 would otherwise blend in. keep them gray, just lighter. */
+.dark .bg-slate-700 {
+  background-color: #475569 !important;
+}
+.dark .bg-slate-800 {
+  background-color: #3b4758 !important;
+}
+.dark .hover\:bg-slate-800:hover {
+  background-color: #556579 !important;
+}
+.dark .hover\:bg-slate-700:hover {
+  background-color: #556579 !important;
+}
 
 .dark .text-slate-900 {
   color: #f1f5f9 !important;

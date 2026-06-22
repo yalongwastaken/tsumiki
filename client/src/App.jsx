@@ -683,7 +683,15 @@ export default function App() {
                   holdings={holdings}
                   prices={prices}
                   onGoSetup={() => setTab("accounts")}
-                  onSync={() => refreshPrices().then(setPrices)}
+                  onSync={async () => {
+                    // surface a toast on failure instead of silently stopping the spinner
+                    try {
+                      setPrices(await refreshPrices());
+                    } catch {
+                      setToast("Price sync failed");
+                      setTimeout(() => setToast(""), 1800);
+                    }
+                  }}
                 />
                 <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
               </>

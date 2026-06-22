@@ -174,7 +174,9 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
         </div>
       )}
 
-      {allocSegs.length >= 2 && <AllocationDonut segs={allocSegs} total={totals.value} />}
+      {allocSegs.length >= 2 && (
+        <AllocationDonut segs={allocSegs} total={allocSegs.reduce((a, s) => a + s.amount, 0)} />
+      )}
 
       {prices?.history?.length >= 2 && (
         <div className="mb-3">

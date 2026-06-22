@@ -244,8 +244,12 @@ export default function Home({
 
       {/* key numbers */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:col-span-2">
-        <Stat label="Income / mo" value={fmt(income)} tone="emerald" />
-        <Stat label="Spent this month" value={fmt(spendThisMonth)} tone="amber" />
+        <Stat label="Income / mo" value={income > 0 ? fmt(income) : "—"} tone="emerald" />
+        <Stat
+          label="Spent this month"
+          value={spendThisMonth > 0 ? fmt(spendThisMonth) : "—"}
+          tone="amber"
+        />
         <Stat
           label="Savings rate"
           value={savingsRate == null ? "—" : `${Math.round(savingsRate * 100)}%`}

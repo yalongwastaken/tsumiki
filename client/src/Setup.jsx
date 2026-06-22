@@ -7,7 +7,12 @@ import { annualSpend } from "./selectors.js";
 import { detectRecurring, detectIncomeSchedule } from "./insights.js";
 import { FILING_STATUSES } from "./tax.js";
 import { CADENCE_LABEL } from "./cadence.js";
+import { nextPaydays } from "./paydays.js";
 import CsvImport from "./CsvImport.jsx";
+
+// format a Date to the YYYY-MM-DD a <input type="date"> expects (local)
+const toDateInput = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const ordinal = (n) =>
@@ -519,17 +524,19 @@ export default function Setup({
             </div>
             {incomeSchedule && !src.payday && (
               <button
-                onClick={() =>
+                onClick={() => {
+                  // project the last detected payday forward to the next upcoming one
+                  const next = nextPaydays(incomeSchedule.lastPayday, incomeSchedule.cadence, 1)[0];
                   setSrc({
                     ...src,
                     cadence: incomeSchedule.cadence,
-                    payday: incomeSchedule.lastPayday,
-                  })
-                }
+                    payday: next ? toDateInput(next) : incomeSchedule.lastPayday,
+                  });
+                }}
                 className="mb-2 w-full text-left rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700 hover:bg-brand-100"
               >
                 Detected ~{CADENCE_LABEL[incomeSchedule.cadence]} pay from your history (last on{" "}
-                {incomeSchedule.lastPayday}). Tap to fill.
+                {incomeSchedule.lastPayday}). Tap to fill your cadence + next payday.
               </button>
             )}
             <div className="flex items-center gap-2 mb-2">

@@ -330,7 +330,7 @@ export default function Plan({
             <span className="text-xs text-slate-400">{debtStrategy}</span>
           </div>
           {payoff.base.debtFree ? (
-            <div className="flex items-baseline gap-2 mb-1">
+            <div className="mb-1">
               <div className="text-2xl font-mono font-bold text-slate-900">
                 {monthYear(payoff.base.payoffDate)}
               </div>
