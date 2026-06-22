@@ -1,7 +1,8 @@
 // tax.js — a transparent income-tax estimate (federal brackets + FICA + a state
 // approximation), driven by salary, filing status, age, and state. Deterministic
 // and testable — it's an estimate to show take-home, not tax advice or a filing.
-// Figures are 2025 (IRS). State is a rough flat approximation unless you override it.
+// Figures are 2025 (IRS, post-OBBBA). State is a rough flat approximation unless
+// you override it.
 
 const BRACKETS = {
   single: [
@@ -32,8 +33,14 @@ const BRACKETS = {
     [Infinity, 0.37],
   ],
 };
-const STD = { single: 15000, married: 30000, head: 22500 };
+// 2025 standard deduction (raised by the One Big Beautiful Bill Act, July 2025)
+const STD = { single: 15750, married: 31500, head: 23625 };
 const STD_65 = { single: 2000, married: 1600, head: 2000 }; // additional standard deduction at 65+
+// 2025–2028 bonus deduction for filers 65+, phased out 6% per $1 of MAGI over the
+// threshold (so it vanishes by ~$175k single / ~$250k married)
+const SENIOR_BONUS = 6000;
+const SENIOR_PHASEOUT_START = { single: 75000, married: 150000, head: 75000 };
+const SENIOR_PHASEOUT_RATE = 0.06;
 const SS_BASE = 176100; // Social Security wage base (2025)
 const SS_RATE = 0.062;
 const MEDICARE = 0.0145;
@@ -68,6 +75,9 @@ export function estimateTax({
   let std = STD[fs];
   if (age && age >= 65) {
     std += STD_65[fs];
+    // OBBBA senior bonus deduction, phased out above the MAGI threshold (gross ~ MAGI here)
+    const over = Math.max(0, gross - SENIOR_PHASEOUT_START[fs]);
+    std += Math.max(0, SENIOR_BONUS - over * SENIOR_PHASEOUT_RATE);
   }
   const taxable = Math.max(0, gross - std);
 

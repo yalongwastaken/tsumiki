@@ -6,6 +6,7 @@ import { importData, exportUrl } from "./api.js";
 import { annualSpend } from "./selectors.js";
 import { detectRecurring } from "./insights.js";
 import { FILING_STATUSES } from "./tax.js";
+import { CADENCE_LABEL } from "./cadence.js";
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const ordinal = (n) =>
@@ -520,10 +521,11 @@ export default function Setup({
                 onChange={(e) => setSrc({ ...src, cadence: e.target.value })}
                 className={field}
               >
-                <option value="weekly">weekly</option>
-                <option value="biweekly">every 2 weeks</option>
-                <option value="semimonthly">twice a month</option>
-                <option value="monthly">monthly</option>
+                {Object.entries(CADENCE_LABEL).map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
               </select>
               <span className="text-xs text-slate-400">
                 — sets per-paycheck amounts on your plan

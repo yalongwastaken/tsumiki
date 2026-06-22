@@ -124,6 +124,30 @@ test("detectRecurring finds repeating charges not already billed", () => {
   assert.equal(found[0].months, 3);
 });
 
+test("detectRecurring keeps distinct merchants in one category separate (by note)", () => {
+  const tx = [];
+  for (const m of ["04", "05", "06"]) {
+    tx.push({
+      type: "spending",
+      amount: 15.49,
+      cat: "Subscriptions",
+      note: "Netflix",
+      date: `2026-${m}-03`,
+    });
+    tx.push({
+      type: "spending",
+      amount: 11,
+      cat: "Subscriptions",
+      note: "Spotify",
+      date: `2026-${m}-09`,
+    });
+  }
+  const found = detectRecurring(tx, []);
+  assert.equal(found.length, 2); // not collapsed into one "Subscriptions" row
+  const labels = found.map((f) => f.label).sort();
+  assert.deepEqual(labels, ["Netflix", "Spotify"]);
+});
+
 test("coachNudges prioritizes a cashflow dip and respects the limit", () => {
   const nudges = coachNudges(
     {

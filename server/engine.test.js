@@ -91,6 +91,44 @@ test("YTD retirement caps the annual room", () => {
   assert.equal(p.context.retirementRoom, 200);
 });
 
+test("an employer match unlocks 401k room beyond the IRA cap", () => {
+  const base = {
+    accounts: [acct("chk", "checking")],
+    snapshots: [snap("chk", 5000)],
+    debts: [],
+    transactions: [],
+  };
+  // no match → IRA-only room ($7k); with a match → IRA + 401k room ($30.5k)
+  const noMatch = buildPlan(
+    { ...base, profile: { checkingFloor: 3000, strategy: "long_term" } },
+    6000,
+  );
+  const withMatch = buildPlan(
+    { ...base, profile: { checkingFloor: 3000, strategy: "long_term", employerMatch: { pct: 4 } } },
+    6000,
+  );
+  assert.equal(noMatch.context.retirementRoom, 7000);
+  assert.equal(withMatch.context.retirementRoom, 7000 + 23500);
+});
+
+test("a windfall check doesn't inflate the employer-match suggestion", () => {
+  const state = {
+    accounts: [acct("chk", "checking")],
+    snapshots: [snap("chk", 5000)],
+    debts: [],
+    profile: {
+      checkingFloor: 3000,
+      strategy: "balanced",
+      employerMatch: { pct: 5 },
+      incomeSources: [{ id: "s", typicalMonthly: 6000 }], // typical = 6000
+    },
+    transactions: [],
+  };
+  // a $20k windfall: match is 5% of the regular $6k paycheck ($300), not of $20k ($1000)
+  const match = buildPlan(state, 20000).steps.find((s) => s.key === "match");
+  assert.equal(match.amount, 300);
+});
+
 test("configurable high-APR threshold excludes lower-rate debt", () => {
   const state = {
     accounts: [acct("chk", "checking")],

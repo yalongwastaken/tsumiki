@@ -86,7 +86,8 @@ const ago = (ts) => {
   return h < 1 ? "just now" : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
 };
 
-/** Holdings table + total + gain + recommendations. `news` is the optional price feed payload. */
+/** Holdings table + allocation donut + total/gain + recommendations. `prices` is the
+ * optional synced-price payload ({enabled, prices, fetchedAt}); `onSync` forces a refresh. */
 export default function Portfolio({ holdings = [], prices = null, onGoSetup, onSync }) {
   const [syncing, setSyncing] = useState(false);
   // run a manual price sync; ignore double-taps while one is in flight

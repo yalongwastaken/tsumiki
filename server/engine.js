@@ -5,7 +5,8 @@
 // Features: avalanche debt order, YTD-aware retirement, configurable thresholds.
 
 const DEFAULT_HIGH_APR = 10; // % — at/above this, debt is "high interest"
-const DEFAULT_IRA_LIMIT = 7000; // annual retirement contribution cap
+const DEFAULT_IRA_LIMIT = 7000; // 2025 IRA annual contribution cap
+const DEFAULT_401K_LIMIT = 23500; // 2025 401k employee elective-deferral cap
 const CADENCE = { weekly: 4.345, biweekly: 2.1725, semimonthly: 2, monthly: 1 }; // paychecks/month (mirrors client cadence.js)
 
 /** Average monthly logged spending — fallback "essentials" estimate when no bills. */
@@ -131,6 +132,9 @@ export function buildPlan(state, incomeArg, opts = {}) {
   const matchPct = profile.employerMatch?.pct || 0;
   const highApr = profile.highApr ?? DEFAULT_HIGH_APR;
   const iraLimit = profile.retirementLimits?.ira ?? profile.iraLimit ?? DEFAULT_IRA_LIMIT;
+  // an employer match signals a 401k, so that elective-deferral room is available
+  // on top of the IRA cap — otherwise we'd push money to taxable far too early
+  const k401Limit = profile.retirementLimits?.k401 ?? (matchPct > 0 ? DEFAULT_401K_LIMIT : 0);
 
   // YTD retirement contributions → remaining annual room (so we never over-contribute)
   const yr = new Date().getFullYear();
@@ -142,7 +146,7 @@ export function buildPlan(state, incomeArg, opts = {}) {
         new Date(t.date).getFullYear() === yr,
     )
     .reduce((s, t) => s + t.amount, 0);
-  const retirementRoom = Math.max(0, iraLimit - ytdRetirement);
+  const retirementRoom = Math.max(0, iraLimit + k401Limit - ytdRetirement);
 
   const minPay = debts.reduce((s, d) => s + (d.minPayment || 0), 0);
   // payoff order: avalanche (highest APR, math-optimal) or snowball (smallest balance, motivational)
@@ -155,8 +159,12 @@ export function buildPlan(state, incomeArg, opts = {}) {
 
   const floorGap = Math.max(0, floor - bal.checking);
   const emGap = Math.max(0, emTarget - bal.savings);
+  // the match is a % of regular pay — base it on typical income so a one-off
+  // windfall check doesn't overstate "free money" left on the table
+  const typical = typicalIncome(state);
+  const matchBase = typical > 0 ? Math.min(income, typical) : income;
   const matchTarget = matchPct
-    ? Math.min(Math.round((income * matchPct) / 100), retirementRoom)
+    ? Math.min(Math.round((matchBase * matchPct) / 100), retirementRoom)
     : 0;
 
   // reserve essential spending (bills, or learned average) before allocating
@@ -228,7 +236,6 @@ export function buildPlan(state, incomeArg, opts = {}) {
   // the *extra* surplus (finish savings, then invest), proportional to how much of
   // the surplus is windfall. Detection is always reported; the blend only applies
   // when the caller opts in (confirm-first), so default behavior never changes.
-  const typical = typicalIncome(state);
   const windfallAmount = typical > 0 ? Math.max(0, income - typical) : 0;
   const windfallDetected = typical > 0 && windfallAmount >= 500 && income >= typical * 1.25;
   const windfallApplied = windfallDetected && !!opts.windfall;
@@ -319,6 +326,7 @@ export function buildPlan(state, incomeArg, opts = {}) {
       ytdRetirement,
       highApr,
       iraLimit,
+      k401Limit,
       essentials,
       essentialsSource,
     },
