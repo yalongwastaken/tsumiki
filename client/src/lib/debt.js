@@ -37,10 +37,9 @@ export function payoffPlan(debts = [], opts = {}) {
     };
   }
 
-  // focus order: snowball clears the smallest balance first (motivation),
-  // avalanche the highest APR first (least interest)
-  const focusOrder = (list) =>
-    list.slice().sort((a, b) => (strategy === "snowball" ? a.balance - b.balance : b.apr - a.apr));
+  // focus order comparator: snowball clears the smallest balance first
+  // (motivation), avalanche the highest APR first (least interest)
+  const byFocus = (a, b) => (strategy === "snowball" ? a.balance - b.balance : b.apr - a.apr);
 
   // the monthly budget is held constant — as debts clear, their freed minimums
   // roll into the focus debt rather than shrinking what you pay
@@ -71,7 +70,9 @@ export function payoffPlan(debts = [], opts = {}) {
       totalPaid += pay;
     }
     // throw whatever's left at the focus debt(s), in strategy order
-    for (const d of focusOrder(live)) {
+    // (sort `live` in place — it's already a fresh array this iteration)
+    live.sort(byFocus);
+    for (const d of live) {
       if (pool <= EPS) {
         break;
       }

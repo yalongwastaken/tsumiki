@@ -131,6 +131,7 @@ export default function Setup({
     filingStatus: profile.filingStatus ?? "single",
     state: profile.state ?? "",
     stateTaxRate: profile.stateTaxRate != null ? profile.stateTaxRate * 100 : "",
+    spouseBirthYear: profile.spouseBirthYear ?? "",
   });
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
   const num = (v) => (v === "" || v == null ? null : Number(v));
@@ -153,6 +154,7 @@ export default function Setup({
         filingStatus: form.filingStatus,
         state: form.state.trim().toUpperCase(),
         stateTaxRate: form.stateTaxRate === "" ? null : Number(form.stateTaxRate) / 100,
+        spouseBirthYear: form.filingStatus === "married" ? num(form.spouseBirthYear) : null,
       },
     };
     onSave(next);
@@ -277,13 +279,19 @@ export default function Setup({
       snapshots: snapshots.filter((s) => s.accountId !== id),
     });
   }
-  const latestBalance = (id) => {
-    const ss = snapshots.filter((s) => s.accountId === id);
-    if (!ss.length) {
-      return null;
+  // precompute the latest balance per account once (was an O(accounts×snapshots)
+  // filter+reduce recomputed several times per render)
+  const latestBalances = useMemo(() => {
+    const m = new Map();
+    for (const s of snapshots) {
+      const cur = m.get(s.accountId);
+      if (!cur || new Date(s.date) > new Date(cur.date)) {
+        m.set(s.accountId, s);
+      }
     }
-    return ss.reduce((a, b) => (new Date(b.date) > new Date(a.date) ? b : a)).balance;
-  };
+    return m;
+  }, [snapshots]);
+  const latestBalance = (id) => (latestBalances.has(id) ? latestBalances.get(id).balance : null);
   const [balEdit, setBalEdit] = useState({ id: null, value: "" });
   function updateBalance(id) {
     const v = Number(balEdit.value);
@@ -1020,6 +1028,20 @@ export default function Setup({
                   className={field}
                 />
               </div>
+              {form.filingStatus === "married" && (
+                <div>
+                  <div className="text-sm text-slate-600 mb-1">
+                    Spouse birth year <span className="text-slate-400">(opt)</span>
+                  </div>
+                  <input
+                    type="number"
+                    value={form.spouseBirthYear}
+                    onChange={(e) => set("spouseBirthYear")(e.target.value)}
+                    placeholder="for the 65+ deduction"
+                    className={field}
+                  />
+                </div>
+              )}
               <div>
                 <div className="text-sm text-slate-600 mb-1">Strategy</div>
                 <div className="grid grid-cols-2 gap-2">
@@ -1148,7 +1170,7 @@ export default function Setup({
                 <button
                   key={v}
                   onClick={() => onSetTheme?.(v)}
-                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${theme === v ? "bg-white shadow-sm text-brand-700" : "text-slate-500"}`}
+                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${theme === v ? "bg-white dark:bg-slate-600 shadow-sm text-brand-700" : "text-slate-500"}`}
                 >
                   {l}
                 </button>

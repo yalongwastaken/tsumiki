@@ -193,6 +193,25 @@ body {
 .dark .bg-rose-50 {
   background-color: rgba(244, 63, 94, 0.15) !important;
 }
+/* hover variants of the tints/greys → stay dark (no light flash on hover) */
+.dark .hover\:bg-brand-50:hover {
+  background-color: rgba(124, 111, 232, 0.24) !important;
+}
+.dark .hover\:bg-brand-100:hover {
+  background-color: rgba(124, 111, 232, 0.32) !important;
+}
+.dark .hover\:bg-emerald-100:hover {
+  background-color: rgba(16, 185, 129, 0.28) !important;
+}
+.dark .hover\:bg-slate-50:hover {
+  background-color: #0f172a !important;
+}
+.dark .hover\:bg-slate-100:hover {
+  background-color: #334155 !important;
+}
+.dark .hover\:bg-slate-200:hover {
+  background-color: #3b4758 !important;
+}
 .dark .text-brand-700 {
   color: #c4b5fd !important;
 }

@@ -1,5 +1,5 @@
 // Projection.jsx — interactive compound-growth projection.
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import AreaChart from "./Chart.jsx";
 import { fmt } from "./lib/format.js";
 
@@ -52,7 +52,11 @@ export default function Projection({ start, settings, onChange, derivedInvest })
   // §7: default to what your actual plan invests; the slider is an override.
   const monthly = settings.monthlyInvest ?? (derivedInvest != null ? derivedInvest : 3000);
   const usingDerived = settings.monthlyInvest == null && derivedInvest != null;
-  const data = projectSeries(start, monthly, settings.returnRate, years);
+  // recompute the ~120-step growth loop only when an input changes (not every render/drag)
+  const data = useMemo(
+    () => projectSeries(start, monthly, settings.returnRate, years),
+    [start, monthly, settings.returnRate, years],
+  );
   const end = data[data.length - 1];
   const gains = end.value - end.contributed;
   return (

@@ -92,7 +92,7 @@ export function nextQuarterlyDue(today = new Date()) {
  * Estimate annual taxes and take-home pay. For self-employed income, payroll tax
  * becomes self-employment tax (≈15.3%) and half of it is deducted before the
  * income-tax brackets, matching how 1040-ES estimated payments are figured.
- * @param {{income?:number, filingStatus?:string, state?:string, age?:number|null, stateRate?:number|null, selfEmployed?:boolean}} opts
+ * @param {{income?:number, filingStatus?:string, state?:string, age?:number|null, spouseAge?:number|null, stateRate?:number|null, selfEmployed?:boolean}} opts
  * @returns {{gross, taxable, federal, fica, state, total, effectiveRate, marginalRate, takeHome, takeHomeMonthly, stateNoTax, stateRate, selfEmployed}}
  */
 export function estimateTax({
@@ -100,6 +100,7 @@ export function estimateTax({
   filingStatus = "single",
   state = "",
   age = null,
+  spouseAge = null,
   stateRate = null,
   selfEmployed = false,
 } = {}) {
@@ -117,11 +118,17 @@ export function estimateTax({
   const seDeduction = seTax / 2;
 
   let std = STD[fs];
-  if (age && age >= 65) {
-    std += STD_65[fs];
-    // OBBBA senior bonus deduction, phased out above the MAGI threshold (gross ~ MAGI here)
+  // count qualifying 65+ filers — for married filing jointly, the extra std
+  // deduction ($1,600 each) and OBBBA senior bonus ($6,000 each) are PER person
+  let seniors = age && age >= 65 ? 1 : 0;
+  if (fs === "married" && spouseAge && spouseAge >= 65) {
+    seniors += 1;
+  }
+  if (seniors > 0) {
+    std += STD_65[fs] * seniors;
+    // OBBBA senior bonus, phased out above the MAGI threshold (gross ~ MAGI here)
     const over = Math.max(0, gross - SENIOR_PHASEOUT_START[fs]);
-    std += Math.max(0, SENIOR_BONUS - over * SENIOR_PHASEOUT_RATE);
+    std += Math.max(0, SENIOR_BONUS - over * SENIOR_PHASEOUT_RATE) * seniors;
   }
   const taxable = Math.max(0, gross - std - seDeduction);
 

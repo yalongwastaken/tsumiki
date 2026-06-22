@@ -143,7 +143,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
             <button
               key={v}
               onClick={() => setType(v)}
-              className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${type === v ? "bg-white shadow-sm" : "text-slate-500"}`}
+              className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${type === v ? "bg-white dark:bg-slate-600 shadow-sm" : "text-slate-500"}`}
               style={type === v ? { color } : undefined}
             >
               {l}

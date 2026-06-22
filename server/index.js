@@ -109,7 +109,13 @@ app.post("/api/import", (req, res) => {
 // one-time import of old window.storage JSON → unified model
 app.post("/api/migrate", (req, res) => {
   try {
-    res.json(putState(migrateLegacy(req.body || {})));
+    const migrated = migrateLegacy(req.body || {});
+    // validate the migrated shape before it hits the NOT NULL columns
+    const bad = validateState(migrated);
+    if (bad) {
+      return res.status(400).json({ error: bad });
+    }
+    res.json(putState(migrated));
   } catch (e) {
     res.status(400).json({ error: String(e.message || e) });
   }

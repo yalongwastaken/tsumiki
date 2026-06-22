@@ -64,6 +64,29 @@ test("self-employed: SE tax replaces FICA (~2×) and half is deducted from taxab
   assert.equal(se.selfEmployed, true);
 });
 
+test("married filing jointly: both spouses 65+ double the senior deductions", () => {
+  const base = { income: 90000, filingStatus: "married", state: "TX" };
+  const young = estimateTax({ ...base, age: 50 });
+  const oneSenior = estimateTax({ ...base, age: 70 });
+  const bothSenior = estimateTax({ ...base, age: 70, spouseAge: 72 });
+  // one 65+: +$1,600 std +$6,000 bonus = $7,600 less taxable
+  assert.equal(oneSenior.taxable, young.taxable - 7600);
+  // both 65+: doubled → $15,200 less taxable
+  assert.equal(bothSenior.taxable, young.taxable - 15200);
+  assert.ok(bothSenior.federal < oneSenior.federal);
+  // spouseAge is ignored for single filers (no second person); use income under the
+  // $75k single phaseout so the full bonus applies
+  const single = estimateTax({
+    income: 50000,
+    filingStatus: "single",
+    state: "TX",
+    age: 70,
+    spouseAge: 72,
+  });
+  const singleYoung = estimateTax({ income: 50000, filingStatus: "single", state: "TX", age: 50 });
+  assert.equal(single.taxable, singleYoung.taxable - 8000); // only the one filer's +$2k std +$6k bonus
+});
+
 test("nextQuarterlyDue returns the next estimated-tax deadline", () => {
   // mid-June → next deadline is Jun 15? no, that's passed on the 21st → Sep 15
   assert.equal(nextQuarterlyDue(new Date(2026, 5, 21)).getMonth(), 8); // Sep

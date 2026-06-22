@@ -60,8 +60,20 @@ function recordHistory(history, symbol, date, price) {
   return prior && prior > 0 ? (price - prior) / prior : null;
 }
 
-/** Fetch + cache closes for the tickers currently held; keep last cache on failure. */
-export async function refreshPrices() {
+let inFlight = null; // single-flight guard: scheduler + lazy + manual refresh share one fetch
+
+/** Fetch + cache closes for held tickers; concurrent calls share one in-flight fetch. */
+export function refreshPrices() {
+  if (inFlight) {
+    return inFlight;
+  }
+  inFlight = doRefresh().finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+async function doRefresh() {
   if (!ENABLED) {
     return cache;
   }

@@ -199,11 +199,17 @@ export function validateState(s) {
     }
   }
   for (const t of s.transactions || []) {
+    if (!t?.id) {
+      return "transaction needs an id";
+    }
     if (!TX_TYPES.has(t?.type)) {
       return `bad transaction type: ${t?.type}`;
     }
     if (typeof t.amount !== "number" || !isFinite(t.amount)) {
       return "transaction.amount must be a finite number";
+    }
+    if (!t.date) {
+      return "transaction needs a date";
     }
   }
   for (const sn of s.snapshots || []) {

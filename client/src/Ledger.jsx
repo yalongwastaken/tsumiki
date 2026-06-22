@@ -66,7 +66,10 @@ export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
         ].map(([v, l]) => (
           <button
             key={v}
-            onClick={() => setFilter(v)}
+            onClick={() => {
+              setFilter(v);
+              setSelected(new Set()); // avoid acting on now-hidden rows
+            }}
             className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${filter === v ? "bg-slate-100 text-slate-800" : "text-slate-500"}`}
           >
             {l}
@@ -76,7 +79,10 @@ export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
 
       <input
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setSelected(new Set()); // selection follows the visible rows
+        }}
         placeholder="Search category, note, or amount…"
         aria-label="Search transactions"
         className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"

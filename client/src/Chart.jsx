@@ -28,8 +28,17 @@ export default function AreaChart({
     padT = 8,
     padB = 16;
   const ys = data.map((d) => Number(d[yKey]) || 0);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+  // reduce (not Math.min(...spread)) so a long series can't blow the call stack
+  let minY = ys[0];
+  let maxY = ys[0];
+  for (const v of ys) {
+    if (v < minY) {
+      minY = v;
+    }
+    if (v > maxY) {
+      maxY = v;
+    }
+  }
   const range = maxY - minY || 1;
   const n = data.length;
   const plotW = W - padL - padR;

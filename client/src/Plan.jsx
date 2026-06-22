@@ -46,7 +46,9 @@ export default function Plan({
   const planIncome = incomeThisMonth > 0 ? incomeThisMonth : typical;
 
   // tax estimate on annualized income (take-home + bracket); see tax.js
-  const age = profile.birthYear ? new Date().getFullYear() - profile.birthYear : null;
+  const yr = new Date().getFullYear();
+  const age = profile.birthYear ? yr - profile.birthYear : null;
+  const spouseAge = profile.spouseBirthYear ? yr - profile.spouseBirthYear : null;
   // self-employed income has no withholding → estimated payments + SE-tax handling
   const selfEmployed = (profile.incomeSources || []).some((s) => s.type === "self_employed");
   const tax = useMemo(
@@ -56,10 +58,19 @@ export default function Plan({
         filingStatus: profile.filingStatus,
         state: profile.state,
         age,
+        spouseAge,
         stateRate: profile.stateTaxRate,
         selfEmployed,
       }),
-    [typical, profile.filingStatus, profile.state, age, profile.stateTaxRate, selfEmployed],
+    [
+      typical,
+      profile.filingStatus,
+      profile.state,
+      age,
+      spouseAge,
+      profile.stateTaxRate,
+      selfEmployed,
+    ],
   );
 
   // self-employed income has no withholding → surface a quarterly estimated-tax nudge
@@ -87,9 +98,27 @@ export default function Plan({
   const [applyWindfall, setApplyWindfall] = useState(false); // confirm-first, per-session
   useEffect(() => {
     const n = Number.isFinite(Number(amount)) ? Number(amount) : 0;
-    getPlan(n, preview, { windfall: applyWindfall })
-      .then(setPlan)
-      .catch((e) => setErr(String(e.message || e)));
+    // debounce the (per-keystroke) fetch + ignore stale responses so a slow earlier
+    // request can't clobber a newer one
+    let stale = false;
+    const t = setTimeout(() => {
+      getPlan(n, preview, { windfall: applyWindfall })
+        .then((p) => {
+          if (!stale) {
+            setPlan(p);
+            setErr("");
+          }
+        })
+        .catch((e) => {
+          if (!stale) {
+            setErr(String(e.message || e));
+          }
+        });
+    }, 200);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
   }, [amount, preview, applyWindfall]);
 
   // actuals this month, by bucket
