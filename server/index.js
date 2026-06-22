@@ -16,7 +16,7 @@ import {
 import { migrateLegacy } from "./migrate.js";
 import { buildPlan, typicalIncome } from "./engine.js";
 import { getNews, scheduleNews } from "./news.js";
-import { getPrices, schedulePrices } from "./prices.js";
+import { getPrices, refreshPrices, schedulePrices } from "./prices.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -72,6 +72,12 @@ app.get("/api/news", async (_req, res) => res.json(await getNews()));
 
 // opt-in stock prices for held tickers (off unless TSUMIKI_PRICES is set)
 app.get("/api/prices", async (_req, res) => res.json(await getPrices()));
+
+// force a price refresh now (the "sync now" button); no-op shape when disabled
+app.post("/api/prices/refresh", async (_req, res) => {
+  await refreshPrices();
+  res.json(await getPrices());
+});
 
 // wipe everything and start fresh (the Settings "danger zone")
 app.post("/api/reset", (_req, res) => res.json(resetAll()));

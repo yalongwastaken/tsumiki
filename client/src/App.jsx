@@ -1,6 +1,14 @@
 // App.jsx — root component: loads/saves state, owns nav, and routes the tabs.
 import { useState, useEffect, useRef, useMemo } from "react";
-import { getState, putState, getPlan, addTransaction, resetAll, getPrices } from "./api.js";
+import {
+  getState,
+  putState,
+  getPlan,
+  addTransaction,
+  resetAll,
+  getPrices,
+  refreshPrices,
+} from "./api.js";
 import { fmt } from "./format.js";
 import { typicalIncome } from "./income.js";
 import { netWorthFromSnapshots, sumLatestByType, annualSpend, thisMonth } from "./selectors.js";
@@ -674,6 +682,7 @@ export default function App() {
                   holdings={holdings}
                   prices={prices}
                   onGoSetup={() => setTab("accounts")}
+                  onSync={() => refreshPrices().then(setPrices)}
                 />
                 <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
               </>

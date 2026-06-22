@@ -1,6 +1,6 @@
 // Setup.jsx — profile + accounts/debts the engine runs on (accounts vs settings section).
 import { useState, useMemo, useRef } from "react";
-import { X, Pencil } from "lucide-react";
+import { X, Pencil, ChevronDown } from "lucide-react";
 import { fmt } from "./format.js";
 import { importData, exportUrl } from "./api.js";
 import { annualSpend } from "./selectors.js";
@@ -52,6 +52,30 @@ function Money({ value, onChange, placeholder }) {
   );
 }
 
+/** Collapsible card: title + one-line summary collapsed, full form when open. */
+function Section({ title, summary, open, onToggle, children }) {
+  return (
+    <div className={card}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="press flex w-full items-center justify-between text-left"
+      >
+        <span className={label}>{title}</span>
+        <span className="flex items-center gap-2 text-xs text-slate-400">
+          {summary}
+          <ChevronDown
+            size={15}
+            className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          />
+        </span>
+      </button>
+      {open && <div className="anim-fade mt-3">{children}</div>}
+    </div>
+  );
+}
+
 /** Profile + accounts/debts editor; renders the "accounts" or "settings" section. */
 export default function Setup({
   data,
@@ -73,6 +97,12 @@ export default function Setup({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const incomeSources = profile.incomeSources || [];
   const totalTypical = incomeSources.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
+
+  // accordion: each accounts group collapses to a one-line summary; empty groups
+  // default open so a fresh setup shows the forms, filled ones start calm/closed.
+  const [open, setOpen] = useState({});
+  const isOpen = (id, empty) => open[id] ?? empty;
+  const toggle = (id, empty) => setOpen((o) => ({ ...o, [id]: !(o[id] ?? empty) }));
 
   // smart defaults derived from logged spending
   const avgMonthlySpend = useMemo(() => annualSpend(transactions) / 12, [transactions]);
@@ -266,6 +296,11 @@ export default function Setup({
   // recurring bills (essentials — inform-only)
   const bills = profile.bills || [];
   const billsTotal = bills.reduce((s, b) => s + (b.amount || 0), 0);
+  // accordion summaries: known balances total (null if none snapshotted) + total debt owed
+  const accountsTotal = accounts.some((a) => latestBalance(a.id) != null)
+    ? accounts.reduce((s, a) => s + (latestBalance(a.id) || 0), 0)
+    : null;
+  const debtsTotal = debts.reduce((s, d) => s + (d.balance || 0), 0);
   const [bill, setBill] = useState({ name: "", amount: "", dayOfMonth: "" });
   function addBill() {
     if (!bill.name.trim()) {
@@ -389,11 +424,12 @@ export default function Setup({
               </div>
             )}
           {/* Income sources */}
-          <div className={card}>
-            <div className="flex items-baseline justify-between mb-3">
-              <div className={label}>Income sources</div>
-              <div className="text-xs text-slate-400">~{fmt(totalTypical)}/mo total</div>
-            </div>
+          <Section
+            title="Income sources"
+            summary={`${incomeSources.length} ${incomeSources.length === 1 ? "source" : "sources"} · ${fmt(totalTypical)}/mo`}
+            open={isOpen("income", incomeSources.length === 0)}
+            onToggle={() => toggle("income", incomeSources.length === 0)}
+          >
             {incomeSources.length > 0 && (
               <div className="divide-y divide-slate-50 mb-3">
                 {incomeSources.map((s) => (
@@ -514,11 +550,17 @@ export default function Setup({
                 {editingSrc ? "Save" : "Add"}
               </button>
             </div>
-          </div>
+          </Section>
 
           {/* Accounts */}
-          <div className={card}>
-            <div className={label + " mb-3"}>Accounts</div>
+          <Section
+            title="Accounts"
+            summary={`${accounts.length} ${accounts.length === 1 ? "account" : "accounts"}${
+              accountsTotal != null ? ` · ${fmt(accountsTotal)}` : ""
+            }`}
+            open={isOpen("accounts", accounts.length === 0)}
+            onToggle={() => toggle("accounts", accounts.length === 0)}
+          >
             {accounts.length > 0 && (
               <div className="divide-y divide-slate-50 mb-3">
                 {accounts.map((a) => (
@@ -610,14 +652,15 @@ export default function Setup({
                 Add
               </button>
             </div>
-          </div>
+          </Section>
 
           {/* Recurring bills (essentials) */}
-          <div className={card}>
-            <div className="flex items-baseline justify-between mb-3">
-              <div className={label}>Recurring bills</div>
-              <div className="text-xs text-slate-400">~{fmt(billsTotal)}/mo reserved</div>
-            </div>
+          <Section
+            title="Recurring bills"
+            summary={`${bills.length} ${bills.length === 1 ? "bill" : "bills"} · ${fmt(billsTotal)}/mo`}
+            open={isOpen("bills", bills.length === 0)}
+            onToggle={() => toggle("bills", bills.length === 0)}
+          >
             {detected.length > 0 && (
               <div className="mb-3 rounded-lg bg-brand-50 p-3">
                 <div className="text-xs font-medium text-brand-700 mb-2">
@@ -705,11 +748,17 @@ export default function Setup({
             <div className="text-xs text-slate-400 mt-2">
               Reserved before the plan allocates. Not logged — you still log real spending.
             </div>
-          </div>
+          </Section>
 
           {/* Debts */}
-          <div className={card}>
-            <div className={label + " mb-3"}>Debts</div>
+          <Section
+            title="Debts"
+            summary={`${debts.length} ${debts.length === 1 ? "debt" : "debts"}${
+              debtsTotal > 0 ? ` · ${fmt(debtsTotal)}` : ""
+            }`}
+            open={isOpen("debts", debts.length === 0)}
+            onToggle={() => toggle("debts", debts.length === 0)}
+          >
             {debts.length > 0 && (
               <div className="divide-y divide-slate-50 mb-3">
                 {debts.map((d) => (
@@ -762,11 +811,15 @@ export default function Setup({
             >
               Add debt
             </button>
-          </div>
+          </Section>
 
           {/* Stock holdings (prices sync nightly when enabled on the server) */}
-          <div className={card}>
-            <div className={label + " mb-1"}>Stock holdings</div>
+          <Section
+            title="Stock holdings"
+            summary={`${holdings.length} ${holdings.length === 1 ? "holding" : "holdings"}`}
+            open={isOpen("holdings", holdings.length === 0)}
+            onToggle={() => toggle("holdings", holdings.length === 0)}
+          >
             <div className="text-xs text-slate-400 mb-3">
               Track individual stocks by ticker + shares. Cost basis (avg price/share) is optional —
               it powers gain/loss.
@@ -838,7 +891,7 @@ export default function Setup({
             >
               Add holding
             </button>
-          </div>
+          </Section>
         </>
       )}
 
