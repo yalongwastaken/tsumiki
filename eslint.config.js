@@ -69,6 +69,17 @@ export default [
     rules: { ...common },
   },
 
+  // service worker — worker globals (self, caches, fetch, Response, URL)
+  {
+    files: ["client/public/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: "module",
+      globals: { ...globals.serviceworker, ...globals.browser },
+    },
+    rules: { ...common },
+  },
+
   prettier, // turn off rules that conflict with prettier
 
   // house style: braces on every block. Re-enabled after prettier (which disables

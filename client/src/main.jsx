@@ -12,3 +12,11 @@ createRoot(document.getElementById("root")).render(
     </ErrorBoundary>
   </StrictMode>,
 );
+
+// register the app-shell service worker (production builds only, so dev HMR is
+// untouched). Failures are non-fatal — the app works fine without it.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
