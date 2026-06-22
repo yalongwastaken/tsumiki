@@ -45,22 +45,20 @@ export default function Fire({
     );
   }
   const fireNumber = annualExpenses * 25;
-  const atPace = yearsToTarget(netWorth, monthlyInvest, returnRate, fireNumber);
+  const nw = Number.isFinite(netWorth) ? netWorth : 0; // guard against undefined/NaN
+  const rate = Number.isFinite(returnRate) && returnRate > 0 ? returnRate : 0.07;
+  const atPace = yearsToTarget(nw, monthlyInvest, rate, fireNumber);
   const coast =
-    netWorth >= fireNumber
-      ? 0
-      : netWorth > 0
-        ? Math.log(fireNumber / netWorth) / Math.log(1 + returnRate)
-        : Infinity;
-  const pct = Math.min(100, (netWorth / fireNumber) * 100);
+    nw >= fireNumber ? 0 : nw > 0 ? Math.log(fireNumber / nw) / Math.log(1 + rate) : Infinity;
+  const pct = Math.min(100, Math.max(0, (nw / fireNumber) * 100));
 
   // Coast-FI: are you "coasting"? If today's net worth grows (no new contributions)
   // to the FIRE number by your retirement age, you've reached Coast-FI.
   const age = birthYear ? new Date().getFullYear() - birthYear : null;
   const yearsToRetire = age != null && retireAge ? Math.max(0, retireAge - age) : null;
   const coastNumberAtRetire =
-    yearsToRetire != null ? fireNumber / Math.pow(1 + returnRate, yearsToRetire) : null;
-  const isCoasting = coastNumberAtRetire != null && netWorth >= coastNumberAtRetire;
+    yearsToRetire != null ? fireNumber / Math.pow(1 + rate, yearsToRetire) : null;
+  const isCoasting = coastNumberAtRetire != null && nw >= coastNumberAtRetire;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -82,7 +80,7 @@ export default function Fire({
         />
       </div>
       <div className="text-xs text-slate-400 mb-4">
-        {pct.toFixed(1)}% there ({fmt(netWorth)})
+        {pct.toFixed(1)}% there ({fmt(nw)})
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -108,7 +106,7 @@ export default function Fire({
           <span>
             {isCoasting
               ? `You've hit Coast-FI — current savings alone grow to your FIRE number by age ${retireAge}. New contributions just get you there sooner.`
-              : `Coast-FI at age ${retireAge}: you'd need ${fmt(coastNumberAtRetire)} invested today (you have ${fmt(netWorth)}) to coast to FIRE without adding more.`}
+              : `Coast-FI at age ${retireAge}: you'd need ${fmt(coastNumberAtRetire)} invested today (you have ${fmt(nw)}) to coast to FIRE without adding more.`}
           </span>
         </div>
       )}

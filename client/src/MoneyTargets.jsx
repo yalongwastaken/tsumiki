@@ -3,8 +3,8 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { fmt } from "./lib/format.js";
 import { goalProgress } from "./lib/goals.js";
+import { uid } from "./lib/uid.js";
 
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const METRICS = [
   ["net_worth", "Net worth"],
   ["contributed", "Total contributed"],
@@ -102,11 +102,13 @@ export default function MoneyTargets({ targets = [], values = {}, monthlyPace = 
           value={form.label}
           onChange={(e) => setForm({ ...form, label: e.target.value })}
           placeholder="Label (optional)"
+          aria-label="Goal label"
           className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
         />
         <select
           value={form.metric}
           onChange={(e) => setForm({ ...form, metric: e.target.value })}
+          aria-label="Goal metric"
           className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
         >
           {METRICS.map(([v, l]) => (
@@ -122,6 +124,7 @@ export default function MoneyTargets({ targets = [], values = {}, monthlyPace = 
           type="date"
           value={form.targetDate}
           onChange={(e) => setForm({ ...form, targetDate: e.target.value })}
+          aria-label="Goal target date"
           className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
         />
         <span className="text-xs text-slate-400">— adds a savings-pace target</span>
@@ -134,6 +137,7 @@ export default function MoneyTargets({ targets = [], values = {}, monthlyPace = 
             value={form.amount}
             onChange={(e) => setForm({ ...form, amount: e.target.value })}
             placeholder="Target amount"
+            aria-label="Target amount"
             className="w-full pl-7 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
           />
         </div>

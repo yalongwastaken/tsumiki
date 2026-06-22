@@ -10,6 +10,7 @@ import {
   getSymbolPriceHistory,
   setSymbolPriceHistory,
 } from "./db.js";
+import { fetchTextCapped } from "./http.js";
 
 const ENABLED = ["1", "true", "yes"].includes((process.env.TSUMIKI_PRICES || "").toLowerCase());
 const FEED =
@@ -85,11 +86,11 @@ async function doRefresh() {
   }
   try {
     const url = FEED.replace("{SYMBOLS}", symbols.map((s) => `${s.toLowerCase()}.us`).join(","));
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) {
+    const text = await fetchTextCapped(url, { maxBytes: 2_000_000 });
+    if (text == null) {
       return cache;
     }
-    const rows = parseStooqCsv(await res.text());
+    const rows = parseStooqCsv(text);
     if (rows.length) {
       const prices = { ...cache.prices };
       // load persisted per-symbol history so week-over-week change survives restarts

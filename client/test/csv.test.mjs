@@ -72,6 +72,18 @@ test("dedupeAgainst drops rows matching existing txs and within the batch", () =
   assert.equal(skipped, 2);
 });
 
+test("rowsToTransactions reads a TRAILING minus as negative (spending)", () => {
+  // some banks/Quicken export debits as "1234.56-"
+  const rows = [
+    ["2026-06-01", "Rent", "1500.00-"],
+    ["2026-06-02", "Paycheck", "2000"],
+  ];
+  const txs = rowsToTransactions(rows, { date: 0, description: 1, amount: 2 });
+  assert.equal(txs[0].type, "spending"); // trailing minus → NOT income
+  assert.equal(txs[0].amount, 1500);
+  assert.equal(txs[1].type, "income");
+});
+
 test("rowsToTransactions reads accounting parentheses as negative (spending)", () => {
   const rows = [
     ["2026-06-01", "Refund out", "(50.00)"],

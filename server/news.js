@@ -4,6 +4,8 @@
 // and serves headlines only. Awareness-only: it never drives recommendations and
 // nothing about you is ever sent anywhere.
 
+import { fetchTextCapped } from "./http.js";
+
 const FEED = process.env.TSUMIKI_NEWS_FEED || "";
 const TTL = 20 * 60 * 60 * 1000; // refetch at most ~daily
 const MAX_ITEMS = 8;
@@ -72,11 +74,11 @@ export async function refreshNews() {
     return cache;
   }
   try {
-    const res = await fetch(FEED, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) {
+    const text = await fetchTextCapped(FEED, { maxBytes: 3_000_000 });
+    if (text == null) {
       return cache;
     }
-    const items = parseFeed(await res.text()).slice(0, MAX_ITEMS);
+    const items = parseFeed(text).slice(0, MAX_ITEMS);
     if (items.length) {
       cache = { items, fetchedAt: Date.now() };
     }

@@ -20,6 +20,7 @@ import {
 } from "./lib/selectors.js";
 import { computeAdherence } from "./lib/streak.js";
 import { allCategories } from "./lib/categories.js";
+import { uid } from "./lib/uid.js";
 import Setup from "./Setup.jsx";
 import Plan from "./Plan.jsx";
 import QuickAdd from "./QuickAdd.jsx";
@@ -68,9 +69,6 @@ const EMPTY = {
   profile: { incomeType: "salary", typicalIncome: 7000, strategy: "balanced" },
   settings: { returnRate: 0.07, monthlyInvest: null },
 };
-
-// ─── helpers ──────────────────────────────────────────────────────────────────
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 // ─── Streak ─── plan-adherence with a rotating weekly objective ────────────────
 function StreakPanel({ transactions, freezes = 0 }) {
@@ -352,7 +350,8 @@ export default function App() {
       bucket,
       note,
     };
-    setData({ ...data, transactions: [...transactions, tx] }); // optimistic
+    // functional update so rapid successive logs compose (no stale-closure drop)
+    setData((d) => ({ ...d, transactions: [...d.transactions, tx] })); // optimistic
     saveChain.current = saveChain.current.then(async () => {
       try {
         const saved = await addTransaction(tx);

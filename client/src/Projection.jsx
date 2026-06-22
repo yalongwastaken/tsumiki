@@ -47,15 +47,17 @@ function Slider({ label, value, min, max, step, suffix = "", fmt: f, onChange })
 }
 
 /** Interactive net-worth projection: horizon / monthly-invested / return-rate sliders. */
-export default function Projection({ start, settings, onChange, derivedInvest }) {
+export default function Projection({ start, settings = {}, onChange, derivedInvest }) {
   const [years, setYears] = useState(10);
   // §7: default to what your actual plan invests; the slider is an override.
   const monthly = settings.monthlyInvest ?? (derivedInvest != null ? derivedInvest : 3000);
   const usingDerived = settings.monthlyInvest == null && derivedInvest != null;
+  const safeStart = Number.isFinite(start) ? start : 0;
+  const rate = Number.isFinite(settings.returnRate) ? settings.returnRate : 0.07;
   // recompute the ~120-step growth loop only when an input changes (not every render/drag)
   const data = useMemo(
-    () => projectSeries(start, monthly, settings.returnRate, years),
-    [start, monthly, settings.returnRate, years],
+    () => projectSeries(safeStart, monthly, rate, years),
+    [safeStart, monthly, rate, years],
   );
   const end = data[data.length - 1];
   const gains = end.value - end.contributed;

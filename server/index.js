@@ -22,6 +22,32 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json({ limit: "5mb" }));
 
+// CSRF / DNS-rebinding guard: a browser sends Origin on cross-site writes. If a
+// mutating request carries an Origin whose host isn't ours, reject it — this stops
+// a malicious page on the tailnet from POSTing /api/reset etc. Same-origin app
+// fetches (Origin === Host) and non-browser tools (no Origin) pass through.
+app.use((req, res, next) => {
+  if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
+    return next();
+  }
+  const origin = req.get("origin");
+  if (origin) {
+    let host;
+    try {
+      host = new URL(origin).host;
+    } catch {
+      return res.status(403).json({ error: "bad origin" });
+    }
+    if (host !== req.get("host")) {
+      return res.status(403).json({ error: "cross-origin request blocked" });
+    }
+  }
+  next();
+});
+
+// wrap an async route so a rejected promise becomes a clean 500, not a hang
+const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
 // ── API ───────────────────────────────────────────────────────────────────────
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
@@ -41,7 +67,8 @@ app.put("/api/state", (req, res) => {
     if (e instanceof ConflictError) {
       return res.status(409).json({ error: e.message, state: getState() });
     }
-    res.status(400).json({ error: String(e.message || e) });
+    console.warn("PUT /api/state failed:", e.message);
+    res.status(400).json({ error: "could not save — check your data" });
   }
 });
 
@@ -55,7 +82,8 @@ app.post("/api/transactions", (req, res) => {
   try {
     res.json(addTransaction(t));
   } catch (e) {
-    res.status(400).json({ error: String(e.message || e) });
+    console.warn("POST /api/transactions failed:", e.message);
+    res.status(400).json({ error: "could not log that transaction" });
   }
 });
 
@@ -70,16 +98,25 @@ app.get("/api/plan", (req, res) => {
 });
 
 // opt-in money-news headlines (off unless TSUMIKI_NEWS_FEED is set)
-app.get("/api/news", async (_req, res) => res.json(await getNews()));
+app.get(
+  "/api/news",
+  asyncH(async (_req, res) => res.json(await getNews())),
+);
 
 // opt-in stock prices for held tickers (off unless TSUMIKI_PRICES is set)
-app.get("/api/prices", async (_req, res) => res.json(await getPrices()));
+app.get(
+  "/api/prices",
+  asyncH(async (_req, res) => res.json(await getPrices())),
+);
 
 // force a price refresh now (the "sync now" button); no-op shape when disabled
-app.post("/api/prices/refresh", async (_req, res) => {
-  await refreshPrices();
-  res.json(await getPrices());
-});
+app.post(
+  "/api/prices/refresh",
+  asyncH(async (_req, res) => {
+    await refreshPrices();
+    res.json(await getPrices());
+  }),
+);
 
 // wipe everything and start fresh (the Settings "danger zone")
 app.post("/api/reset", (_req, res) => res.json(resetAll()));
@@ -99,10 +136,10 @@ app.post("/api/import", (req, res) => {
     return res.status(400).json({ error: bad });
   }
   try {
-    res.json(putState(body));
+    res.json(putState(body)); // no rev check — deliberate replace
   } catch (e) {
-    // no rev check — deliberate replace
-    res.status(400).json({ error: String(e.message || e) });
+    console.warn("POST /api/import failed:", e.message);
+    res.status(400).json({ error: "import failed — file may be malformed" });
   }
 });
 
@@ -117,9 +154,13 @@ app.post("/api/migrate", (req, res) => {
     }
     res.json(putState(migrated));
   } catch (e) {
-    res.status(400).json({ error: String(e.message || e) });
+    console.warn("POST /api/migrate failed:", e.message);
+    res.status(400).json({ error: "migration failed — data may be malformed" });
   }
 });
+
+// unknown API paths get a clean 404 (not the SPA shell)
+app.use("/api", (_req, res) => res.status(404).json({ error: "not found" }));
 
 // ── serve the built client (client/dist) if present ────────────────────────────
 const dist = join(__dirname, "..", "client", "dist");
@@ -127,6 +168,15 @@ if (existsSync(dist)) {
   app.use(express.static(dist));
   app.get("*", (_req, res) => res.sendFile(join(dist, "index.html")));
 }
+
+// terminal error handler — turns thrown/rejected route errors into a clean 500
+// instead of an unhandled rejection (which would hang the request)
+app.use((err, _req, res, _next) => {
+  console.warn("unhandled route error:", err?.message || err);
+  if (!res.headersSent) {
+    res.status(500).json({ error: "server error" });
+  }
+});
 
 const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || "0.0.0.0";

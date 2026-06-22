@@ -186,6 +186,9 @@ export function validateState(s) {
     if (!h?.id || !h?.ticker) {
       return "holding needs an id and ticker";
     }
+    if (typeof h.ticker !== "string") {
+      return "holding.ticker must be a string";
+    }
     if (typeof h.shares !== "number" || !isFinite(h.shares)) {
       return "holding.shares must be a finite number";
     }
@@ -213,6 +216,9 @@ export function validateState(s) {
     }
   }
   for (const sn of s.snapshots || []) {
+    if (!sn?.id) {
+      return "snapshot needs an id"; // PRIMARY KEY — a null id collides with other id-less rows
+    }
     if (!sn?.accountId) {
       return "snapshot needs an accountId";
     }

@@ -3,8 +3,8 @@
 import { useState, useMemo } from "react";
 import { fmt } from "./lib/format.js";
 import { parseCsv, guessMapping, rowsToTransactions, dedupeAgainst } from "./lib/csv.js";
+import { uid } from "./lib/uid.js";
 
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const field =
   "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700";
 
@@ -159,6 +159,11 @@ export default function CsvImport({ onImport, existing = [] }) {
       {done > 0 && (
         <div className="text-xs text-emerald-600">
           Imported {done} transactions.{skipped > 0 ? ` Skipped ${skipped} duplicate(s).` : ""} ✓
+        </div>
+      )}
+      {done === 0 && skipped > 0 && (
+        <div className="text-xs text-amber-700">
+          Nothing imported — all {skipped} row(s) already exist (duplicates skipped).
         </div>
       )}
       <div className="text-xs text-slate-400">

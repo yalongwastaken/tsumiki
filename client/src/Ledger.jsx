@@ -97,6 +97,7 @@ export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
             value={bulkCat}
             onChange={(e) => setBulkCat(e.target.value)}
             placeholder="New category"
+            aria-label="New category for selected"
             list="tsumiki-ledger-cats"
             className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-brand-200 rounded-lg bg-white text-slate-700"
           />

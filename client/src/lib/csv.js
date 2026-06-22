@@ -70,7 +70,6 @@ export function guessMapping(headers = []) {
   };
 }
 
-// parse a money cell to a number; accounting parentheses "(50.00)" mean negative
 /**
  * Drop transactions that duplicate an existing one (same day + amount + note + type),
  * and de-dupe within the batch itself, so re-importing overlapping statements is safe.
@@ -94,11 +93,13 @@ export function dedupeAgainst(newTxs = [], existing = []) {
   return { kept, skipped };
 }
 
+// parse a money cell to a number. Negative is signalled by a leading "-", a
+// trailing "-" (some banks/Quicken: "1234.56-"), or accounting parens "(50.00)".
 const num = (v) => {
   const s = String(v ?? "").trim();
-  const neg = /^\(.*\)$/.test(s); // (50.00) → -50
-  const n = parseFloat(s.replace(/[^0-9.-]/g, ""));
-  return neg ? -Math.abs(n) : n;
+  const neg = /^-/.test(s) || /-\s*$/.test(s) || /^\(.*\)$/.test(s);
+  const n = parseFloat(s.replace(/[^0-9.]/g, "")); // digits + dot only
+  return isFinite(n) ? (neg ? -Math.abs(n) : n) : NaN;
 };
 
 /**

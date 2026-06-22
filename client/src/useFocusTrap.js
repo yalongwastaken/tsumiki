@@ -21,6 +21,12 @@ export function useFocusTrap(active, onEscape) {
     const visible = () =>
       Array.from(node?.querySelectorAll(FOCUSABLE) || []).filter((el) => el.offsetParent !== null);
 
+    // move focus into the dialog if it isn't already there (so keyboard/SR users
+    // start inside; components that self-focus a field will just override this)
+    if (node && !node.contains(document.activeElement)) {
+      visible()[0]?.focus();
+    }
+
     function onKey(e) {
       if (e.key === "Escape") {
         onEscape?.();

@@ -49,6 +49,23 @@ test("on-track vs behind compares required pace to actual saving", () => {
   assert.equal(goalProgress({ amount: 6000 }, 0, TODAY, 500).onTrack, null);
 });
 
+test("calendar-month pace: ~1 month out needs the full amount (not halved)", () => {
+  // Jul 22 is ~31 days out — calendar diff is 1 month, so requiredMonthly = remaining/1
+  const p = goalProgress({ amount: 2000, targetDate: "2026-07-22" }, 0, TODAY);
+  assert.equal(p.monthsLeft, 1);
+  assert.equal(p.requiredMonthly, 2000);
+  // a future same-month date still counts as ≥1 month of runway (not overdue)
+  const soon = goalProgress({ amount: 1000, targetDate: "2026-06-28" }, 0, TODAY);
+  assert.equal(soon.monthsLeft, 1);
+  assert.equal(soon.overdue, false);
+});
+
+test("invalid target date is treated as no deadline", () => {
+  const p = goalProgress({ amount: 5000, targetDate: "not-a-date" }, 1000, TODAY);
+  assert.equal(p.monthsLeft, null);
+  assert.equal(p.requiredMonthly, null);
+});
+
 test("zero/empty goal is safe", () => {
   const p = goalProgress({}, 0, TODAY);
   assert.equal(p.pct, 0);

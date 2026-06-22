@@ -134,7 +134,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
       <div className="anim-fade absolute inset-0 bg-slate-900/40" onClick={onClose} />
       <div
         ref={panelRef}
-        className="relative w-full max-w-lg bg-white rounded-t-2xl p-4 pb-6 shadow-xl"
+        className="relative w-full max-w-lg bg-white rounded-t-2xl p-4 pb-6 shadow-xl max-h-[90vh] overflow-y-auto"
         style={{ animation: "qa-up 160ms ease-out" }}
       >
         <style>{`@keyframes qa-up{from{transform:translateY(16px);opacity:.6}to{transform:translateY(0);opacity:1}}`}</style>

@@ -1,7 +1,8 @@
 // selectors.js — shared pure derivations over the ledger + account snapshots.
+import { monthOf } from "./finance.js";
 
-/** Month key like "2026-06" for a date. */
-export const monthKey = (date) => new Date(date).toISOString().slice(0, 7);
+/** Month key like "2026-06" for a date ("" for an unparseable date). */
+export const monthKey = monthOf;
 
 /** Current month key. */
 export const thisMonth = () => new Date().toISOString().slice(0, 7);
@@ -74,7 +75,9 @@ export function avgMonthlyContribution(transactions = []) {
   for (const t of transactions) {
     if (t.type === "contribution" && t.amount > 0) {
       const m = monthKey(t.date);
-      byMonth[m] = (byMonth[m] || 0) + t.amount;
+      if (m) {
+        byMonth[m] = (byMonth[m] || 0) + t.amount;
+      }
     }
   }
   const vals = Object.values(byMonth);
@@ -91,7 +94,7 @@ export function annualSpend(transactions = []) {
     return 0;
   }
 
-  const months = new Set(spending.map((tx) => monthKey(tx.date)));
+  const months = new Set(spending.map((tx) => monthKey(tx.date)).filter(Boolean));
   const total = spending.reduce((sum, tx) => sum + tx.amount, 0);
   return (total / Math.max(1, months.size)) * 12;
 }

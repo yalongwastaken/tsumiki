@@ -6,7 +6,7 @@ import { thisMonth, monthKey } from "./lib/selectors.js";
 const clip = (s) => (s.length > 16 ? s.slice(0, 15) + "…" : s);
 
 /** Sankey of the current month's actual flow — honest, not planned. */
-export default function SankeyFlow({ transactions, fallbackIncome }) {
+export default function SankeyFlow({ transactions = [], fallbackIncome = 0 }) {
   // left gutter (LX) leaves room for the income label so it isn't clipped
   // viewBox tuned so the content fills the width (text stays legible on phones)
   const W = 560,

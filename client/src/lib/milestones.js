@@ -3,7 +3,7 @@
 const NW_TIERS = [10000, 25000, 50000, 100000, 250000, 500000, 1000000];
 const CONTRIB_TIERS = [1000, 5000, 10000, 25000, 50000];
 const STREAK_TIERS = [4, 12, 26, 52];
-const money = (n) => "$" + Math.round(n).toLocaleString();
+const money = (n) => "$" + Math.round(Number.isFinite(n) ? n : 0).toLocaleString();
 
 const METRIC_VALUE = (metric, ctx) =>
   metric === "net_worth"

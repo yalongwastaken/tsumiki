@@ -17,7 +17,8 @@ export default function NetWorthCard({ realNetWorth, onSet }) {
           <span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
           <input
             type="number"
-            placeholder={String(Math.round(realNetWorth))}
+            aria-label="Current net worth"
+            placeholder={String(Math.round(Number.isFinite(realNetWorth) ? realNetWorth : 0))}
             value={v}
             onChange={(e) => setV(e.target.value)}
             className="w-full pl-7 pr-2 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"

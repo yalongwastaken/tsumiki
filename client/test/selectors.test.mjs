@@ -8,7 +8,17 @@ import {
   netWorthFromSnapshots,
   sumLatestByType,
   annualSpend,
+  monthTotals,
 } from "../src/lib/selectors.js";
+
+test("monthKey is safe on an invalid date (no throw) + correct on a good one", () => {
+  assert.equal(monthKey("2026-06-15"), "2026-06");
+  assert.equal(monthKey("garbage"), ""); // would previously throw "Invalid time value"
+  // a corrupt transaction date must not crash month bucketing
+  assert.doesNotThrow(() =>
+    monthTotals([{ type: "spending", amount: 5, date: "nope" }], "2026-06"),
+  );
+});
 
 const snap = (accountId, date, balance) => ({ id: accountId + date, accountId, date, balance });
 

@@ -17,7 +17,14 @@ const origFetch = globalThis.fetch;
 const stub = (handler) => {
   globalThis.fetch = handler;
 };
-const ok = (body) => async () => ({ ok: true, text: async () => body });
+// minimal Response stub for fetchTextCapped (no content-length, no stream body →
+// it falls back to .text())
+const ok = (body) => async () => ({
+  ok: true,
+  headers: { get: () => null },
+  body: null,
+  text: async () => body,
+});
 const stooq = (sym, date, close) =>
   `Symbol,Date,Open,High,Low,Close,Volume\n${sym}.US,${date},1,2,3,${close},100`;
 

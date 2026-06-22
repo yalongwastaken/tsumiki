@@ -2,7 +2,12 @@
 // engine, so the two can't drift. Pure + dependency-free (the server imports this
 // directly from client/src). Month buckets use a UTC slice for stability.
 
-const monthOf = (date) => new Date(date).toISOString().slice(0, 7);
+// "YYYY-MM" for a date; "" for an unparseable one (so a single bad/corrupt
+// transaction date can't throw "Invalid time value" and crash the whole view).
+export const monthOf = (date) => {
+  const d = new Date(date);
+  return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 7);
+};
 
 /**
  * Typical monthly income: a rolling average of complete prior months once there's
@@ -20,7 +25,7 @@ export function typicalIncome({ profile = {}, transactions = [] } = {}) {
   for (const t of transactions) {
     if (t.type === "income") {
       const m = monthOf(t.date);
-      if (m < ym) {
+      if (m && m < ym) {
         byMonth[m] = (byMonth[m] || 0) + t.amount;
       }
     }
@@ -38,7 +43,9 @@ export function avgMonthlyIncome(transactions = []) {
   for (const t of transactions) {
     if (t.type === "income" && t.amount > 0) {
       const m = monthOf(t.date);
-      byMonth[m] = (byMonth[m] || 0) + t.amount;
+      if (m) {
+        byMonth[m] = (byMonth[m] || 0) + t.amount;
+      }
     }
   }
   const vals = Object.values(byMonth);
@@ -51,6 +58,6 @@ export function avgMonthlySpend(transactions = []) {
   if (!sp.length) {
     return 0;
   }
-  const months = new Set(sp.map((t) => monthOf(t.date)));
+  const months = new Set(sp.map((t) => monthOf(t.date)).filter(Boolean));
   return sp.reduce((s, t) => s + t.amount, 0) / Math.max(1, months.size);
 }

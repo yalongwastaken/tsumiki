@@ -1,8 +1,7 @@
 // Onboarding.jsx — first-run guided setup + explainer (replayable from Setup).
 import { useState } from "react";
 import { useFocusTrap } from "./useFocusTrap.js";
-
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+import { uid } from "./lib/uid.js";
 const STRATEGIES = [
   ["short_term", "Safety first", "Kill debt & build a cash cushion before investing."],
   ["balanced", "Balanced", "Split between debt, safety, and investing."],
@@ -74,7 +73,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
       <div className="anim-fade absolute inset-0 bg-slate-900/50" />
       <div
         ref={panelRef}
-        className="modal-in relative w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl"
+        className="modal-in relative w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl max-h-[90vh] overflow-y-auto"
       >
         <div className="flex justify-between items-center mb-4">
           <div className="flex gap-1.5">

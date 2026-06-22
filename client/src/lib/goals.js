@@ -2,20 +2,44 @@
 // goal's target amount, the current value of its metric, and an optional target
 // date, work out percent done and the monthly savings needed to land on time.
 
+// parse a value to a local-midnight Date. A bare "YYYY-MM-DD" is treated as a
+// LOCAL calendar date (not UTC midnight) so month math doesn't shift a day in
+// negative-offset timezones.
+const startOfDay = (d) => {
+  if (typeof d === "string") {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+    if (m) {
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    }
+  }
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+
 /**
- * Months from `today` until `dateStr` (YYYY-MM-DD), rounded up, min 0.
- * @returns {number|null} null when no date
+ * Whole calendar months from `today` until `dateStr` (YYYY-MM-DD). 0 when the date
+ * is today/past; ≥1 for any future date. Calendar-based (not a 30.44-day divide) so
+ * a goal ~1 month out doesn't round to 2 and halve the required monthly amount.
+ * @returns {number|null} null when no/invalid date
  */
 function monthsUntil(dateStr, today = new Date()) {
   if (!dateStr) {
     return null;
   }
-  const d = new Date(dateStr);
+  const d = startOfDay(dateStr);
   if (isNaN(d.getTime())) {
     return null;
   }
-  const ms = d.getTime() - today.getTime();
-  return Math.max(0, Math.ceil(ms / (30.44 * 86400000)));
+  const t = startOfDay(today);
+  if (d <= t) {
+    return 0; // due today or in the past
+  }
+  let m = (d.getFullYear() - t.getFullYear()) * 12 + (d.getMonth() - t.getMonth());
+  if (d.getDate() < t.getDate()) {
+    m -= 1; // not a full month elapsed yet
+  }
+  return Math.max(1, m); // any future date is at least one month of runway
 }
 
 /**

@@ -211,6 +211,7 @@ export default function Plan({
             <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
             <input
               type="number"
+              aria-label="Income to plan for"
               value={amount}
               onChange={(e) => {
                 const v = e.target.value;
