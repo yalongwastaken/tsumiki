@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 process.env.TSUMIKI_DB = join(tmpdir(), `tsumiki-test-${Date.now()}.db`);
-const { putState, getState, addTransaction, validateState, validateTransaction } =
+const { putState, getState, addTransaction, validateState, validateTransaction, resetAll } =
   await import("./db.js");
 
 test("validateState rejects malformed bodies", () => {
@@ -50,4 +50,19 @@ test("addTransaction appends one row and bumps rev", () => {
   });
   assert.equal(after.transactions.length, before.transactions.length + 1);
   assert.equal(after.rev, before.rev + 1);
+});
+
+test("resetAll wipes data and restores defaults, bumping rev", () => {
+  putState({
+    accounts: [{ id: "a", name: "A", type: "checking" }],
+    transactions: [{ id: "z", type: "income", amount: 5, date: "2026-01-01" }],
+    profile: { name: "Sam", strategy: "long_term" },
+  });
+  const before = getState();
+  const fresh = resetAll();
+  assert.equal(fresh.accounts.length, 0);
+  assert.equal(fresh.transactions.length, 0);
+  assert.equal(fresh.profile.name, ""); // back to DEFAULT_PROFILE
+  assert.equal(fresh.settings.onboarded, false); // onboarding shows again
+  assert.equal(fresh.rev, before.rev + 1);
 });

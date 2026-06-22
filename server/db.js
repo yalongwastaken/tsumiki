@@ -317,4 +317,25 @@ export function putState(state, expectedRev) {
   return getState();
 }
 
+/**
+ * Erase everything — all rows + the saved profile/settings — and start fresh.
+ * Profile/settings fall back to defaults, so onboarding shows again.
+ * @returns {Object} the fresh (empty) state
+ */
+export function resetAll() {
+  db.exec("BEGIN");
+  try {
+    for (const t of ["snapshots", "transactions", "accounts", "goals", "debts"]) {
+      db.prepare(`DELETE FROM ${t}`).run();
+    }
+    db.prepare("DELETE FROM meta WHERE key IN ('profile', 'settings')").run();
+    setMeta("rev", getRev() + 1);
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+  return getState();
+}
+
 export { DEFAULT_PROFILE, DEFAULT_SETTINGS };

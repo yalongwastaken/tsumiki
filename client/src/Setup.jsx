@@ -49,11 +49,13 @@ export default function Setup({
   data,
   onSave,
   onReplayIntro,
+  onReset,
   theme = "light",
   onSetTheme,
   section = "settings",
 }) {
   const { profile = {}, accounts = [], debts = [], transactions = [], snapshots = [] } = data;
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const incomeSources = profile.incomeSources || [];
   const totalTypical = incomeSources.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
 
@@ -919,6 +921,46 @@ export default function Setup({
             <div className="text-xs text-slate-400 mt-2">
               Export downloads everything as JSON. Import replaces all current data.
             </div>
+          </div>
+
+          {/* Danger zone: wipe everything and start over */}
+          <div className={card + " border-rose-200"}>
+            <div className={label + " mb-1"}>Danger zone</div>
+            <div className="text-xs text-slate-400 mb-3">
+              Permanently erase all your data — accounts, transactions, profile, everything — and
+              start fresh. Export first if you might want it back.
+            </div>
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="w-full py-2 border border-rose-300 text-rose-600 hover:bg-rose-50 text-sm font-semibold rounded-lg"
+              >
+                Delete all my data
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-sm text-rose-600 font-medium">
+                  This can't be undone. Really delete everything?
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="flex-1 py-2 border border-slate-300 text-slate-700 hover:border-slate-400 text-sm font-semibold rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setConfirmDelete(false);
+                      onReset?.();
+                    }}
+                    className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-lg"
+                  >
+                    Yes, delete everything
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Help */}

@@ -202,6 +202,11 @@ Automate it nightly with cron on the mini PC (`crontab -e`):
 
 To restore, stop the server and copy a backup file over `server/data/tsumiki.db`.
 
+**Starting over:** to wipe everything and reset to a clean slate, go to
+**Settings → Danger zone → Delete all my data** (export first if you might want it
+back). This clears all accounts, transactions, and your profile, and reopens the
+setup wizard.
+
 ---
 
 ## 8. Quick reference

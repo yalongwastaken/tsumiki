@@ -10,6 +10,7 @@ import {
   validateState,
   validateTransaction,
   addTransaction,
+  resetAll,
   ConflictError,
 } from "./db.js";
 import { migrateLegacy } from "./migrate.js";
@@ -67,6 +68,9 @@ app.get("/api/plan", (req, res) => {
 
 // opt-in money-news headlines (off unless TSUMIKI_NEWS_FEED is set)
 app.get("/api/news", async (_req, res) => res.json(await getNews()));
+
+// wipe everything and start fresh (the Settings "danger zone")
+app.post("/api/reset", (_req, res) => res.json(resetAll()));
 
 // data export (download the whole dataset) + import (validated full replace)
 app.get("/api/export", (_req, res) => {

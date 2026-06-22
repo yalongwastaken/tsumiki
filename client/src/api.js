@@ -41,5 +41,6 @@ export const getNews = () => call("GET", "/api/news");
 export const addTransaction = (tx) => call("POST", "/api/transactions", tx);
 export const putState = (state) => call("PUT", "/api/state", state);
 export const migrateLegacy = (legacy) => call("POST", "/api/migrate", legacy);
+export const resetAll = () => call("POST", "/api/reset");
 export const importData = (state) => call("POST", "/api/import", state);
 export const exportUrl = () => (BASE || "") + "/api/export";

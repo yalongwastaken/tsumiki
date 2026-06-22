@@ -1,6 +1,6 @@
 // App.jsx — root component: loads/saves state, owns nav, and routes the tabs.
 import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
-import { getState, putState, getPlan, addTransaction } from "./api.js";
+import { getState, putState, getPlan, addTransaction, resetAll } from "./api.js";
 import { fmt } from "./format.js";
 import { typicalIncome } from "./income.js";
 import { netWorthFromSnapshots, sumLatestByType, annualSpend, thisMonth } from "./selectors.js";
@@ -428,6 +428,20 @@ export default function App() {
     save({ ...data, settings: { ...settings, onboarded: true } });
     setShowOnboard(false);
   }
+  // wipe all data on the server, reset the UI, and start onboarding fresh
+  async function resetEverything() {
+    try {
+      const fresh = await resetAll();
+      revRef.current = fresh.rev ?? 0;
+      setData({ ...EMPTY, ...fresh });
+      setTab("home");
+      setShowOnboard(true);
+      setToast("All data deleted");
+      setTimeout(() => setToast(""), 1800);
+    } catch (e) {
+      setError(String(e.message || e));
+    }
+  }
   function setNetWorth(value) {
     let acctId = accounts[0]?.id,
       accts = accounts;
@@ -684,6 +698,7 @@ export default function App() {
                 data={data}
                 onSave={save}
                 onReplayIntro={() => setShowOnboard(true)}
+                onReset={resetEverything}
                 theme={settings?.theme || "light"}
                 onSetTheme={(t) => save({ ...data, settings: { ...settings, theme: t } })}
               />
