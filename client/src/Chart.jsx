@@ -12,6 +12,7 @@ export default function AreaChart({
   yKey,
   color = "#6366F1",
   xFormat = (x) => x,
+  label = "Trend over time",
 }) {
   if (!Array.isArray(data) || data.length < 2) {
     return null;
@@ -40,7 +41,13 @@ export default function AreaChart({
   const gid = `area-${yKey}-${color.replace("#", "")}`;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      width="100%"
+      style={{ display: "block" }}
+      role="img"
+      aria-label={`${label}: from ${fmtK(data[0][yKey])} to ${fmtK(data[n - 1][yKey])}, low ${fmtK(minY)}, high ${fmtK(maxY)}`}
+    >
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.3" />

@@ -3,7 +3,7 @@
 // for ONLY the tickers you hold (symbols aren't personal) from a keyless public
 // source (Stooq), caches them, keeps a short history for week-over-week moves, and
 // fails gracefully to the last good prices when offline. Nothing about you leaves.
-import { getState } from "./db.js";
+import { getState, appendPortfolioPoint, getPortfolioHistory } from "./db.js";
 
 const ENABLED = ["1", "true", "yes"].includes((process.env.TSUMIKI_PRICES || "").toLowerCase());
 const FEED =
@@ -81,6 +81,15 @@ export async function refreshPrices() {
         prices[r.symbol] = { price: r.close, date: r.date, changePct };
       }
       cache = { prices, fetchedAt: Date.now() };
+      // record today's total portfolio value so the client can chart it over time
+      const holdings = getState().holdings || [];
+      const value = holdings.reduce((sum, h) => {
+        const p = prices[String(h.ticker).toUpperCase()]?.price;
+        return sum + (p ? p * (h.shares || 0) : 0);
+      }, 0);
+      if (value > 0) {
+        appendPortfolioPoint(value);
+      }
     }
   } catch {
     // offline / timeout / bad feed — serve whatever we had
@@ -93,7 +102,12 @@ export async function getPrices() {
   if (ENABLED && Date.now() - cache.fetchedAt > TTL) {
     await refreshPrices();
   }
-  return { enabled: ENABLED, prices: cache.prices, fetchedAt: cache.fetchedAt || null };
+  return {
+    enabled: ENABLED,
+    prices: cache.prices,
+    fetchedAt: cache.fetchedAt || null,
+    history: getPortfolioHistory(),
+  };
 }
 
 /** Kick off a refresh now + nightly (no-op when disabled). */

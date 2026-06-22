@@ -53,7 +53,16 @@ export default function PlanSplitChart({ plan, strategy, saved, onSetStrategy })
         Where it splits
       </div>
       <div className="flex items-center gap-4 flex-wrap">
-        <svg width="120" height="120" viewBox="0 0 120 120" className="flex-shrink-0">
+        <svg
+          width="120"
+          height="120"
+          viewBox="0 0 120 120"
+          className="flex-shrink-0"
+          role="img"
+          aria-label={`Paycheck split of ${fmt(total)}: ${segs
+            .map((s) => `${s.label} ${Math.round((s.amount / total) * 100)}%`)
+            .join(", ")}`}
+        >
           {segs.map((s, i) => {
             const frac = s.amount / total,
               dash = frac * C,

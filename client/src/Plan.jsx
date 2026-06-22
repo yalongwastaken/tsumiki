@@ -6,9 +6,13 @@ import { fmt } from "./format.js";
 import { typicalIncome } from "./income.js";
 import { BUCKETS, bucketOf } from "./buckets.js";
 import { thisMonth, monthKey, sumLatestByType } from "./selectors.js";
-import { estimateTax } from "./tax.js";
+import { estimateTax, nextQuarterlyDue } from "./tax.js";
+import { payoffPlan } from "./debt.js";
 import PlanSplitChart from "./PlanSplitChart.jsx";
 import Recurring from "./Recurring.jsx";
+
+const fmtMonths = (m) => (m >= 12 ? `${Math.floor(m / 12)}y ${m % 12}mo` : `${m}mo`);
+const monthYear = (d) => d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 
 // this month's pooled income → engine targets per bucket vs your actual
 // contributions, what's left to allocate, and a forward-looking checking watch
@@ -22,6 +26,7 @@ export default function Plan({
   transactions = [],
   accounts = [],
   snapshots = [],
+  debts = [],
   profile = {},
   onGoSetup,
   onApplyMonth,
@@ -55,6 +60,10 @@ export default function Plan({
       }),
     [typical, profile.filingStatus, profile.state, age, profile.stateTaxRate],
   );
+
+  // self-employed income has no withholding → surface a quarterly estimated-tax nudge
+  const selfEmployed = (profile.incomeSources || []).some((s) => s.type === "self_employed");
+  const quarterlyDue = selfEmployed ? nextQuarterlyDue() : null;
 
   const [amount, setAmount] = useState(planIncome);
   useEffect(() => {
@@ -112,6 +121,22 @@ export default function Plan({
     }
     return t;
   }, [plan]);
+
+  // debt-free timeline: minimums-only vs the plan's suggested debt budget, so the
+  // payoff date and interest saved are concrete. strategy mirrors the engine's.
+  const debtStrategy = profile.debtStrategy === "snowball" ? "snowball" : "avalanche";
+  const minPay = debts.reduce((s, d) => s + (d.minPayment || 0), 0);
+  const planDebtExtra = Math.max(0, Math.round(target.debt - minPay));
+  const payoff = useMemo(() => {
+    const live = debts.filter((d) => (d.balance || 0) > 0);
+    if (!live.length) {
+      return null;
+    }
+    const base = payoffPlan(live, { strategy: debtStrategy });
+    const boosted =
+      planDebtExtra > 0 ? payoffPlan(live, { extra: planDebtExtra, strategy: debtStrategy }) : null;
+    return { base, boosted };
+  }, [debts, debtStrategy, planDebtExtra]);
 
   // checking buffer + forward-looking minimum watch
   const checkingBalance = useMemo(
@@ -274,10 +299,66 @@ export default function Plan({
             <span>State {tax.stateNoTax ? "none" : fmt(tax.state)}</span>
             <span className="text-slate-400">on ~{fmt(tax.gross)}/yr</span>
           </div>
+          {quarterlyDue && tax.total > 0 && (
+            <div className="mt-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800">
+              Self-employed: no tax is withheld, so set aside ~
+              <b>{fmt(Math.round(tax.total / 4))}</b> each quarter. Next estimated payment due{" "}
+              <b>
+                {quarterlyDue.toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </b>
+              .
+            </div>
+          )}
           <div className="text-xs text-slate-400 mt-2">
             2025 estimate{tax.stateNoTax ? ` · ${profile.state} has no income tax` : ""}
             {!profile.state ? " — set your filing status & state in Settings for accuracy." : "."}
           </div>
+        </div>
+      )}
+
+      {/* debt-free timeline — payoff date + interest, minimums vs the plan's extra */}
+      {payoff && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <div className="flex items-baseline justify-between mb-2">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Debt-free timeline
+            </div>
+            <span className="text-xs text-slate-400">{debtStrategy}</span>
+          </div>
+          {payoff.base.debtFree ? (
+            <div className="flex items-baseline gap-2 mb-1">
+              <div className="text-2xl font-mono font-bold text-slate-900">
+                {monthYear(payoff.base.payoffDate)}
+              </div>
+              <div className="text-xs text-slate-400">
+                at your {fmt(payoff.base.monthlyPayment)}/mo minimums ·{" "}
+                {fmtMonths(payoff.base.months)} · {fmt(payoff.base.totalInterest)} interest
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-rose-500 mb-1">
+              At the current minimums your balances barely move — add even a little extra to start
+              making real progress.
+            </div>
+          )}
+          {payoff.boosted?.debtFree && payoff.base.debtFree && (
+            <div className="rounded-lg bg-emerald-50 p-2.5 text-sm text-emerald-800">
+              With the plan&apos;s extra <b>{fmt(planDebtExtra)}/mo</b>: debt-free{" "}
+              <b>{monthYear(payoff.boosted.payoffDate)}</b> (
+              {fmtMonths(Math.max(0, payoff.base.months - payoff.boosted.months))} sooner), saving{" "}
+              <b>{fmt(Math.max(0, payoff.base.totalInterest - payoff.boosted.totalInterest))}</b> in
+              interest.
+            </div>
+          )}
+          {payoff.base.order.length > 1 && (
+            <div className="text-xs text-slate-400 mt-2">
+              Order: {payoff.base.order.map((o) => o.name).join(" → ")}
+            </div>
+          )}
         </div>
       )}
 

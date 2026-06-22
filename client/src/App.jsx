@@ -612,6 +612,7 @@ export default function App() {
                 transactions={transactions}
                 accounts={accounts}
                 snapshots={snapshots}
+                debts={debts}
                 profile={profile}
                 onGoSetup={() => setTab("settings")}
                 onApplyMonth={(s) =>

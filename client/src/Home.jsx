@@ -129,6 +129,9 @@ export default function Home({
     () => sumLatestByType(accounts, snapshots, ["savings"]),
     [accounts, snapshots],
   );
+  // months of runway = liquid safety net ÷ typical monthly essentials (bills or learned spend)
+  const monthlyEssentials = plan?.essentials > 0 ? plan.essentials : annualExpenses / 12;
+  const runwayMonths = monthlyEssentials > 0 ? savingsBal / monthlyEssentials : null;
   const highApr = profile.highApr ?? 10;
   const highDebt = (debts || [])
     .filter((d) => (d.apr || 0) >= highApr)
@@ -280,6 +283,16 @@ export default function Home({
             {fmt(leftToAllocate)}
           </span>
         </div>
+        {runwayMonths != null && savingsBal > 0 && (
+          <div className="flex items-baseline justify-between mt-1">
+            <span className="text-sm text-slate-600">Safety runway</span>
+            <span
+              className={`font-mono font-semibold ${runwayMonths >= 3 ? "text-emerald-600" : "text-amber-600"}`}
+            >
+              {runwayMonths >= 10 ? Math.round(runwayMonths) : runwayMonths.toFixed(1)} mo
+            </span>
+          </div>
+        )}
         {plan?.steps?.length > 0 && (
           <div className="text-xs text-slate-400 mt-2">
             Next move:{" "}

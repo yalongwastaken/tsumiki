@@ -58,6 +58,24 @@ export const FILING_STATUSES = [
 ];
 
 /**
+ * The next IRS estimated-tax due date on/after `today`. Quarterly deadlines are
+ * Apr 15, Jun 15, Sep 15, and Jan 15 of the following year.
+ * @returns {Date}
+ */
+export function nextQuarterlyDue(today = new Date()) {
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const y = t.getFullYear();
+  const candidates = [
+    new Date(y, 0, 15), // Jan 15 (Q4 of last year)
+    new Date(y, 3, 15), // Apr 15
+    new Date(y, 5, 15), // Jun 15
+    new Date(y, 8, 15), // Sep 15
+    new Date(y + 1, 0, 15), // Jan 15 next year
+  ];
+  return candidates.find((d) => d >= t) || candidates[candidates.length - 1];
+}
+
+/**
  * Estimate annual taxes and take-home pay.
  * @param {{income?:number, filingStatus?:string, state?:string, age?:number|null, stateRate?:number|null}} opts
  * @returns {{gross, taxable, federal, fica, state, total, effectiveRate, marginalRate, takeHome, takeHomeMonthly, stateNoTax, stateRate}}

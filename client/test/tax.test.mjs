@@ -1,7 +1,7 @@
 // tax.test.mjs — federal brackets + FICA + state estimate.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { estimateTax } from "../src/tax.js";
+import { estimateTax, nextQuarterlyDue } from "../src/tax.js";
 
 test("single $80k in a no-tax state: federal + FICA, marginal 22%", () => {
   const t = estimateTax({ income: 80000, filingStatus: "single", state: "TX" });
@@ -44,6 +44,19 @@ test("state income tax applies in a taxing state (default ~5%)", () => {
   assert.equal(t.state, 4213);
   const override = estimateTax({ income: 100000, state: "CA", stateRate: 0.09 });
   assert.equal(override.state, Math.round(84250 * 0.09));
+});
+
+test("nextQuarterlyDue returns the next estimated-tax deadline", () => {
+  // mid-June → next deadline is Jun 15? no, that's passed on the 21st → Sep 15
+  assert.equal(nextQuarterlyDue(new Date(2026, 5, 21)).getMonth(), 8); // Sep
+  // early Feb → Apr 15
+  const apr = nextQuarterlyDue(new Date(2026, 1, 1));
+  assert.equal(apr.getMonth(), 3);
+  assert.equal(apr.getDate(), 15);
+  // late Dec → Jan 15 of next year
+  const jan = nextQuarterlyDue(new Date(2026, 11, 20));
+  assert.equal(jan.getFullYear(), 2027);
+  assert.equal(jan.getMonth(), 0);
 });
 
 test("married brackets differ from single; zero income is safe", () => {

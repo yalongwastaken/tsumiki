@@ -6,6 +6,7 @@ import {
   cashflowForecast,
   spendingTrends,
   detectRecurring,
+  detectIncomeSchedule,
   coachNudges,
 } from "../src/insights.js";
 
@@ -146,6 +147,27 @@ test("detectRecurring keeps distinct merchants in one category separate (by note
   assert.equal(found.length, 2); // not collapsed into one "Subscriptions" row
   const labels = found.map((f) => f.label).sort();
   assert.deepEqual(labels, ["Netflix", "Spotify"]);
+});
+
+test("detectIncomeSchedule infers cadence + last payday from deposits", () => {
+  assert.equal(detectIncomeSchedule([{ type: "income", amount: 1, date: "2026-06-01" }]), null);
+  const biweekly = [
+    { type: "income", amount: 2000, date: "2026-05-01" },
+    { type: "income", amount: 2000, date: "2026-05-15" },
+    { type: "income", amount: 2000, date: "2026-05-29" },
+    { type: "income", amount: 2000, date: "2026-06-12" },
+  ];
+  const s = detectIncomeSchedule(biweekly);
+  assert.equal(s.cadence, "biweekly");
+  assert.equal(s.lastPayday, "2026-06-12");
+  assert.equal(s.count, 4);
+
+  const monthly = [
+    { type: "income", amount: 5000, date: "2026-04-30" },
+    { type: "income", amount: 5000, date: "2026-05-30" },
+    { type: "income", amount: 5000, date: "2026-06-30" },
+  ];
+  assert.equal(detectIncomeSchedule(monthly).cadence, "monthly");
 });
 
 test("coachNudges prioritizes a cashflow dip and respects the limit", () => {

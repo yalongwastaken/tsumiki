@@ -13,6 +13,12 @@ test("validateState rejects malformed bodies", () => {
   assert.ok(validateState({ transactions: [{ id: "x", type: "bogus", amount: 1, date: "d" }] }));
   assert.ok(validateState({ accounts: [{ id: "a", type: "checking" }] })); // no name
   assert.ok(validateState({ goals: "nope" }));
+  // numeric columns must be finite numbers, not strings/missing (would throw raw SQLite errors)
+  assert.ok(validateState({ debts: [{ id: "d", name: "Card", balance: "lots" }] }));
+  assert.ok(validateState({ debts: [{ id: "d", name: "Card" }] })); // missing balance
+  assert.ok(validateState({ goals: [{ id: "g", name: "Trip", target: null }] }));
+  assert.equal(validateState({ debts: [{ id: "d", name: "Card", balance: 1000, apr: 20 }] }), null);
+  assert.equal(validateState({ goals: [{ id: "g", name: "Trip", target: 5000 }] }), null);
   assert.equal(
     validateState({ transactions: [{ id: "x", type: "income", amount: 5, date: "2026-01-01" }] }),
     null,

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { fmt } from "./format.js";
+import AreaChart from "./Chart.jsx";
 import { portfolioRows, portfolioTotals, portfolioInsights, retirementValue } from "./portfolio.js";
 
 const ACCT_LABEL = { taxable: "Taxable", "401k": "401(k)", ira: "IRA", roth: "Roth IRA" };
@@ -19,7 +20,16 @@ function AllocationDonut({ segs, total }) {
   let off = 0;
   return (
     <div className="flex items-center gap-4 flex-wrap mb-3">
-      <svg width="120" height="120" viewBox="0 0 120 120" className="flex-shrink-0">
+      <svg
+        width="120"
+        height="120"
+        viewBox="0 0 120 120"
+        className="flex-shrink-0"
+        role="img"
+        aria-label={`Allocation by holding, total ${fmt(total)}: ${segs
+          .map((s) => `${s.label} ${Math.round((s.amount / total) * 100)}%`)
+          .join(", ")}`}
+      >
         {segs.map((s, i) => {
           const dash = (s.amount / total) * C;
           const el = (
@@ -165,6 +175,21 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
       )}
 
       {allocSegs.length >= 2 && <AllocationDonut segs={allocSegs} total={totals.value} />}
+
+      {prices?.history?.length >= 2 && (
+        <div className="mb-3">
+          <div className="text-xs text-slate-400 mb-1">Value over time</div>
+          <AreaChart
+            data={prices.history}
+            xKey="date"
+            yKey="value"
+            label="Portfolio value"
+            xFormat={(d) =>
+              new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+            }
+          />
+        </div>
+      )}
 
       <div className="divide-y divide-slate-50">
         {rows.map((r) => (

@@ -4,9 +4,10 @@ import { X, Pencil, ChevronDown } from "lucide-react";
 import { fmt } from "./format.js";
 import { importData, exportUrl } from "./api.js";
 import { annualSpend } from "./selectors.js";
-import { detectRecurring } from "./insights.js";
+import { detectRecurring, detectIncomeSchedule } from "./insights.js";
 import { FILING_STATUSES } from "./tax.js";
 import { CADENCE_LABEL } from "./cadence.js";
+import CsvImport from "./CsvImport.jsx";
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const ordinal = (n) =>
@@ -330,6 +331,8 @@ export default function Setup({
   }
   // charges that look recurring but aren't billed yet — offer to add them
   const detected = detectRecurring(transactions, bills);
+  // pay schedule inferred from logged income → one-tap fill of cadence + payday
+  const incomeSchedule = detectIncomeSchedule(transactions);
   function addDetectedBill(d) {
     onSave({
       ...data,
@@ -514,6 +517,21 @@ export default function Setup({
                 </div>
               )}
             </div>
+            {incomeSchedule && !src.payday && (
+              <button
+                onClick={() =>
+                  setSrc({
+                    ...src,
+                    cadence: incomeSchedule.cadence,
+                    payday: incomeSchedule.lastPayday,
+                  })
+                }
+                className="mb-2 w-full text-left rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700 hover:bg-brand-100"
+              >
+                Detected ~{CADENCE_LABEL[incomeSchedule.cadence]} pay from your history (last on{" "}
+                {incomeSchedule.lastPayday}). Tap to fill.
+              </button>
+            )}
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs text-slate-500">Paid</span>
               <select
@@ -1111,6 +1129,14 @@ export default function Setup({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Import transactions from a bank CSV */}
+          <div className={card}>
+            <div className={label + " mb-3"}>Import transactions (CSV)</div>
+            <CsvImport
+              onImport={(txs) => onSave({ ...data, transactions: [...transactions, ...txs] })}
+            />
           </div>
 
           {/* Backup: export / import */}

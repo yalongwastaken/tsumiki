@@ -126,6 +126,36 @@ function getRev() {
   return getMeta("rev", 0);
 }
 
+// ── portfolio value history (one point per day, appended on each price sync) ──
+const PORTFOLIO_HISTORY_MAX = 400;
+
+/** Saved portfolio-value points: [{ date:"YYYY-MM-DD", value }]. */
+export function getPortfolioHistory() {
+  return getMeta("portfolioHistory", []);
+}
+
+/** Append (or replace same-day) a portfolio-value point, capped to the last N days. */
+export function appendPortfolioPoint(value, date = new Date().toISOString()) {
+  if (typeof value !== "number" || !isFinite(value)) {
+    return;
+  }
+  const day = date.slice(0, 10);
+  const hist = getPortfolioHistory();
+  // replace any existing point for this day (not just the last one), else append
+  const existing = hist.find((p) => p.date === day);
+  if (existing) {
+    existing.value = value;
+  } else {
+    hist.push({ date: day, value });
+  }
+  // keep chronological + capped, so the chart's x-axis is always monotonic
+  hist.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  while (hist.length > PORTFOLIO_HISTORY_MAX) {
+    hist.shift();
+  }
+  setMeta("portfolioHistory", hist);
+}
+
 // ── lightweight validation: reject obviously malformed PUTs ───────────────────
 const TX_TYPES = new Set(["income", "spending", "contribution"]);
 
@@ -177,6 +207,25 @@ export function validateState(s) {
   for (const d of s.debts || []) {
     if (!d?.id || !d?.name) {
       return "debt needs an id and name";
+    }
+    // balance/apr/minPayment hit NOT NULL REAL columns — reject non-numbers up front
+    // so a bad PUT fails cleanly instead of throwing a raw SQLite constraint error
+    if (typeof d.balance !== "number" || !isFinite(d.balance)) {
+      return "debt.balance must be a finite number";
+    }
+    if (d.apr != null && (typeof d.apr !== "number" || !isFinite(d.apr))) {
+      return "debt.apr must be a finite number";
+    }
+    if (d.minPayment != null && (typeof d.minPayment !== "number" || !isFinite(d.minPayment))) {
+      return "debt.minPayment must be a finite number";
+    }
+  }
+  for (const g of s.goals || []) {
+    if (!g?.id || !g?.name) {
+      return "goal needs an id and name";
+    }
+    if (typeof g.target !== "number" || !isFinite(g.target)) {
+      return "goal.target must be a finite number";
     }
   }
   return null; // ok
@@ -340,7 +389,9 @@ export function resetAll() {
     for (const t of ["snapshots", "transactions", "accounts", "goals", "debts"]) {
       db.prepare(`DELETE FROM ${t}`).run();
     }
-    db.prepare("DELETE FROM meta WHERE key IN ('profile', 'settings', 'holdings')").run();
+    db.prepare(
+      "DELETE FROM meta WHERE key IN ('profile', 'settings', 'holdings', 'portfolioHistory')",
+    ).run();
     setMeta("rev", getRev() + 1);
     db.exec("COMMIT");
   } catch (e) {
