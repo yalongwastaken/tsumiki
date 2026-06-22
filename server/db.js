@@ -137,9 +137,17 @@ export function validateState(s) {
   if (!s || typeof s !== "object") {
     return "body must be an object";
   }
-  for (const k of ["accounts", "snapshots", "goals", "debts", "transactions"]) {
+  for (const k of ["accounts", "snapshots", "goals", "debts", "transactions", "holdings"]) {
     if (s[k] != null && !Array.isArray(s[k])) {
       return `${k} must be an array`;
+    }
+  }
+  for (const h of s.holdings || []) {
+    if (!h?.id || !h?.ticker) {
+      return "holding needs an id and ticker";
+    }
+    if (typeof h.shares !== "number" || !isFinite(h.shares)) {
+      return "holding.shares must be a finite number";
     }
   }
   for (const a of s.accounts || []) {
@@ -235,6 +243,7 @@ export function getState() {
         "SELECT id, type, amount, date, note, cat, goal_id AS goalId, source_id AS sourceId, bucket FROM transactions ORDER BY date",
       )
       .all(),
+    holdings: getMeta("holdings", []), // [{ id, ticker, shares, costBasis }] — manually entered
     profile: getMeta("profile", DEFAULT_PROFILE),
     settings: getMeta("settings", DEFAULT_SETTINGS),
   };
@@ -289,6 +298,9 @@ function replaceAll(state) {
   if (state.settings) {
     setMeta("settings", state.settings);
   }
+  if (state.holdings) {
+    setMeta("holdings", state.holdings);
+  }
 }
 
 // node:sqlite has no .transaction() helper — wrap manually so a bad PUT can't
@@ -328,7 +340,7 @@ export function resetAll() {
     for (const t of ["snapshots", "transactions", "accounts", "goals", "debts"]) {
       db.prepare(`DELETE FROM ${t}`).run();
     }
-    db.prepare("DELETE FROM meta WHERE key IN ('profile', 'settings')").run();
+    db.prepare("DELETE FROM meta WHERE key IN ('profile', 'settings', 'holdings')").run();
     setMeta("rev", getRev() + 1);
     db.exec("COMMIT");
   } catch (e) {

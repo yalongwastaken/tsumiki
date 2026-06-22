@@ -1,6 +1,6 @@
 // App.jsx — root component: loads/saves state, owns nav, and routes the tabs.
 import { useState, useEffect, useRef, useMemo } from "react";
-import { getState, putState, getPlan, addTransaction, resetAll } from "./api.js";
+import { getState, putState, getPlan, addTransaction, resetAll, getPrices } from "./api.js";
 import { fmt } from "./format.js";
 import { typicalIncome } from "./income.js";
 import { netWorthFromSnapshots, sumLatestByType, annualSpend, thisMonth } from "./selectors.js";
@@ -37,6 +37,7 @@ import Fire from "./Fire.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import Projection from "./Projection.jsx";
 import NetWorthHistory from "./NetWorthHistory.jsx";
+import Portfolio from "./Portfolio.jsx";
 
 // Data model is the unified shape from the server: components read the single
 // `transactions` ledger; contributions are bucketed.
@@ -56,6 +57,7 @@ const EMPTY = {
   goals: [],
   debts: [],
   transactions: [],
+  holdings: [],
   profile: { incomeType: "salary", typicalIncome: 7000, strategy: "balanced" },
   settings: { returnRate: 0.07, monthlyInvest: null },
 };
@@ -190,6 +192,7 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   const [derivedInvest, setDerivedInvest] = useState(null); // monthly investable per the plan
+  const [prices, setPrices] = useState(null); // opt-in synced stock prices (null until fetched)
   const revRef = useRef(0); // last server rev (optimistic concurrency)
   const saveChain = useRef(Promise.resolve()); // serialize writes so rapid saves can't self-conflict
 
@@ -205,6 +208,9 @@ export default function App() {
         try {
           setDerivedInvest((await getPlan()).investable);
         } catch (_) {}
+        getPrices()
+          .then(setPrices)
+          .catch(() => {});
       } catch (e) {
         setError(String(e.message || e));
       }
@@ -237,7 +243,7 @@ export default function App() {
     });
   }
 
-  const { transactions, settings, accounts, snapshots, profile, debts } = data;
+  const { transactions, settings, accounts, snapshots, profile, debts, holdings = [] } = data;
   // apply theme to <html> — supports light / dark / system (live OS updates)
   useEffect(() => {
     const t = settings?.theme;
@@ -663,6 +669,11 @@ export default function App() {
                   annualExpenses={annualExpenses}
                   birthYear={profile?.birthYear}
                   retireAge={profile?.retireAge}
+                />
+                <Portfolio
+                  holdings={holdings}
+                  prices={prices}
+                  onGoSetup={() => setTab("accounts")}
                 />
                 <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
               </>

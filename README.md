@@ -71,17 +71,22 @@ make start        # builds the client, then serves everything from :4000
 
 Open `http://<mini-pc-ip>:4000`. Configuration via environment variables:
 
-| Variable            | Default                  | Purpose                                          |
-| ------------------- | ------------------------ | ------------------------------------------------ |
-| `PORT`              | `4000`                   | port to listen on                                |
-| `HOST`              | `0.0.0.0`                | bind address (LAN / Tailscale)                   |
-| `TSUMIKI_DB`        | `server/data/tsumiki.db` | SQLite database file path                        |
-| `TSUMIKI_NEWS_FEED` | _(unset → off)_          | optional public RSS/Atom URL for money headlines |
+| Variable            | Default                  | Purpose                                                           |
+| ------------------- | ------------------------ | ----------------------------------------------------------------- |
+| `PORT`              | `4000`                   | port to listen on                                                 |
+| `HOST`              | `0.0.0.0`                | bind address (LAN / Tailscale)                                    |
+| `TSUMIKI_DB`        | `server/data/tsumiki.db` | SQLite database file path                                         |
+| `TSUMIKI_NEWS_FEED` | _(unset → off)_          | optional public RSS/Atom URL for money headlines                  |
+| `TSUMIKI_PRICES`    | _(unset → off)_          | set to `1` to sync prices for your stock holdings                 |
+| `TSUMIKI_PRICE_URL` | _(Stooq CSV)_            | optional override of the price feed URL (`{SYMBOLS}` placeholder) |
 
-The money-news card is **off by default** — the server makes no outbound calls
-unless you set `TSUMIKI_NEWS_FEED` to a public feed. When set, it fetches the feed
-nightly, caches it in memory, and serves headlines only (general info, never
-personalized, nothing about you leaves the device).
+The money-news card and price sync are both **off by default** — the server makes
+no outbound calls unless you opt in. With `TSUMIKI_NEWS_FEED` set it fetches that
+feed nightly and serves headlines only. With `TSUMIKI_PRICES=1` it fetches daily
+closing prices **for only the tickers you hold** (symbols aren't personal) from a
+keyless public source, caches them, and falls back to the last good prices when
+offline. Both are general info, never personalized, and nothing about you leaves
+the device.
 
 ## Reach it from your phone, securely (Tailscale)
 
@@ -134,6 +139,7 @@ make test-smoke   # headless render walk-through of the whole UI
 | POST   | `/api/transactions` | append a single transaction (lean write)                 |
 | GET    | `/api/plan`         | allocation plan (`?income=`, `?strategy=`, `?windfall=`) |
 | GET    | `/api/news`         | cached money headlines (empty unless a feed is set)      |
+| GET    | `/api/prices`       | cached prices for held tickers (empty unless enabled)    |
 | GET    | `/api/export`       | download the full model as JSON                          |
 | POST   | `/api/import`       | replace the model from an exported JSON                  |
 | POST   | `/api/migrate`      | import old `window.storage` JSON → unified model         |

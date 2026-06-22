@@ -16,6 +16,7 @@ import {
 import { migrateLegacy } from "./migrate.js";
 import { buildPlan, typicalIncome } from "./engine.js";
 import { getNews, scheduleNews } from "./news.js";
+import { getPrices, schedulePrices } from "./prices.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -69,6 +70,9 @@ app.get("/api/plan", (req, res) => {
 // opt-in money-news headlines (off unless TSUMIKI_NEWS_FEED is set)
 app.get("/api/news", async (_req, res) => res.json(await getNews()));
 
+// opt-in stock prices for held tickers (off unless TSUMIKI_PRICES is set)
+app.get("/api/prices", async (_req, res) => res.json(await getPrices()));
+
 // wipe everything and start fresh (the Settings "danger zone")
 app.post("/api/reset", (_req, res) => res.json(resetAll()));
 
@@ -115,3 +119,4 @@ const HOST = process.env.HOST || "0.0.0.0";
 app.listen(PORT, HOST, () => console.log(`tsumiki server on http://${HOST}:${PORT}`));
 
 scheduleNews(); // no-op unless TSUMIKI_NEWS_FEED is configured
+schedulePrices(); // no-op unless TSUMIKI_PRICES is enabled

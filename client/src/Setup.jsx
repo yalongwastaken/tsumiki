@@ -54,7 +54,14 @@ export default function Setup({
   onSetTheme,
   section = "settings",
 }) {
-  const { profile = {}, accounts = [], debts = [], transactions = [], snapshots = [] } = data;
+  const {
+    profile = {},
+    accounts = [],
+    debts = [],
+    transactions = [],
+    snapshots = [],
+    holdings = [],
+  } = data;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const incomeSources = profile.incomeSources || [];
   const totalTypical = incomeSources.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
@@ -326,6 +333,31 @@ export default function Setup({
   }
   function removeDebt(id) {
     onSave({ ...data, debts: debts.filter((d) => d.id !== id) });
+  }
+
+  // stock holdings (manually entered; prices sync nightly when enabled)
+  const [hold, setHold] = useState({ ticker: "", shares: "", costBasis: "" });
+  function addHolding() {
+    const ticker = hold.ticker.trim().toUpperCase();
+    if (!ticker || !(Number(hold.shares) > 0)) {
+      return;
+    }
+    onSave({
+      ...data,
+      holdings: [
+        ...holdings,
+        {
+          id: uid(),
+          ticker,
+          shares: Number(hold.shares),
+          costBasis: hold.costBasis === "" ? null : Number(hold.costBasis),
+        },
+      ],
+    });
+    setHold({ ticker: "", shares: "", costBasis: "" });
+  }
+  function removeHolding(id) {
+    onSave({ ...data, holdings: holdings.filter((h) => h.id !== id) });
   }
 
   return (
@@ -714,6 +746,64 @@ export default function Setup({
               className="w-full py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg"
             >
               Add debt
+            </button>
+          </div>
+
+          {/* Stock holdings (prices sync nightly when enabled on the server) */}
+          <div className={card}>
+            <div className={label + " mb-1"}>Stock holdings</div>
+            <div className="text-xs text-slate-400 mb-3">
+              Track individual stocks by ticker + shares. Cost basis (avg price/share) is optional —
+              it powers gain/loss.
+            </div>
+            {holdings.length > 0 && (
+              <div className="divide-y divide-slate-50 mb-3">
+                {holdings.map((h) => (
+                  <div key={h.id} className="flex items-center justify-between py-2">
+                    <div className="text-sm text-slate-700">
+                      {h.ticker}{" "}
+                      <span className="text-xs text-slate-400">
+                        · {h.shares} sh{h.costBasis != null ? ` @ ${fmt(h.costBasis)}` : ""}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => removeHolding(h.id)}
+                      aria-label="Remove holding"
+                      className="p-1.5 -m-1 text-slate-300 hover:text-rose-400"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-3 gap-2">
+              <input
+                value={hold.ticker}
+                onChange={(e) => setHold({ ...hold, ticker: e.target.value })}
+                placeholder="Ticker"
+                aria-label="Ticker"
+                className={field + " uppercase"}
+              />
+              <input
+                type="number"
+                value={hold.shares}
+                onChange={(e) => setHold({ ...hold, shares: e.target.value })}
+                placeholder="shares"
+                aria-label="Shares"
+                className={field}
+              />
+              <Money
+                value={hold.costBasis}
+                onChange={(v) => setHold({ ...hold, costBasis: v })}
+                placeholder="cost/sh"
+              />
+            </div>
+            <button
+              onClick={addHolding}
+              className="w-full mt-2 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg"
+            >
+              Add holding
             </button>
           </div>
         </>
