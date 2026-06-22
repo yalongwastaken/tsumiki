@@ -27,7 +27,7 @@ export function latestSnapshots(snapshots = []) {
  * @returns {number}
  */
 export function netWorthFromSnapshots(snapshots = []) {
-  return Object.values(latestSnapshots(snapshots)).reduce((a, s) => a + s.balance, 0);
+  return Object.values(latestSnapshots(snapshots)).reduce((a, s) => a + (s.balance || 0), 0);
 }
 
 /**

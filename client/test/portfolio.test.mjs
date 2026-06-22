@@ -17,6 +17,22 @@ const prices = {
   VTI: { price: 250, date: "2026-06-20" },
 };
 
+test("a non-finite shares count yields null value, not NaN-poisoned totals", () => {
+  const rows = portfolioRows(
+    [
+      { id: "1", ticker: "AAPL", shares: 10, costBasis: 150 },
+      { id: "2", ticker: "BAD", shares: NaN, costBasis: 50 },
+    ],
+    { AAPL: { price: 200 }, BAD: { price: 10 } },
+  );
+  const bad = rows.find((r) => r.ticker === "BAD");
+  assert.equal(bad.value, null);
+  assert.equal(bad.cost, null);
+  const totals = portfolioTotals(rows);
+  assert.equal(totals.value, 2000); // only the good row counts; not NaN
+  assert.equal(totals.gain, 500);
+});
+
 test("portfolioRows computes value + gain vs cost basis", () => {
   const rows = portfolioRows(holdings, prices);
   const aapl = rows.find((r) => r.ticker === "AAPL");

@@ -71,3 +71,15 @@ test("Atom: picks the href when <link> has no text node", () => {
     <link href="https://e.com/x" rel="alternate"/></entry></feed>`;
   assert.equal(parseFeed(xml)[0].link, "https://e.com/x");
 });
+
+test("drops non-http(s) links (javascript:/data: from a hostile feed)", () => {
+  const xml = `<rss><channel>
+    <item><title>A</title><link>javascript:fetch('/api/reset',{method:'POST'})</link></item>
+    <item><title>B</title><link>data:text/html,<script>1</script></link></item>
+    <item><title>C</title><link>  HTTPS://ex.com/ok  </link></item>
+  </channel></rss>`;
+  const items = parseFeed(xml);
+  assert.equal(items[0].link, ""); // javascript: scrubbed
+  assert.equal(items[1].link, ""); // data: scrubbed
+  assert.equal(items[2].link, "HTTPS://ex.com/ok"); // trimmed, scheme allowed
+});

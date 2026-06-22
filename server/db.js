@@ -189,6 +189,11 @@ export function validateState(s) {
     if (typeof h.ticker !== "string") {
       return "holding.ticker must be a string";
     }
+    // a ticker is interpolated into the (opt-in) price-feed URL, so keep it to a
+    // plain symbol charset — no query-param/URL injection via a crafted ticker
+    if (!/^[A-Za-z0-9.\-^]{1,15}$/.test(h.ticker)) {
+      return "holding.ticker has invalid characters";
+    }
     if (typeof h.shares !== "number" || !isFinite(h.shares)) {
       return "holding.shares must be a finite number";
     }

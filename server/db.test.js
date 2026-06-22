@@ -17,6 +17,11 @@ test("validateState rejects malformed bodies", () => {
   assert.ok(validateState({ debts: [{ id: "d", name: "Card", balance: "lots" }] }));
   assert.ok(validateState({ debts: [{ id: "d", name: "Card" }] })); // missing balance
   assert.ok(validateState({ goals: [{ id: "g", name: "Trip", target: null }] }));
+  // a ticker is interpolated into the price-feed URL → reject non-symbol charsets
+  assert.ok(validateState({ holdings: [{ id: "h", ticker: "evil&x=1", shares: 1 }] }));
+  assert.ok(validateState({ holdings: [{ id: "h", ticker: "a b", shares: 1 }] }));
+  assert.equal(validateState({ holdings: [{ id: "h", ticker: "BRK.B", shares: 1 }] }), null);
+  assert.equal(validateState({ holdings: [{ id: "h", ticker: "^GSPC", shares: 1 }] }), null);
   assert.equal(validateState({ debts: [{ id: "d", name: "Card", balance: 1000, apr: 20 }] }), null);
   assert.equal(validateState({ goals: [{ id: "g", name: "Trip", target: 5000 }] }), null);
   assert.equal(

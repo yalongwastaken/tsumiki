@@ -105,7 +105,9 @@ export function estimateTax({
   selfEmployed = false,
 } = {}) {
   const fs = BRACKETS[filingStatus] ? filingStatus : "single";
-  const gross = Math.max(0, income);
+  // clamp a non-finite salary (e.g. a half-typed input field) to 0 so the page
+  // shows $0 rather than "$NaN" across every derived figure
+  const gross = Math.max(0, Number.isFinite(income) ? income : 0);
 
   // payroll tax: self-employment tax for SE income, else employee FICA
   const seTax = selfEmployed ? selfEmploymentTax(gross, fs) : 0;

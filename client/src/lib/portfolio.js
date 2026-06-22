@@ -7,9 +7,13 @@ export function portfolioRows(holdings = [], prices = {}) {
     const ticker = String(h.ticker || "").toUpperCase();
     const q = prices[ticker] || {};
     const price = typeof q.price === "number" ? q.price : null;
-    const value = price != null ? price * h.shares : null;
+    // guard against a non-finite shares count poisoning value (and thus totals) with NaN
+    const value = price != null && Number.isFinite(price * h.shares) ? price * h.shares : null;
     const perShareCost = typeof h.costBasis === "number" ? h.costBasis : null;
-    const cost = perShareCost != null ? perShareCost * h.shares : null;
+    const cost =
+      perShareCost != null && Number.isFinite(perShareCost * h.shares)
+        ? perShareCost * h.shares
+        : null;
     const gain = value != null && cost != null ? value - cost : null;
     const gainPct = gain != null && cost > 0 ? gain / cost : null;
     return {

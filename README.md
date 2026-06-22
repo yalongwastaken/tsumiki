@@ -1,5 +1,7 @@
 # Tsumiki — personal money coach
 
+**v1.0.0** · self-hosted · single-user · no cloud, no AI in the product
+
 A self-hosted money **coach**, not just a tracker. Given the money you have, it tells
 you where it should go — essentials, debt, a checking buffer, savings, retirement, and
 investing — then tracks your real spending and contributions against that plan.
@@ -148,3 +150,13 @@ make test-smoke   # headless render walk-through of the whole UI
 
 Run `make help` for the full list: `install`, `dev`, `server`, `client`, `build`,
 `start`, `test`, `test-smoke`, `backup`, `clean`, `distclean`.
+
+## Releases
+
+See [`CHANGELOG.md`](./CHANGELOG.md). Releases follow [SemVer](https://semver.org);
+the current release is **v1.0.0**.
+
+## License
+
+All rights reserved. © 2026 Anthony. This is a personal project published for
+reference; no license to use, copy, modify, or distribute is granted.

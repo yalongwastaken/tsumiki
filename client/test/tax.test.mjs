@@ -108,3 +108,13 @@ test("married brackets differ from single; zero income is safe", () => {
   assert.equal(zero.total, 0);
   assert.equal(zero.effectiveRate, 0);
 });
+
+test("non-finite income clamps to 0 (no $NaN)", () => {
+  for (const bad of [NaN, undefined, Infinity, "abc"]) {
+    const r = estimateTax({ income: bad });
+    assert.equal(r.gross, 0);
+    assert.equal(r.total, 0);
+    assert.equal(r.takeHome, 0);
+    assert.ok(Number.isFinite(r.federal));
+  }
+});

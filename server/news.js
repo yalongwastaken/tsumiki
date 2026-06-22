@@ -41,6 +41,14 @@ const tagText = (block, name) => {
   return m ? decode(m[1]) : "";
 };
 
+// only let http(s) links through to the client. a compromised/hostile feed could
+// otherwise smuggle a `javascript:` (or `data:`) link that runs in the app origin
+// on click — drop anything that isn't a normal web URL.
+function safeLink(url = "") {
+  const u = url.trim();
+  return /^https?:\/\//i.test(u) ? u : "";
+}
+
 /**
  * Parse an RSS or Atom feed into headline items. Pure — no network.
  * @returns {Array<{title, link, date}>}
@@ -60,7 +68,7 @@ export function parseFeed(xml = "") {
       link = m ? m[1] : "";
     }
     const date = tagText(b, "pubDate") || tagText(b, "updated") || tagText(b, "published") || "";
-    out.push({ title, link, date });
+    out.push({ title, link: safeLink(link), date });
   }
   return out;
 }
