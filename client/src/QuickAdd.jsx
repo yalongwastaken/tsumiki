@@ -129,7 +129,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
       aria-modal="true"
       aria-label="Log a transaction"
     >
-      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
+      <div className="anim-fade absolute inset-0 bg-slate-900/40" onClick={onClose} />
       <div
         className="relative w-full max-w-lg bg-white rounded-t-2xl p-4 pb-6 shadow-xl"
         style={{ animation: "qa-up 160ms ease-out" }}
@@ -258,7 +258,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
         <button
           onClick={submit}
           disabled={!(parseFloat(amount) > 0)}
-          className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition-colors"
+          className="press w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition-colors"
         >
           Log {amount && parseFloat(amount) > 0 ? fmt(parseFloat(amount)) : ""}
         </button>

@@ -24,6 +24,72 @@ body {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* ── motion ── subtle, GPU-friendly (transform/opacity only), short, and fully
+   disabled for users who prefer reduced motion so it never costs speed. ── */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* screen/tab content gently rises in (replays on tab change via React key) */
+.anim-in {
+  animation: fade-in-up 220ms ease-out both;
+}
+.anim-fade {
+  animation: fade-in 160ms ease-out both;
+}
+.modal-in {
+  animation: modal-in 180ms ease-out both;
+}
+
+/* tactile press feedback on the main tap targets — transition transform plus the
+   color properties so adding .press doesn't clobber a `transition-colors` hover. */
+.press {
+  transition:
+    transform 90ms ease,
+    background-color 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
+}
+.press:active {
+  transform: scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 .dark {
   --text: #f1f5f9;
   --muted: #94a3b8;

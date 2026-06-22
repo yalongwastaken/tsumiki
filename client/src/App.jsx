@@ -508,7 +508,7 @@ export default function App() {
                 setMenuOpen(false);
               }}
               title={label}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "md:justify-center" : ""} ${tab === key ? "bg-brand-100 text-brand-700" : "text-slate-600 hover:bg-slate-50"}`}
+              className={`press w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "md:justify-center" : ""} ${tab === key ? "bg-brand-100 text-brand-700" : "text-slate-600 hover:bg-slate-50"}`}
             >
               <Icon size={20} className="flex-shrink-0" />
               <span className={collapsed ? "md:hidden" : ""}>{label}</span>
@@ -565,7 +565,7 @@ export default function App() {
           <div className="font-semibold text-slate-800">{sectionLabel}</div>
           <div className="ml-auto flex items-center gap-3">
             {toast ? (
-              <span className="text-xs text-emerald-500">{toast}</span>
+              <span className="anim-fade text-xs text-emerald-500">{toast}</span>
             ) : (
               <span className="text-sm font-mono font-bold text-slate-700">
                 {fmt(netWorthDisplay)}{" "}
@@ -576,7 +576,7 @@ export default function App() {
         </header>
 
         <ErrorBoundary key={tab}>
-          <main className="flex-1 px-4 sm:px-6 pt-5 pb-28 space-y-4 w-full max-w-lg md:max-w-2xl lg:max-w-4xl mx-auto">
+          <main className="anim-in flex-1 px-4 sm:px-6 pt-5 pb-28 space-y-4 w-full max-w-lg md:max-w-2xl lg:max-w-4xl mx-auto">
             {tab === "home" && (
               <Home
                 profile={profile}
@@ -702,7 +702,7 @@ export default function App() {
       <button
         onClick={() => setShowAdd(true)}
         aria-label="Log a transaction"
-        className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-brand-600 hover:bg-brand-700 text-white shadow-lg flex items-center justify-center"
+        className="press fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-brand-600 hover:bg-brand-700 text-white shadow-lg flex items-center justify-center"
       >
         <Plus size={26} />
       </button>

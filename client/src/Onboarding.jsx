@@ -69,8 +69,8 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
       role="dialog"
       aria-modal="true"
     >
-      <div className="absolute inset-0 bg-slate-900/50" />
-      <div className="relative w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl">
+      <div className="anim-fade absolute inset-0 bg-slate-900/50" />
+      <div className="modal-in relative w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl">
         <div className="flex justify-between items-center mb-4">
           <div className="flex gap-1.5">
             {steps.map((_, i) => (
