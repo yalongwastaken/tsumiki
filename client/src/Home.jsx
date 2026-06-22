@@ -1,13 +1,14 @@
 // Home.jsx — landing screen: the valuable stuff at a glance, tap-through to detail.
 import { useState, useEffect, useMemo } from "react";
-import { fmt } from "./format.js";
-import { getPlan, getNews } from "./api.js";
-import { thisMonth, annualSpend, sumLatestByType, monthTotals } from "./selectors.js";
-import { computeAdherence } from "./streak.js";
-import { nextMilestone } from "./milestones.js";
-import { nextPaydays } from "./paydays.js";
-import { cashflowForecast, spendingTrends, coachNudges } from "./insights.js";
-import { learnFeed } from "./learn.js";
+import { fmt } from "./lib/format.js";
+import { getPlan, getNews } from "./lib/api.js";
+import { thisMonth, monthKey, annualSpend, sumLatestByType, monthTotals } from "./lib/selectors.js";
+import { computeAdherence } from "./lib/streak.js";
+import { nextMilestone } from "./lib/milestones.js";
+import { nextPaydays } from "./lib/paydays.js";
+import { cashflowForecast, spendingTrends, coachNudges } from "./lib/insights.js";
+import { budgetStatus, budgetAlert } from "./lib/budgets.js";
+import { learnFeed } from "./lib/learn.js";
 import { Flame, Check, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import SankeyFlow from "./Sankey.jsx";
 import Calendar from "./Calendar.jsx";
@@ -129,7 +130,25 @@ export default function Home({
     .filter((d) => (d.apr || 0) >= highApr)
     .reduce((s, d) => s + (d.balance || 0), 0);
   const sources = profile.incomeSources || [];
-  const nudges = coachNudges({
+  // category budgets: this month's spend vs each cap + the most-pressing alert
+  const budgetRows = useMemo(
+    () => budgetStatus(transactions, profile.budgets || {}),
+    [transactions, profile.budgets],
+  );
+  const budgetWarn = budgetAlert(budgetRows);
+  // this month's spending split by category (for the "where it went" breakdown)
+  const catSpend = useMemo(() => {
+    const m = {};
+    for (const t of transactions) {
+      if (t.type === "spending" && t.amount > 0 && monthKey(t.date) === ym) {
+        m[t.cat || "Other"] = (m[t.cat || "Other"] || 0) + t.amount;
+      }
+    }
+    return Object.entries(m)
+      .map(([cat, amount]) => ({ cat, amount }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [transactions, ym]);
+  const coachList = coachNudges({
     savings: savingsBal,
     emergencyTarget: profile.emergencyTarget || 0,
     strategy: profile.strategy || "balanced",
@@ -138,7 +157,19 @@ export default function Home({
     highDebt,
     leftToAllocate,
     forecast,
-  }).slice(0, 2); // keep the landing screen calm — at most two nudges
+  });
+  // a budget overrun is timely + actionable → surface it first
+  const budgetNudge = budgetWarn
+    ? {
+        id: "budget",
+        tone: budgetWarn.over ? "warn" : "info",
+        tab: "activity",
+        text: budgetWarn.over
+          ? `${budgetWarn.cat} is over budget — ${fmt(budgetWarn.spent)} of ${fmt(budgetWarn.budget)} this month.`
+          : `${budgetWarn.cat} is at ${Math.round(budgetWarn.pct * 100)}% of its ${fmt(budgetWarn.budget)} budget.`,
+      }
+    : null;
+  const nudges = [...(budgetNudge ? [budgetNudge] : []), ...coachList].slice(0, 2);
 
   // curated money tips, chosen by your current situation (see learn.js)
   const floorAmt = profile.checkingFloor || 0;
@@ -365,6 +396,60 @@ export default function Home({
           </div>
           <div className="text-xs text-slate-400 mt-2">
             vs your prior-month average per category
+          </div>
+        </Card>
+      )}
+
+      {/* where this month's spending went, by category */}
+      {catSpend.length > 1 && spendThisMonth > 0 && (
+        <Card title="Where it went" onGo={() => onGo?.("activity")}>
+          <div className="space-y-2">
+            {catSpend.slice(0, 6).map((c) => (
+              <div key={c.cat}>
+                <div className="flex items-baseline justify-between text-sm mb-1">
+                  <span className="text-slate-600 truncate">{c.cat}</span>
+                  <span className="font-mono text-xs text-slate-500">
+                    {fmt(c.amount)}
+                    <span className="text-slate-300">
+                      {" "}
+                      · {Math.round((c.amount / spendThisMonth) * 100)}%
+                    </span>
+                  </span>
+                </div>
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-brand-400 rounded-full"
+                    style={{ width: `${(c.amount / spendThisMonth) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="text-xs text-slate-400 mt-2">{fmt(spendThisMonth)} spent this month</div>
+        </Card>
+      )}
+
+      {/* budgets — this month's spend vs each category cap */}
+      {budgetRows.length > 0 && (
+        <Card title="Budgets this month" onGo={() => onGo?.("settings")}>
+          <div className="space-y-2.5">
+            {budgetRows.slice(0, 5).map((b) => (
+              <div key={b.cat}>
+                <div className="flex items-baseline justify-between text-sm mb-1">
+                  <span className="text-slate-600">{b.cat}</span>
+                  <span className="font-mono text-xs text-slate-500">
+                    {fmt(b.spent)}
+                    <span className="text-slate-300"> / {fmt(b.budget)}</span>
+                  </span>
+                </div>
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${b.over ? "bg-rose-400" : b.pct >= 0.9 ? "bg-amber-400" : "bg-emerald-400"}`}
+                    style={{ width: `${Math.min(100, b.pct * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </Card>
       )}

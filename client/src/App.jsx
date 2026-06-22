@@ -8,11 +8,11 @@ import {
   resetAll,
   getPrices,
   refreshPrices,
-} from "./api.js";
-import { fmt } from "./format.js";
-import { typicalIncome } from "./income.js";
-import { netWorthFromSnapshots, sumLatestByType, annualSpend, thisMonth } from "./selectors.js";
-import { computeAdherence } from "./streak.js";
+} from "./lib/api.js";
+import { fmt } from "./lib/format.js";
+import { typicalIncome } from "./lib/income.js";
+import { netWorthFromSnapshots, sumLatestByType, annualSpend, thisMonth } from "./lib/selectors.js";
+import { computeAdherence } from "./lib/streak.js";
 import Setup from "./Setup.jsx";
 import Plan from "./Plan.jsx";
 import QuickAdd from "./QuickAdd.jsx";
@@ -39,7 +39,7 @@ import {
 import MilestoneIcon from "./MilestoneIcon.jsx";
 import Milestones from "./Milestones.jsx";
 import MoneyTargets from "./MoneyTargets.jsx";
-import { computeMilestones } from "./milestones.js";
+import { computeMilestones } from "./lib/milestones.js";
 
 import Fire from "./Fire.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
@@ -635,6 +635,19 @@ export default function App() {
                 profile={profile}
                 sources={incomeSources}
                 onDelete={deleteTx}
+                onLog={(txs) =>
+                  save({
+                    ...data,
+                    transactions: [...transactions, ...txs.map((t) => ({ id: uid(), ...t }))],
+                  })
+                }
+                onUpdate={(ids, patch) => {
+                  const set = new Set(ids);
+                  save({
+                    ...data,
+                    transactions: transactions.map((t) => (set.has(t.id) ? { ...t, ...patch } : t)),
+                  });
+                }}
               />
             )}
 
@@ -703,6 +716,11 @@ export default function App() {
                 <Milestones list={milestoneList} />
                 <MoneyTargets
                   targets={profile?.moneyTargets || []}
+                  values={{
+                    net_worth: realNetWorth,
+                    contributed: investedTotal,
+                    emergency: savingsBalance,
+                  }}
                   onChange={(list) =>
                     save({ ...data, profile: { ...profile, moneyTargets: list } })
                   }

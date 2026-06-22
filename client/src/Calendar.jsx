@@ -1,9 +1,9 @@
 // Calendar.jsx — one-month grid: heatmap, activity dots, bills, weekly adherence.
 import { useState, useMemo } from "react";
 import { Flame, ChevronLeft, ChevronRight } from "lucide-react";
-import { fmt } from "./format.js";
-import { weekKey, objectiveForWeek } from "./streak.js";
-import { paydaysInMonth } from "./paydays.js";
+import { fmt } from "./lib/format.js";
+import { weekKey, objectiveForWeek } from "./lib/streak.js";
+import { paydaysInMonth } from "./lib/paydays.js";
 
 const DOW = ["M", "T", "W", "T", "F", "S", "S"];
 

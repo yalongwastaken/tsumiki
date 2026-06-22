@@ -1,7 +1,7 @@
 // milestones.test.mjs — unit tests for the milestones engine.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computeMilestones, nextMilestone } from "../src/milestones.js";
+import { computeMilestones, nextMilestone } from "../src/lib/milestones.js";
 
 const ctx = {
   realNetWorth: 12000,

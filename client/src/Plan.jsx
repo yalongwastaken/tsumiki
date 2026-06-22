@@ -1,13 +1,13 @@
 // Plan.jsx — the living monthly plan: targets vs actuals, recurring transfers, chart.
 import { useState, useEffect, useMemo } from "react";
 import { Check } from "lucide-react";
-import { getPlan } from "./api.js";
-import { fmt } from "./format.js";
-import { typicalIncome } from "./income.js";
-import { BUCKETS, bucketOf } from "./buckets.js";
-import { thisMonth, monthKey, sumLatestByType, monthTotals } from "./selectors.js";
-import { estimateTax, nextQuarterlyDue } from "./tax.js";
-import { payoffPlan } from "./debt.js";
+import { getPlan } from "./lib/api.js";
+import { fmt } from "./lib/format.js";
+import { typicalIncome } from "./lib/income.js";
+import { BUCKETS, bucketOf } from "./lib/buckets.js";
+import { thisMonth, monthKey, sumLatestByType, monthTotals } from "./lib/selectors.js";
+import { estimateTax, nextQuarterlyDue } from "./lib/tax.js";
+import { payoffPlan } from "./lib/debt.js";
 import PlanSplitChart from "./PlanSplitChart.jsx";
 import Recurring from "./Recurring.jsx";
 

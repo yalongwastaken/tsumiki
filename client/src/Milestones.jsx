@@ -1,6 +1,6 @@
 // Milestones.jsx — achievements panel (earned badges + next to chase).
-import { nextMilestone } from "./milestones.js";
-import { fmt } from "./format.js";
+import { nextMilestone } from "./lib/milestones.js";
+import { fmt } from "./lib/format.js";
 import MilestoneIcon from "./MilestoneIcon.jsx";
 
 /** Achievements panel: earned badges + the next one to chase. */

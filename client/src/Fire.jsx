@@ -1,6 +1,6 @@
 // Fire.jsx — FIRE / Coast-FI readout (pure math, no chart deps).
 import { PartyPopper } from "lucide-react";
-import { fmt } from "./format.js";
+import { fmt } from "./lib/format.js";
 
 // fire number = 25× annual expenses (the 4% rule)
 

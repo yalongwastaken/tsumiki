@@ -1,7 +1,7 @@
 // debt.test.mjs — debt-payoff projection (avalanche/snowball, interest, timeline).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { payoffPlan } from "../src/debt.js";
+import { payoffPlan } from "../src/lib/debt.js";
 
 const TODAY = new Date("2026-06-21T12:00:00Z");
 

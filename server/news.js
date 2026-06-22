@@ -10,15 +10,27 @@ const MAX_ITEMS = 8;
 
 let cache = { items: [], fetchedAt: 0 };
 
+// safe code-point → string (guards bad/out-of-range numeric entities)
+const cp = (n) => {
+  try {
+    return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : "";
+  } catch {
+    return "";
+  }
+};
+
 const decode = (s = "") =>
   s
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
     .replace(/<[^>]+>/g, "")
-    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => cp(parseInt(h, 16))) // hex numeric entities
+    .replace(/&#(\d+);/g, (_, n) => cp(parseInt(n, 10))) // decimal numeric entities
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'")
+    .replace(/&amp;/g, "&") // ampersand last, so "&amp;lt;" → "&lt;" not "<"
     .replace(/\s+/g, " ")
     .trim();
 

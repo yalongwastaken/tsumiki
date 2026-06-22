@@ -1,7 +1,7 @@
 // tax.test.mjs — federal brackets + FICA + state estimate.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { estimateTax, nextQuarterlyDue } from "../src/tax.js";
+import { estimateTax, nextQuarterlyDue } from "../src/lib/tax.js";
 
 test("single $80k in a no-tax state: federal + FICA, marginal 22%", () => {
   const t = estimateTax({ income: 80000, filingStatus: "single", state: "TX" });

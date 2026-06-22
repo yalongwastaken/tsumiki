@@ -6,7 +6,7 @@ import {
   portfolioTotals,
   portfolioInsights,
   retirementValue,
-} from "../src/portfolio.js";
+} from "../src/lib/portfolio.js";
 
 const holdings = [
   { id: "1", ticker: "aapl", shares: 10, costBasis: 150 },

@@ -1,8 +1,8 @@
 // Recurring.jsx — per-income recurring transfers, split by each source's cadence.
 import { useState } from "react";
-import { fmt } from "./format.js";
-import { nextPaydays } from "./paydays.js";
-import { CADENCE, CADENCE_LABEL, isCadence } from "./cadence.js";
+import { fmt } from "./lib/format.js";
+import { nextPaydays } from "./lib/paydays.js";
+import { CADENCE, CADENCE_LABEL, isCadence } from "./lib/cadence.js";
 
 const fmtDate = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 

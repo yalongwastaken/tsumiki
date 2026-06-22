@@ -1,7 +1,7 @@
 // csv.test.mjs — CSV parsing + bank-statement → transaction mapping.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseCsv, guessMapping, rowsToTransactions } from "../src/csv.js";
+import { parseCsv, guessMapping, rowsToTransactions, dedupeAgainst } from "../src/lib/csv.js";
 
 test("parseCsv handles quotes, escaped quotes, and commas in fields", () => {
   const text =
@@ -54,6 +54,21 @@ test("rowsToTransactions strips currency symbols and thousands separators", () =
   const rows = [["2026-06-01", "Big buy", "-$1,234.56"]];
   const txs = rowsToTransactions(rows, { date: 0, description: 1, amount: 2 });
   assert.equal(txs[0].amount, 1234.56);
+});
+
+test("dedupeAgainst drops rows matching existing txs and within the batch", () => {
+  const existing = [
+    { type: "spending", amount: 4.5, note: "Coffee", date: "2026-06-01T00:00:00.000Z" },
+  ];
+  const incoming = [
+    { type: "spending", amount: 4.5, note: "Coffee", date: "2026-06-01T09:00:00.000Z" }, // dup of existing (same day)
+    { type: "spending", amount: 12, note: "Lunch", date: "2026-06-02T00:00:00.000Z" }, // new
+    { type: "spending", amount: 12, note: "Lunch", date: "2026-06-02T00:00:00.000Z" }, // dup within batch
+  ];
+  const { kept, skipped } = dedupeAgainst(incoming, existing);
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].note, "Lunch");
+  assert.equal(skipped, 2);
 });
 
 test("rowsToTransactions reads accounting parentheses as negative (spending)", () => {

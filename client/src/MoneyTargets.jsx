@@ -1,9 +1,9 @@
-// MoneyTargets.jsx — manage user-defined "save $X" goals (the gamified targets).
+// MoneyTargets.jsx — manage user-defined "save $X" goals with optional deadlines.
 import { useState } from "react";
 import { X } from "lucide-react";
-import { fmt } from "./format.js";
+import { fmt } from "./lib/format.js";
+import { goalProgress } from "./lib/goals.js";
 
-// progress + celebration come via the milestones engine; this just manages the list
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const METRICS = [
   ["net_worth", "Net worth"],
@@ -11,9 +11,13 @@ const METRICS = [
   ["emergency", "Emergency fund"],
 ];
 
-/** Manage the list of user-defined "save $X" targets (add / edit / remove). */
-export default function MoneyTargets({ targets = [], onChange }) {
-  const [form, setForm] = useState({ label: "", amount: "", metric: "net_worth" });
+/**
+ * Manage user-defined "save $X" targets (add / remove) with progress + pace.
+ * `values` maps each metric to its current dollar value so we can show how close
+ * you are and what monthly saving lands a dated goal on time.
+ */
+export default function MoneyTargets({ targets = [], values = {}, onChange }) {
+  const [form, setForm] = useState({ label: "", amount: "", metric: "net_worth", targetDate: "" });
   function add() {
     const amount = Number(form.amount);
     if (!(amount > 0)) {
@@ -26,9 +30,10 @@ export default function MoneyTargets({ targets = [], onChange }) {
         label: form.label.trim() || `${fmt(amount)} ${metricLabel(form.metric)}`,
         amount,
         metric: form.metric,
+        targetDate: form.targetDate || null,
       },
     ]);
-    setForm({ label: "", amount: "", metric: "net_worth" });
+    setForm({ label: "", amount: "", metric: "net_worth", targetDate: "" });
   }
   const metricLabel = (m) => METRICS.find(([v]) => v === m)?.[1] || m;
 
@@ -39,23 +44,53 @@ export default function MoneyTargets({ targets = [], onChange }) {
       </div>
       {targets.length > 0 && (
         <div className="divide-y divide-slate-50 mb-3">
-          {targets.map((t) => (
-            <div key={t.id} className="flex items-center justify-between py-2">
-              <div className="text-sm text-slate-700">
-                {t.label} <span className="text-xs text-slate-400">· {metricLabel(t.metric)}</span>
+          {targets.map((t) => {
+            const p = goalProgress(t, values[t.metric] || 0);
+            return (
+              <div key={t.id} className="py-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-slate-700">
+                    {t.label}{" "}
+                    <span className="text-xs text-slate-400">· {metricLabel(t.metric)}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-mono text-slate-500">
+                      {fmt(values[t.metric] || 0)}
+                      <span className="text-slate-300"> / {fmt(t.amount)}</span>
+                    </span>
+                    <button
+                      onClick={() => onChange(targets.filter((x) => x.id !== t.id))}
+                      className="text-slate-300 hover:text-rose-400"
+                      aria-label="Remove"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5">
+                  <div
+                    className={`h-full rounded-full ${p.reached ? "bg-emerald-500" : "bg-brand-500"}`}
+                    style={{ width: `${p.pct * 100}%` }}
+                  />
+                </div>
+                <div className="text-xs mt-1">
+                  {p.reached ? (
+                    <span className="text-emerald-600">Reached 🎉</span>
+                  ) : p.overdue ? (
+                    <span className="text-rose-500">
+                      Target date passed — {fmt(p.remaining)} to go.
+                    </span>
+                  ) : p.requiredMonthly ? (
+                    <span className="text-slate-400">
+                      Save {fmt(p.requiredMonthly)}/mo to hit it in {p.monthsLeft} mo.
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">{fmt(p.remaining)} to go.</span>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-mono text-slate-500">{fmt(t.amount)}</span>
-                <button
-                  onClick={() => onChange(targets.filter((x) => x.id !== t.id))}
-                  className="text-slate-300 hover:text-rose-400"
-                  aria-label="Remove"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
       <div className="grid grid-cols-2 gap-2 mb-2">
@@ -76,6 +111,16 @@ export default function MoneyTargets({ targets = [], onChange }) {
             </option>
           ))}
         </select>
+      </div>
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-xs text-slate-500">By (optional)</span>
+        <input
+          type="date"
+          value={form.targetDate}
+          onChange={(e) => setForm({ ...form, targetDate: e.target.value })}
+          className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
+        />
+        <span className="text-xs text-slate-400">— adds a savings-pace target</span>
       </div>
       <div className="flex gap-2">
         <div className="relative flex-1">

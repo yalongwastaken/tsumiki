@@ -1,7 +1,7 @@
 // learn.test.mjs — curated lessons + relevance rules.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { learnFeed, LESSONS } from "../src/learn.js";
+import { learnFeed, LESSONS } from "../src/lib/learn.js";
 
 test("evergreen lesson is always available as a fallback", () => {
   // a fully optimized user: match set, no idle cash, nothing invested, etc.

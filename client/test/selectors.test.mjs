@@ -8,7 +8,7 @@ import {
   netWorthFromSnapshots,
   sumLatestByType,
   annualSpend,
-} from "../src/selectors.js";
+} from "../src/lib/selectors.js";
 
 const snap = (accountId, date, balance) => ({ id: accountId + date, accountId, date, balance });
 

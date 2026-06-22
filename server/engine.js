@@ -4,33 +4,17 @@
 // the priorities. Pure + deterministic so it's easy to test and explain.
 // Features: avalanche debt order, YTD-aware retirement, configurable thresholds.
 
+// income/spend math is shared with the client (single source of truth — no drift)
+import {
+  typicalIncome as coreTypicalIncome,
+  avgMonthlyIncome,
+  avgMonthlySpend,
+} from "../client/src/lib/finance.js";
+
 const DEFAULT_HIGH_APR = 10; // % — at/above this, debt is "high interest"
 const DEFAULT_IRA_LIMIT = 7000; // 2025 IRA annual contribution cap
 const DEFAULT_401K_LIMIT = 23500; // 2025 401k employee elective-deferral cap
 const CADENCE = { weekly: 4.345, biweekly: 2.1725, semimonthly: 2, monthly: 1 }; // paychecks/month (mirrors client cadence.js)
-
-/** Average monthly logged spending — fallback "essentials" estimate when no bills. */
-function avgMonthlySpend(transactions) {
-  const sp = transactions.filter((t) => t.type === "spending" && t.amount > 0);
-  if (!sp.length) {
-    return 0;
-  }
-  const months = new Set(sp.map((t) => new Date(t.date).toISOString().slice(0, 7)));
-  return sp.reduce((s, t) => s + t.amount, 0) / Math.max(1, months.size);
-}
-
-/** Average logged income per month across ALL months with income (incl. the current). */
-function avgMonthlyIncome(transactions) {
-  const byMonth = {};
-  for (const t of transactions) {
-    if (t.type === "income" && t.amount > 0) {
-      const m = new Date(t.date).toISOString().slice(0, 7);
-      byMonth[m] = (byMonth[m] || 0) + t.amount;
-    }
-  }
-  const vals = Object.values(byMonth);
-  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-}
 
 /** Sum the latest snapshot balance per account, grouped by account type. */
 function balancesByType(accounts, snapshots) {
@@ -90,31 +74,12 @@ function blendWeights(a, b, t) {
 const money = (n) => "$" + Math.round(n).toLocaleString();
 
 /**
- * Typical monthly income: learned from logged history (≥2 complete months),
- * else the typed source estimates. Mirrors client income.js.
+ * Typical monthly income (shared core). Re-exported so the server's callers and
+ * tests keep a stable `typicalIncome(state)` entry point.
  * @returns {number}
  */
 export function typicalIncome(state) {
-  const { profile = {}, transactions = [] } = state;
-  const sources = profile.incomeSources || [];
-  const typed = sources.length
-    ? sources.reduce((s, x) => s + (x.typicalMonthly || 0), 0)
-    : profile.typicalIncome || 0;
-  const ym = new Date().toISOString().slice(0, 7);
-  const byMonth = {};
-  for (const t of transactions) {
-    if (t.type === "income") {
-      const m = new Date(t.date).toISOString().slice(0, 7);
-      if (m < ym) {
-        byMonth[m] = (byMonth[m] || 0) + t.amount;
-      }
-    }
-  }
-  const months = Object.values(byMonth);
-  if (months.length >= 2) {
-    return Math.round(months.reduce((a, b) => a + b, 0) / months.length);
-  }
-  return typed;
+  return coreTypicalIncome(state);
 }
 
 /**

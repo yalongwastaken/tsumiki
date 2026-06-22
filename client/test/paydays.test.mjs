@@ -1,7 +1,7 @@
 // paydays.test.mjs — projection of payday dates from an anchor + cadence.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { nextPaydays, paydaysInMonth } from "../src/paydays.js";
+import { nextPaydays, paydaysInMonth } from "../src/lib/paydays.js";
 
 // format as a LOCAL calendar date — paydays are local-midnight dates, so asserting
 // via toISOString() (UTC) would shift a day in non-UTC timezones.

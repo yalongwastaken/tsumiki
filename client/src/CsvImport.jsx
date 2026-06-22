@@ -1,8 +1,8 @@
 // CsvImport.jsx — paste or upload a bank CSV, map the columns, preview, and import
 // as transactions. Uses the pure parser in csv.js; nothing leaves the device.
 import { useState, useMemo } from "react";
-import { fmt } from "./format.js";
-import { parseCsv, guessMapping, rowsToTransactions } from "./csv.js";
+import { fmt } from "./lib/format.js";
+import { parseCsv, guessMapping, rowsToTransactions, dedupeAgainst } from "./lib/csv.js";
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const field =
@@ -26,10 +26,11 @@ function ColSelect({ value, onChange, label, cols }) {
 }
 
 /** CSV → transactions importer. `onImport(transactions)` appends to the ledger. */
-export default function CsvImport({ onImport }) {
+export default function CsvImport({ onImport, existing = [] }) {
   const [text, setText] = useState("");
   const [invert, setInvert] = useState(false);
   const [done, setDone] = useState(0);
+  const [skipped, setSkipped] = useState(0);
 
   const parsed = useMemo(() => (text.trim() ? parseCsv(text) : null), [text]);
   const [map, setMap] = useState(null);
@@ -59,8 +60,11 @@ export default function CsvImport({ onImport }) {
     if (!txs.length) {
       return;
     }
-    onImport(txs.map((t) => ({ id: uid(), ...t })));
-    setDone(txs.length);
+    // skip rows that duplicate transactions already in the ledger (or each other)
+    const { kept, skipped: dropped } = dedupeAgainst(txs, existing);
+    onImport(kept.map((t) => ({ id: uid(), ...t })));
+    setDone(kept.length);
+    setSkipped(dropped);
     setText("");
     setMap(null);
   }
@@ -145,7 +149,11 @@ export default function CsvImport({ onImport }) {
           )}
         </>
       )}
-      {done > 0 && <div className="text-xs text-emerald-600">Imported {done} transactions. ✓</div>}
+      {done > 0 && (
+        <div className="text-xs text-emerald-600">
+          Imported {done} transactions.{skipped > 0 ? ` Skipped ${skipped} duplicate(s).` : ""} ✓
+        </div>
+      )}
       <div className="text-xs text-slate-400">
         Stays on your device. Expenses import as spending, deposits as income — tweak categories in
         Activity.

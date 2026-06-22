@@ -1,7 +1,7 @@
 // Projection.jsx — interactive compound-growth projection.
 import { useState } from "react";
 import AreaChart from "./Chart.jsx";
-import { fmt } from "./format.js";
+import { fmt } from "./lib/format.js";
 
 /** Yearly balance + contributed series from compounding `monthly` at annual `rate`. */
 function projectSeries(start, monthly, rate, years) {

@@ -1,16 +1,18 @@
-// Ledger.jsx — read-only transaction list with filter + delete.
+// Ledger.jsx — transaction list with type filter, text search, and bulk
+// recategorize (select multiple spending rows → set a new category).
 import { useState } from "react";
-import { X } from "lucide-react";
-import { fmt } from "./format.js";
-import { bucketLabel } from "./buckets.js";
+import { X, Check } from "lucide-react";
+import { fmt } from "./lib/format.js";
+import { bucketLabel } from "./lib/buckets.js";
 
-/** Read-only ledger (logging happens via the + button). Filter + delete. */
-export default function Ledger({ transactions, sources, onDelete }) {
+/** Read-only ledger with filter/search/delete + bulk recategorize of spending. */
+export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
   const [filter, setFilter] = useState("all");
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkCat, setBulkCat] = useState("");
+
   const sourceName = (id) => sources.find((s) => s.id === id)?.name || "income";
-  const rows = [...transactions]
-    .filter((t) => filter === "all" || t.type === filter)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
   const meta = (t) =>
     t.type === "spending"
       ? t.cat || "Spending"
@@ -23,6 +25,36 @@ export default function Ledger({ transactions, sources, onDelete }) {
       : t.type === "contribution"
         ? "text-brand-600"
         : "text-slate-700";
+
+  const q = query.trim().toLowerCase();
+  const rows = [...transactions]
+    .filter((t) => filter === "all" || t.type === filter)
+    .filter(
+      (t) =>
+        !q ||
+        meta(t).toLowerCase().includes(q) ||
+        (t.note || "").toLowerCase().includes(q) ||
+        String(t.amount).includes(q),
+    )
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  function toggle(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+  function applyBulk() {
+    const cat = bulkCat.trim();
+    if (!cat || !selected.size || !onUpdate) {
+      return;
+    }
+    onUpdate([...selected], { cat });
+    setSelected(new Set());
+    setBulkCat("");
+  }
+
   return (
     <>
       <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
@@ -41,40 +73,95 @@ export default function Ledger({ transactions, sources, onDelete }) {
           </button>
         ))}
       </div>
+
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search category, note, or amount…"
+        aria-label="Search transactions"
+        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
+      />
+
+      {/* bulk recategorize bar — appears once spending rows are selected */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-2 rounded-xl bg-brand-50 p-2.5">
+          <span className="text-xs text-brand-700 flex-shrink-0">{selected.size} selected</span>
+          <input
+            value={bulkCat}
+            onChange={(e) => setBulkCat(e.target.value)}
+            placeholder="New category"
+            className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-brand-200 rounded-lg bg-white text-slate-700"
+          />
+          <button
+            onClick={applyBulk}
+            className="flex-shrink-0 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg"
+          >
+            Apply
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="flex-shrink-0 text-xs text-brand-700"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {rows.length === 0 ? (
         <div className="text-center py-12 text-slate-400 text-sm">
-          Nothing logged yet. Tap <span className="font-semibold text-brand-600">+</span> to start.
+          {transactions.length === 0 ? (
+            <>
+              Nothing logged yet. Tap <span className="font-semibold text-brand-600">+</span> to
+              start.
+            </>
+          ) : (
+            "No transactions match."
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-50">
-          {rows.map((t) => (
-            <div key={t.id} className="flex items-center justify-between px-4 py-2.5">
-              <div>
-                <div className="text-sm text-slate-700">{meta(t)}</div>
-                {t.note && <div className="text-xs text-slate-400">{t.note}</div>}
-                <div className="text-xs text-slate-300">
-                  {new Date(t.date).toLocaleDateString()}
+          {rows.map((t) => {
+            const selectable = t.type === "spending" && !!onUpdate;
+            return (
+              <div key={t.id} className="flex items-center gap-2 px-4 py-2.5">
+                {selectable && (
+                  <input
+                    type="checkbox"
+                    checked={selected.has(t.id)}
+                    onChange={() => toggle(t.id)}
+                    aria-label={`Select ${meta(t)}`}
+                    className="flex-shrink-0 accent-brand-600"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-slate-700 truncate">{meta(t)}</div>
+                  {t.note && <div className="text-xs text-slate-400 truncate">{t.note}</div>}
+                  <div className="text-xs text-slate-300">
+                    {new Date(t.date).toLocaleDateString()}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {t.type === "spending" && t.amount === 0 ? (
+                    <span className="text-xs text-emerald-600 inline-flex items-center gap-1">
+                      no spend <Check size={12} />
+                    </span>
+                  ) : (
+                    <span className={`text-sm font-mono ${color(t)}`}>
+                      {t.type === "spending" ? "−" : "+"}
+                      {fmt(t.amount)}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => onDelete(t.id)}
+                    aria-label="Delete"
+                    className="p-1.5 -m-1 text-slate-300 hover:text-rose-400"
+                  >
+                    <X size={15} />
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                {t.type === "spending" && t.amount === 0 ? (
-                  <span className="text-xs text-emerald-600">no spend ✓</span>
-                ) : (
-                  <span className={`text-sm font-mono ${color(t)}`}>
-                    {t.type === "spending" ? "−" : "+"}
-                    {fmt(t.amount)}
-                  </span>
-                )}
-                <button
-                  onClick={() => onDelete(t.id)}
-                  aria-label="Delete"
-                  className="p-1.5 -m-1 text-slate-300 hover:text-rose-400"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </>

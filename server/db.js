@@ -134,6 +134,16 @@ export function getPortfolioHistory() {
   return getMeta("portfolioHistory", []);
 }
 
+/** Per-symbol close history { SYMBOL: [{date, price}] }, for week-over-week change. */
+export function getSymbolPriceHistory() {
+  return getMeta("symbolPriceHistory", {});
+}
+
+/** Persist the per-symbol close history map. */
+export function setSymbolPriceHistory(hist) {
+  setMeta("symbolPriceHistory", hist);
+}
+
 /** Append (or replace same-day) a portfolio-value point, capped to the last N days. */
 export function appendPortfolioPoint(value, date = new Date().toISOString()) {
   if (typeof value !== "number" || !isFinite(value)) {
@@ -390,7 +400,7 @@ export function resetAll() {
       db.prepare(`DELETE FROM ${t}`).run();
     }
     db.prepare(
-      "DELETE FROM meta WHERE key IN ('profile', 'settings', 'holdings', 'portfolioHistory')",
+      "DELETE FROM meta WHERE key IN ('profile', 'settings', 'holdings', 'portfolioHistory', 'symbolPriceHistory')",
     ).run();
     setMeta("rev", getRev() + 1);
     db.exec("COMMIT");

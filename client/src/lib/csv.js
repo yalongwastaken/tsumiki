@@ -7,7 +7,11 @@
  * @returns {{headers:string[], rows:string[][]}}
  */
 export function parseCsv(text) {
-  const s = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  // strip a leading UTF-8 BOM (common in Excel exports) + normalize line endings
+  const s = String(text)
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
   const rows = [];
   let row = [];
   let field = "";
@@ -66,6 +70,29 @@ export function guessMapping(headers = []) {
 }
 
 // parse a money cell to a number; accounting parentheses "(50.00)" mean negative
+/**
+ * Drop transactions that duplicate an existing one (same day + amount + note + type),
+ * and de-dupe within the batch itself, so re-importing overlapping statements is safe.
+ * @returns {{kept:Array, skipped:number}}
+ */
+export function dedupeAgainst(newTxs = [], existing = []) {
+  const key = (t) =>
+    `${String(t.date).slice(0, 10)}|${Math.round((t.amount || 0) * 100)}|${(t.note || "").trim().toLowerCase()}|${t.type}`;
+  const seen = new Set(existing.map(key));
+  const kept = [];
+  let skipped = 0;
+  for (const t of newTxs) {
+    const k = key(t);
+    if (seen.has(k)) {
+      skipped++;
+    } else {
+      seen.add(k);
+      kept.push(t);
+    }
+  }
+  return { kept, skipped };
+}
+
 const num = (v) => {
   const s = String(v ?? "").trim();
   const neg = /^\(.*\)$/.test(s); // (50.00) → -50

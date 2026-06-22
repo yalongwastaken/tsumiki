@@ -1,7 +1,13 @@
 // streak.test.mjs — tests for the rotating-objective adherence streak.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computeAdherence, objectiveForWeek, OBJECTIVES, WEEK, weekKey } from "../src/streak.js";
+import {
+  computeAdherence,
+  objectiveForWeek,
+  OBJECTIVES,
+  WEEK,
+  weekKey,
+} from "../src/lib/streak.js";
 
 const thisWeek = weekKey(Date.now());
 const midWeek = (wk) => new Date(wk + 2 * 86400000).toISOString();

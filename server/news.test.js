@@ -31,4 +31,43 @@ test("parses Atom entries with href links", () => {
 test("ignores items without a title and tolerates junk", () => {
   assert.deepEqual(parseFeed(""), []);
   assert.deepEqual(parseFeed("<rss><channel><item><link>x</link></item></channel></rss>"), []);
+  assert.deepEqual(parseFeed("not xml at all"), []);
+  assert.deepEqual(parseFeed("<rss><channel></channel></rss>"), []);
+});
+
+test("decodes numeric + hex + nbsp entities, strips inline tags", () => {
+  const xml = `<rss><channel>
+    <item><title>Fed&#8217;s rate&#x20;cut&nbsp;looms</title><link>https://e.com/1</link></item>
+    <item><title>Stocks &lt;b&gt;up&lt;/b&gt; &amp; bonds</title><link>https://e.com/2</link></item>
+    <item><title>Plain &#38; simple</title><link>https://e.com/3</link></item>
+  </channel></rss>`;
+  const items = parseFeed(xml);
+  assert.equal(items[0].title, "Fed’s rate cut looms"); // &#8217; = curly ’, hex space, nbsp
+  assert.equal(items[1].title, "Stocks <b>up</b> & bonds"); // entity-encoded markup preserved as text
+  assert.equal(items[2].title, "Plain & simple"); // &#38; → &
+});
+
+test("preserves item order and caps nothing at the parse layer", () => {
+  const items = Array.from({ length: 12 }, (_, i) => `<item><title>H${i}</title></item>`).join("");
+  const out = parseFeed(`<rss><channel>${items}</channel></rss>`);
+  assert.equal(out.length, 12); // parse returns all; refreshNews caps to MAX_ITEMS
+  assert.equal(out[0].title, "H0");
+  assert.equal(out[11].title, "H11");
+});
+
+test("falls back across pubDate / updated / published for the date", () => {
+  const rss = parseFeed(
+    `<rss><channel><item><title>A</title><pubDate>Tue, 02 Jun 2026 00:00:00 GMT</pubDate></item></channel></rss>`,
+  );
+  assert.match(rss[0].date, /Jun 2026/);
+  const atom = parseFeed(
+    `<feed><entry><title>B</title><published>2026-06-02T00:00:00Z</published></entry></feed>`,
+  );
+  assert.equal(atom[0].date, "2026-06-02T00:00:00Z");
+});
+
+test("Atom: picks the href when <link> has no text node", () => {
+  const xml = `<feed><entry><title>X</title>
+    <link href="https://e.com/x" rel="alternate"/></entry></feed>`;
+  assert.equal(parseFeed(xml)[0].link, "https://e.com/x");
 });

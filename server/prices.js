@@ -3,7 +3,13 @@
 // for ONLY the tickers you hold (symbols aren't personal) from a keyless public
 // source (Stooq), caches them, keeps a short history for week-over-week moves, and
 // fails gracefully to the last good prices when offline. Nothing about you leaves.
-import { getState, appendPortfolioPoint, getPortfolioHistory } from "./db.js";
+import {
+  getState,
+  appendPortfolioPoint,
+  getPortfolioHistory,
+  getSymbolPriceHistory,
+  setSymbolPriceHistory,
+} from "./db.js";
 
 const ENABLED = ["1", "true", "yes"].includes((process.env.TSUMIKI_PRICES || "").toLowerCase());
 const FEED =
@@ -12,7 +18,6 @@ const TTL = 20 * 60 * 60 * 1000; // refetch at most ~daily
 const HIST_MAX = 40;
 
 let cache = { prices: {}, fetchedAt: 0 };
-const history = {}; // SYMBOL → [{ date, price }]
 
 /**
  * Parse a Stooq CSV (header + rows) into latest closes. Pure — no network.
@@ -31,7 +36,8 @@ export function parseStooqCsv(csv = "") {
   for (const line of lines.slice(1)) {
     const cells = line.split(",");
     const close = parseFloat(cells[ci]);
-    const symbol = (cells[si] || "").replace(/\.[A-Z]+$/i, "").toUpperCase();
+    // strip the exchange suffix (.US/.UK/.DE …) but NOT a 1-letter class share (BRK.B)
+    const symbol = (cells[si] || "").replace(/\.[A-Z]{2,}$/i, "").toUpperCase();
     if (!symbol || !isFinite(close) || close <= 0) {
       continue;
     }
@@ -40,7 +46,8 @@ export function parseStooqCsv(csv = "") {
   return out;
 }
 
-function recordHistory(symbol, date, price) {
+// append a close to a symbol's persisted history and return its week-over-week change
+function recordHistory(history, symbol, date, price) {
   const h = (history[symbol] = history[symbol] || []);
   if (!h.length || h[h.length - 1].date !== date) {
     h.push({ date, price });
@@ -73,10 +80,13 @@ export async function refreshPrices() {
     const rows = parseStooqCsv(await res.text());
     if (rows.length) {
       const prices = { ...cache.prices };
+      // load persisted per-symbol history so week-over-week change survives restarts
+      const history = getSymbolPriceHistory();
       for (const r of rows) {
-        const changePct = recordHistory(r.symbol, r.date, r.close);
+        const changePct = recordHistory(history, r.symbol, r.date, r.close);
         prices[r.symbol] = { price: r.close, date: r.date, changePct };
       }
+      setSymbolPriceHistory(history);
       cache = { prices, fetchedAt: Date.now() };
       // record today's total portfolio value so the client can chart it over time
       const holdings = getState().holdings || [];

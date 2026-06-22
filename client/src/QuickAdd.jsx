@@ -1,8 +1,8 @@
 // QuickAdd.jsx — fast-logging bottom sheet (amount first, ~3 taps, <15s).
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Ban } from "lucide-react";
-import { fmt } from "./format.js";
-import { bucketLabel } from "./buckets.js";
+import { fmt } from "./lib/format.js";
+import { bucketLabel } from "./lib/buckets.js";
 
 export const NO_SPEND_CAT = "No-spend day";
 

@@ -1,13 +1,13 @@
 // Setup.jsx — profile + accounts/debts the engine runs on (accounts vs settings section).
 import { useState, useMemo, useRef } from "react";
 import { X, Pencil, ChevronDown } from "lucide-react";
-import { fmt } from "./format.js";
-import { importData, exportUrl } from "./api.js";
-import { annualSpend } from "./selectors.js";
-import { detectRecurring, detectIncomeSchedule } from "./insights.js";
-import { FILING_STATUSES } from "./tax.js";
-import { CADENCE_LABEL } from "./cadence.js";
-import { nextPaydays } from "./paydays.js";
+import { fmt } from "./lib/format.js";
+import { importData, exportUrl } from "./lib/api.js";
+import { annualSpend } from "./lib/selectors.js";
+import { detectRecurring, detectIncomeSchedule } from "./lib/insights.js";
+import { FILING_STATUSES } from "./lib/tax.js";
+import { CADENCE_LABEL } from "./lib/cadence.js";
+import { nextPaydays } from "./lib/paydays.js";
 import CsvImport from "./CsvImport.jsx";
 
 // format a Date to the YYYY-MM-DD a <input type="date"> expects (local)
@@ -417,6 +417,24 @@ export default function Setup({
   }
   function removeHolding(id) {
     onSave({ ...data, holdings: holdings.filter((h) => h.id !== id) });
+  }
+
+  // category budgets (envelope caps), stored as profile.budgets = { cat: monthlyCap }
+  const budgets = profile.budgets || {};
+  const [budgetForm, setBudgetForm] = useState({ cat: "", amount: "" });
+  function addBudget() {
+    const cat = budgetForm.cat.trim();
+    const amount = Number(budgetForm.amount);
+    if (!cat || !(amount > 0)) {
+      return;
+    }
+    onSave({ ...data, profile: { ...profile, budgets: { ...budgets, [cat]: amount } } });
+    setBudgetForm({ cat: "", amount: "" });
+  }
+  function removeBudget(cat) {
+    const next = { ...budgets };
+    delete next[cat];
+    onSave({ ...data, profile: { ...profile, budgets: next } });
   }
 
   return (
@@ -1138,10 +1156,59 @@ export default function Setup({
             </div>
           </div>
 
+          {/* Category budgets (envelope caps) */}
+          <div className={card}>
+            <div className={label + " mb-1"}>Monthly budgets</div>
+            <div className="text-xs text-slate-400 mb-3">
+              Set a monthly cap per spending category — the coach warns you as you approach it.
+            </div>
+            {Object.keys(budgets).length > 0 && (
+              <div className="divide-y divide-slate-50 mb-3">
+                {Object.entries(budgets).map(([cat, amount]) => (
+                  <div key={cat} className="flex items-center justify-between py-2">
+                    <div className="text-sm text-slate-700">{cat}</div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono text-slate-500">{fmt(amount)}/mo</span>
+                      <button
+                        onClick={() => removeBudget(cat)}
+                        aria-label="Remove budget"
+                        className="text-slate-300 hover:text-rose-400"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                value={budgetForm.cat}
+                onChange={(e) => setBudgetForm({ ...budgetForm, cat: e.target.value })}
+                placeholder="Category (e.g. Dining)"
+                className={field + " flex-1"}
+              />
+              <div className="relative" style={{ width: 110 }}>
+                <Money
+                  value={budgetForm.amount}
+                  onChange={(v) => setBudgetForm({ ...budgetForm, amount: v })}
+                  placeholder="/mo"
+                />
+              </div>
+              <button
+                onClick={addBudget}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
           {/* Import transactions from a bank CSV */}
           <div className={card}>
             <div className={label + " mb-3"}>Import transactions (CSV)</div>
             <CsvImport
+              existing={transactions}
               onImport={(txs) => onSave({ ...data, transactions: [...transactions, ...txs] })}
             />
           </div>

@@ -8,7 +8,7 @@ import {
   detectRecurring,
   detectIncomeSchedule,
   coachNudges,
-} from "../src/insights.js";
+} from "../src/lib/insights.js";
 
 const TODAY = new Date("2026-06-21T12:00:00Z");
 const snap = (accountId, date, balance) => ({ id: accountId + date, accountId, date, balance });
