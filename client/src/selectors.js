@@ -42,6 +42,29 @@ export function sumLatestByType(accounts = [], snapshots = [], types = []) {
 }
 
 /**
+ * Sum a month's transactions by type. Shared so Plan/Home don't each re-derive it.
+ * @returns {{income, spending, contribution}}
+ */
+export function monthTotals(transactions = [], ym = thisMonth()) {
+  let income = 0;
+  let spending = 0;
+  let contribution = 0;
+  for (const t of transactions) {
+    if (monthKey(t.date) !== ym) {
+      continue;
+    }
+    if (t.type === "income") {
+      income += t.amount;
+    } else if (t.type === "spending") {
+      spending += t.amount;
+    } else if (t.type === "contribution") {
+      contribution += t.amount;
+    }
+  }
+  return { income, spending, contribution };
+}
+
+/**
  * Average monthly spending, annualized (×12).
  * @returns {number} 0 when no spending has been logged
  */

@@ -40,9 +40,6 @@ export function parseStooqCsv(csv = "") {
   return out;
 }
 
-/** Whether price sync is configured. */
-export const pricesEnabled = () => ENABLED;
-
 function recordHistory(symbol, date, price) {
   const h = (history[symbol] = history[symbol] || []);
   if (!h.length || h[h.length - 1].date !== date) {

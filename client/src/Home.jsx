@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { fmt } from "./format.js";
 import { getPlan, getNews } from "./api.js";
-import { thisMonth, monthKey, annualSpend, sumLatestByType } from "./selectors.js";
+import { thisMonth, annualSpend, sumLatestByType, monthTotals } from "./selectors.js";
 import { computeAdherence } from "./streak.js";
 import { nextMilestone } from "./milestones.js";
 import { nextPaydays } from "./paydays.js";
@@ -67,19 +67,11 @@ export default function Home({
   onGo,
 }) {
   const ym = thisMonth();
-  const monthTx = useMemo(
-    () => transactions.filter((t) => monthKey(t.date) === ym),
-    [transactions, ym],
-  );
-  const incomeThisMonth = monthTx
-    .filter((t) => t.type === "income")
-    .reduce((s, t) => s + t.amount, 0);
-  const spendThisMonth = monthTx
-    .filter((t) => t.type === "spending")
-    .reduce((s, t) => s + t.amount, 0);
-  const contribThisMonth = monthTx
-    .filter((t) => t.type === "contribution")
-    .reduce((s, t) => s + t.amount, 0);
+  const {
+    income: incomeThisMonth,
+    spending: spendThisMonth,
+    contribution: contribThisMonth,
+  } = useMemo(() => monthTotals(transactions, ym), [transactions, ym]);
 
   const annualExpenses = useMemo(() => annualSpend(transactions), [transactions]);
 

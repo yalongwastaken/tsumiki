@@ -62,6 +62,24 @@ test("cashflowForecast: bills aren't double-counted against logged spend", () =>
   assert.equal(f.dipsBelow, false);
 });
 
+test("cashflowForecast: an unlogged bill still erodes the projection (no false safety)", () => {
+  // user logs ZERO discretionary spend but has a $2k bill they pay outside the app;
+  // the bill must still be subtracted on its due date rather than netted to nothing
+  const state = {
+    accounts: [{ id: "c", type: "checking" }],
+    snapshots: [snap("c", "2026-06-01", 2500)],
+    profile: {
+      checkingFloor: 1000,
+      bills: [{ id: "r", name: "Rent", amount: 2000, dayOfMonth: 1 }],
+      incomeSources: [{ id: "x", typicalMonthly: 4000, cadence: "monthly", payday: "2026-07-20" }],
+    },
+    transactions: [], // nothing logged → burn is 0, but the bill is real
+  };
+  const f = cashflowForecast(state, { days: 40, today: TODAY });
+  assert.ok(f.min <= 500, `min ${f.min} should reflect the unlogged $2k bill`);
+  assert.equal(f.dipsBelow, true);
+});
+
 test("cashflowForecast: no dip alarm when income exists but no payday is set", () => {
   const state = {
     accounts: [{ id: "c", type: "checking" }],
@@ -168,6 +186,16 @@ test("detectIncomeSchedule infers cadence + last payday from deposits", () => {
     { type: "income", amount: 5000, date: "2026-06-30" },
   ];
   assert.equal(detectIncomeSchedule(monthly).cadence, "monthly");
+
+  // 1st & 15th lands on two days-of-month → semimonthly, not biweekly
+  const semimonthly = [
+    { type: "income", amount: 2500, date: "2026-04-01" },
+    { type: "income", amount: 2500, date: "2026-04-15" },
+    { type: "income", amount: 2500, date: "2026-05-01" },
+    { type: "income", amount: 2500, date: "2026-05-15" },
+    { type: "income", amount: 2500, date: "2026-06-01" },
+  ];
+  assert.equal(detectIncomeSchedule(semimonthly).cadence, "semimonthly");
 });
 
 test("coachNudges prioritizes a cashflow dip and respects the limit", () => {

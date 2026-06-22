@@ -8,6 +8,23 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const field =
   "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700";
 
+/** A column-picker dropdown (module-scope so it doesn't remount on every keystroke). */
+function ColSelect({ value, onChange, label, cols }) {
+  return (
+    <label className="flex-1 min-w-[90px]">
+      <span className="text-xs text-slate-500">{label}</span>
+      <select value={value} onChange={(e) => onChange(Number(e.target.value))} className={field}>
+        <option value={-1}>—</option>
+        {cols.map((h, i) => (
+          <option key={i} value={i}>
+            {h}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 /** CSV → transactions importer. `onImport(transactions)` appends to the ledger. */
 export default function CsvImport({ onImport }) {
   const [text, setText] = useState("");
@@ -49,19 +66,6 @@ export default function CsvImport({ onImport }) {
   }
 
   const cols = parsed?.headers || [];
-  const Select = ({ value, onChange, label }) => (
-    <label className="flex-1 min-w-[90px]">
-      <span className="text-xs text-slate-500">{label}</span>
-      <select value={value} onChange={(e) => onChange(Number(e.target.value))} className={field}>
-        <option value={-1}>—</option>
-        {cols.map((h, i) => (
-          <option key={i} value={i}>
-            {h}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
 
   return (
     <div className="space-y-3">
@@ -87,18 +91,21 @@ export default function CsvImport({ onImport }) {
       {parsed && cols.length > 0 && (
         <>
           <div className="flex gap-2 flex-wrap">
-            <Select
+            <ColSelect
               label="Date column"
+              cols={cols}
               value={mapping.date}
               onChange={(v) => setMap({ ...mapping, date: v })}
             />
-            <Select
+            <ColSelect
               label="Amount column"
+              cols={cols}
               value={mapping.amount}
               onChange={(v) => setMap({ ...mapping, amount: v })}
             />
-            <Select
+            <ColSelect
               label="Description"
+              cols={cols}
               value={mapping.description}
               onChange={(v) => setMap({ ...mapping, description: v })}
             />

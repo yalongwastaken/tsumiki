@@ -5,7 +5,7 @@ import { getPlan } from "./api.js";
 import { fmt } from "./format.js";
 import { typicalIncome } from "./income.js";
 import { BUCKETS, bucketOf } from "./buckets.js";
-import { thisMonth, monthKey, sumLatestByType } from "./selectors.js";
+import { thisMonth, monthKey, sumLatestByType, monthTotals } from "./selectors.js";
 import { estimateTax, nextQuarterlyDue } from "./tax.js";
 import { payoffPlan } from "./debt.js";
 import PlanSplitChart from "./PlanSplitChart.jsx";
@@ -37,18 +37,18 @@ export default function Plan({
     () => transactions.filter((t) => monthKey(t.date) === ym),
     [transactions, ym],
   );
-  const incomeThisMonth = monthTx
-    .filter((t) => t.type === "income")
-    .reduce((s, t) => s + t.amount, 0);
-  const spendThisMonth = monthTx
-    .filter((t) => t.type === "spending")
-    .reduce((s, t) => s + t.amount, 0);
+  const { income: incomeThisMonth, spending: spendThisMonth } = useMemo(
+    () => monthTotals(transactions, ym),
+    [transactions, ym],
+  );
 
   const typical = useMemo(() => typicalIncome(profile, transactions), [profile, transactions]);
   const planIncome = incomeThisMonth > 0 ? incomeThisMonth : typical;
 
   // tax estimate on annualized income (take-home + bracket); see tax.js
   const age = profile.birthYear ? new Date().getFullYear() - profile.birthYear : null;
+  // self-employed income has no withholding → estimated payments + SE-tax handling
+  const selfEmployed = (profile.incomeSources || []).some((s) => s.type === "self_employed");
   const tax = useMemo(
     () =>
       estimateTax({
@@ -57,12 +57,12 @@ export default function Plan({
         state: profile.state,
         age,
         stateRate: profile.stateTaxRate,
+        selfEmployed,
       }),
-    [typical, profile.filingStatus, profile.state, age, profile.stateTaxRate],
+    [typical, profile.filingStatus, profile.state, age, profile.stateTaxRate, selfEmployed],
   );
 
   // self-employed income has no withholding → surface a quarterly estimated-tax nudge
-  const selfEmployed = (profile.incomeSources || []).some((s) => s.type === "self_employed");
   const quarterlyDue = selfEmployed ? nextQuarterlyDue() : null;
 
   const [amount, setAmount] = useState(planIncome);

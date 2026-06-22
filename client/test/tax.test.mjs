@@ -46,6 +46,24 @@ test("state income tax applies in a taxing state (default ~5%)", () => {
   assert.equal(override.state, Math.round(84250 * 0.09));
 });
 
+test("self-employed: SE tax replaces FICA (~2×) and half is deducted from taxable", () => {
+  const w2 = estimateTax({ income: 100000, filingStatus: "single", state: "TX" });
+  const se = estimateTax({
+    income: 100000,
+    filingStatus: "single",
+    state: "TX",
+    selfEmployed: true,
+  });
+  // SE tax (~15.3% on 92.35% of income) is roughly double employee FICA (7.65%)
+  assert.ok(se.fica > w2.fica * 1.7 && se.fica < w2.fica * 2.1, `se.fica=${se.fica}`);
+  // half the SE tax is deductible → lower taxable income, lower federal than the W-2 case
+  assert.ok(se.taxable < w2.taxable);
+  assert.ok(se.federal < w2.federal);
+  // overall a self-employed filer owes more (SE tax dwarfs the income-tax savings)
+  assert.ok(se.total > w2.total);
+  assert.equal(se.selfEmployed, true);
+});
+
 test("nextQuarterlyDue returns the next estimated-tax deadline", () => {
   // mid-June → next deadline is Jun 15? no, that's passed on the 21st → Sep 15
   assert.equal(nextQuarterlyDue(new Date(2026, 5, 21)).getMonth(), 8); // Sep

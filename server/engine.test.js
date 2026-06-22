@@ -129,6 +129,20 @@ test("a windfall check doesn't inflate the employer-match suggestion", () => {
   assert.equal(match.amount, 300);
 });
 
+test("match base falls back to logged income when no typical is set", () => {
+  // no income sources, no typed estimate, only a single current-month deposit →
+  // typicalIncome returns 0, but the match must use that ~$6k, not a $20k windfall
+  const state = {
+    accounts: [acct("chk", "checking")],
+    snapshots: [snap("chk", 5000)],
+    debts: [],
+    profile: { checkingFloor: 3000, strategy: "balanced", employerMatch: { pct: 5 } },
+    transactions: [{ id: "i", type: "income", amount: 6000, date: "2026-06-10T00:00:00Z" }],
+  };
+  const match = buildPlan(state, 20000).steps.find((s) => s.key === "match");
+  assert.equal(match.amount, 300); // 5% of the logged $6k, not 5% of $20k
+});
+
 test("configurable high-APR threshold excludes lower-rate debt", () => {
   const state = {
     accounts: [acct("chk", "checking")],

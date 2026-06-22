@@ -1,5 +1,6 @@
 // Chart.jsx — tiny dependency-free area chart (replaces recharts, ~374kB).
 // Hand-drawn SVG: filled area + line, min/max y-labels, first/last x-labels.
+import { useId } from "react";
 import { fmtK } from "./format.js";
 
 /**
@@ -14,6 +15,9 @@ export default function AreaChart({
   xFormat = (x) => x,
   label = "Trend over time",
 }) {
+  // unique per instance so two charts on one page can't share a gradient id
+  // (sanitized — useId() contains colons that break url(#…) references)
+  const gid = `area${useId().replace(/:/g, "")}`;
   if (!Array.isArray(data) || data.length < 2) {
     return null;
   }
@@ -38,7 +42,6 @@ export default function AreaChart({
     .map((d, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(ys[i]).toFixed(1)}`)
     .join(" ");
   const area = `${line} L${x(n - 1).toFixed(1)},${baseY} L${x(0).toFixed(1)},${baseY} Z`;
-  const gid = `area-${yKey}-${color.replace("#", "")}`;
 
   return (
     <svg

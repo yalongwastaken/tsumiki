@@ -19,6 +19,19 @@ function avgMonthlySpend(transactions) {
   return sp.reduce((s, t) => s + t.amount, 0) / Math.max(1, months.size);
 }
 
+/** Average logged income per month across ALL months with income (incl. the current). */
+function avgMonthlyIncome(transactions) {
+  const byMonth = {};
+  for (const t of transactions) {
+    if (t.type === "income" && t.amount > 0) {
+      const m = new Date(t.date).toISOString().slice(0, 7);
+      byMonth[m] = (byMonth[m] || 0) + t.amount;
+    }
+  }
+  const vals = Object.values(byMonth);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+}
+
 /** Sum the latest snapshot balance per account, grouped by account type. */
 function balancesByType(accounts, snapshots) {
   const latest = {};
@@ -160,9 +173,12 @@ export function buildPlan(state, incomeArg, opts = {}) {
   const floorGap = Math.max(0, floor - bal.checking);
   const emGap = Math.max(0, emTarget - bal.savings);
   // the match is a % of regular pay — base it on typical income so a one-off
-  // windfall check doesn't overstate "free money" left on the table
+  // windfall check doesn't overstate "free money" left on the table. when there's
+  // no typical yet, fall back to the average of ANY logged income month (incl. the
+  // current one) so a lone big check still can't inflate the match.
   const typical = typicalIncome(state);
-  const matchBase = typical > 0 ? Math.min(income, typical) : income;
+  const regularIncome = typical > 0 ? typical : avgMonthlyIncome(transactions);
+  const matchBase = regularIncome > 0 ? Math.min(income, regularIncome) : income;
   const matchTarget = matchPct
     ? Math.min(Math.round((matchBase * matchPct) / 100), retirementRoom)
     : 0;

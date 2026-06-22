@@ -95,8 +95,9 @@ export function payoffPlan(debts = [], opts = {}) {
   return {
     months: month,
     debtFree, // false → the budget can't outrun interest within maxMonths
-    totalInterest: Math.round(totalInterest),
-    totalPaid: Math.round(totalPaid),
+    // totals are only meaningful for a real payoff; null when the budget never wins
+    totalInterest: debtFree ? Math.round(totalInterest) : null,
+    totalPaid: debtFree ? Math.round(totalPaid) : null,
     monthlyPayment: Math.round(monthlyPayment),
     payoffDate,
     order,

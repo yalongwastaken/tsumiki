@@ -62,7 +62,9 @@ app.post("/api/transactions", (req, res) => {
 // the allocation engine — "where should this money go?"
 app.get("/api/plan", (req, res) => {
   const state = getState();
-  const income = req.query.income != null ? Number(req.query.income) : typicalIncome(state);
+  // coerce ?income, falling back to typical when it's missing or not a finite number
+  const q = Number(req.query.income);
+  const income = req.query.income != null && Number.isFinite(q) ? q : typicalIncome(state);
   const windfall = req.query.windfall === "1" || req.query.windfall === "true";
   res.json(buildPlan(state, income, { strategy: req.query.strategy, windfall }));
 });
