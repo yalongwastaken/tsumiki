@@ -3,6 +3,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { Ban } from "lucide-react";
 import { fmt } from "./lib/format.js";
 import { bucketLabel } from "./lib/buckets.js";
+import { useFocusTrap } from "./useFocusTrap.js";
 
 export const NO_SPEND_CAT = "No-spend day";
 
@@ -24,6 +25,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
   const [sourceId, setSourceId] = useState(null);
   const [note, setNote] = useState("");
   const amountRef = useRef(null);
+  const panelRef = useFocusTrap(open, onClose); // trap Tab + Escape; restore focus on close
 
   // categories sorted by how often you use them (most-used float to top)
   const orderedCats = useMemo(() => {
@@ -131,6 +133,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
     >
       <div className="anim-fade absolute inset-0 bg-slate-900/40" onClick={onClose} />
       <div
+        ref={panelRef}
         className="relative w-full max-w-lg bg-white rounded-t-2xl p-4 pb-6 shadow-xl"
         style={{ animation: "qa-up 160ms ease-out" }}
       >

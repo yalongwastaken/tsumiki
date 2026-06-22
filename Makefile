@@ -2,7 +2,7 @@
 # Requires Node >= 22.12 and npm. Run `make` or `make help` for the list.
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev server client build start test test-client test-server test-smoke format lint clean distclean backup
+.PHONY: help install dev server client build start test test-client test-server test-components test-smoke format lint clean distclean backup
 
 ## help: list the available targets
 help:
@@ -39,8 +39,8 @@ build:
 start: build
 	cd server && npm start
 
-## test: run all unit tests (client + server)
-test: test-server test-client
+## test: run all unit tests (client + server + components)
+test: test-server test-client test-components
 
 ## test-server: run the engine / db / migrate unit tests
 test-server:
@@ -49,6 +49,10 @@ test-server:
 ## test-client: run the selectors / streak / milestones unit tests
 test-client:
 	cd client && npm test
+
+## test-components: render-level tests for key components
+test-components:
+	cd client && npm run test:components
 
 ## test-smoke: headless render walk-through of the whole UI
 test-smoke:

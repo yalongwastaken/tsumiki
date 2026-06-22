@@ -1,5 +1,6 @@
 // Onboarding.jsx — first-run guided setup + explainer (replayable from Setup).
 import { useState } from "react";
+import { useFocusTrap } from "./useFocusTrap.js";
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const STRATEGIES = [
@@ -12,6 +13,7 @@ const field =
 
 /** First-run guided setup modal: name, strategy, and a first income source. */
 export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
+  const panelRef = useFocusTrap(open, onSkip); // Escape skips; trap Tab; restore focus
   const [step, setStep] = useState(0);
   const [name, setName] = useState(initial.name || "");
   const [srcName, setSrcName] = useState("");
@@ -70,7 +72,10 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
       aria-modal="true"
     >
       <div className="anim-fade absolute inset-0 bg-slate-900/50" />
-      <div className="modal-in relative w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl">
+      <div
+        ref={panelRef}
+        className="modal-in relative w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl"
+      >
         <div className="flex justify-between items-center mb-4">
           <div className="flex gap-1.5">
             {steps.map((_, i) => (

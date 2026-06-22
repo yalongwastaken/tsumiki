@@ -345,7 +345,7 @@ export default function Plan({
             </div>
           )}
           <div className="text-xs text-slate-400 mt-2">
-            2025 estimate{tax.stateNoTax ? ` · ${profile.state} has no income tax` : ""}
+            2026 estimate{tax.stateNoTax ? ` · ${profile.state} has no income tax` : ""}
             {!profile.state ? " — set your filing status & state in Settings for accuracy." : "."}
           </div>
         </div>

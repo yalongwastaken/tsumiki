@@ -1,47 +1,47 @@
 // tax.js — a transparent income-tax estimate (federal brackets + FICA + a state
 // approximation), driven by salary, filing status, age, and state. Deterministic
 // and testable — it's an estimate to show take-home, not tax advice or a filing.
-// Figures are 2025 (IRS, post-OBBBA). State is a rough flat approximation unless
-// you override it.
+// Figures are 2026 (IRS Rev. Proc. 2025-32, post-OBBBA). State is a rough flat
+// approximation unless you override it.
 
 const BRACKETS = {
   single: [
-    [11925, 0.1],
-    [48475, 0.12],
-    [103350, 0.22],
-    [197300, 0.24],
-    [250525, 0.32],
-    [626350, 0.35],
+    [12400, 0.1],
+    [50400, 0.12],
+    [105700, 0.22],
+    [201775, 0.24],
+    [256225, 0.32],
+    [640600, 0.35],
     [Infinity, 0.37],
   ],
   married: [
-    [23850, 0.1],
-    [96950, 0.12],
-    [206700, 0.22],
-    [394600, 0.24],
-    [501050, 0.32],
-    [751600, 0.35],
+    [24800, 0.1],
+    [100800, 0.12],
+    [211400, 0.22],
+    [403550, 0.24],
+    [512450, 0.32],
+    [768700, 0.35],
     [Infinity, 0.37],
   ],
   head: [
-    [17000, 0.1],
-    [64850, 0.12],
-    [103350, 0.22],
-    [197300, 0.24],
-    [250500, 0.32],
-    [626350, 0.35],
+    [17700, 0.1],
+    [67450, 0.12],
+    [105700, 0.22],
+    [201775, 0.24],
+    [256200, 0.32],
+    [640600, 0.35],
     [Infinity, 0.37],
   ],
 };
-// 2025 standard deduction (raised by the One Big Beautiful Bill Act, July 2025)
-const STD = { single: 15750, married: 31500, head: 23625 };
-const STD_65 = { single: 2000, married: 1600, head: 2000 }; // additional standard deduction at 65+
+// 2026 standard deduction (IRS Rev. Proc. 2025-32)
+const STD = { single: 16100, married: 32200, head: 24150 };
+const STD_65 = { single: 2050, married: 1650, head: 2050 }; // additional standard deduction at 65+ (per spouse)
 // 2025–2028 bonus deduction for filers 65+, phased out 6% per $1 of MAGI over the
 // threshold (so it vanishes by ~$175k single / ~$250k married)
 const SENIOR_BONUS = 6000;
 const SENIOR_PHASEOUT_START = { single: 75000, married: 150000, head: 75000 };
 const SENIOR_PHASEOUT_RATE = 0.06;
-const SS_BASE = 176100; // Social Security wage base (2025)
+const SS_BASE = 184500; // Social Security wage base (2026)
 const SS_RATE = 0.062;
 const MEDICARE = 0.0145;
 const ADDL_MEDICARE = 0.009;
@@ -119,7 +119,7 @@ export function estimateTax({
 
   let std = STD[fs];
   // count qualifying 65+ filers — for married filing jointly, the extra std
-  // deduction ($1,600 each) and OBBBA senior bonus ($6,000 each) are PER person
+  // deduction ($1,650 each) and OBBBA senior bonus ($6,000 each) are PER person
   let seniors = age && age >= 65 ? 1 : 0;
   if (fs === "married" && spouseAge && spouseAge >= 65) {
     seniors += 1;

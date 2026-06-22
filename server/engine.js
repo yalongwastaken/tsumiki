@@ -12,8 +12,8 @@ import {
 } from "../client/src/lib/finance.js";
 
 const DEFAULT_HIGH_APR = 10; // % — at/above this, debt is "high interest"
-const DEFAULT_IRA_LIMIT = 7000; // 2025 IRA annual contribution cap
-const DEFAULT_401K_LIMIT = 23500; // 2025 401k employee elective-deferral cap
+const DEFAULT_IRA_LIMIT = 7500; // 2026 IRA annual contribution cap
+const DEFAULT_401K_LIMIT = 24500; // 2026 401k employee elective-deferral cap
 const CADENCE = { weekly: 4.345, biweekly: 2.1725, semimonthly: 2, monthly: 1 }; // paychecks/month (mirrors client cadence.js)
 
 /** Sum the latest snapshot balance per account, grouped by account type. */

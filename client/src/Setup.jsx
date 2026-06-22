@@ -8,15 +8,15 @@ import { detectRecurring, detectIncomeSchedule } from "./lib/insights.js";
 import { FILING_STATUSES } from "./lib/tax.js";
 import { CADENCE_LABEL } from "./lib/cadence.js";
 import { nextPaydays } from "./lib/paydays.js";
-import { allCategories } from "./lib/categories.js";
-import { categoryAverages } from "./lib/budgets.js";
+import { uid, card, label, field, Money } from "./setup/ui.jsx";
+import HoldingsSection from "./setup/HoldingsSection.jsx";
+import BudgetsSection from "./setup/BudgetsSection.jsx";
 import CsvImport from "./CsvImport.jsx";
 
 // format a Date to the YYYY-MM-DD a <input type="date"> expects (local)
 const toDateInput = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const ordinal = (n) =>
   n % 10 === 1 && n !== 11
     ? "st"
@@ -27,39 +27,12 @@ const ordinal = (n) =>
         : "th";
 const ACCOUNT_TYPES = ["checking", "savings", "brokerage", "ira", "other"];
 const SOURCE_TYPES = ["salary", "hourly", "self_employed", "passive", "other"];
-const HOLDING_ACCOUNTS = [
-  ["taxable", "Taxable"],
-  ["401k", "401(k)"],
-  ["ira", "IRA"],
-  ["roth", "Roth IRA"],
-];
-const ACCT_LABEL = Object.fromEntries(HOLDING_ACCOUNTS);
 const STRATEGIES = [
   ["short_term", "Safety first", "Kill debt + build a cash buffer before investing."],
   ["balanced", "Balanced", "Split between debt, safety, and investing."],
   ["long_term", "Growth first", "Push into retirement + investments aggressively."],
   ["custom", "Custom", "Define your own priorities later."],
 ];
-
-const card = "bg-white rounded-xl border border-slate-200 p-4";
-const label = "text-xs font-semibold text-slate-400 uppercase tracking-wider";
-const field =
-  "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700";
-
-function Money({ value, onChange, placeholder }) {
-  return (
-    <div className="relative">
-      <span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
-      <input
-        type="number"
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className={field + " pl-7"}
-      />
-    </div>
-  );
-}
 
 /** Collapsible card: title + one-line summary collapsed, full form when open. */
 function Section({ title, summary, open, onToggle, children }) {
@@ -102,6 +75,7 @@ export default function Setup({
     transactions = [],
     snapshots = [],
     holdings = [],
+    settings = {},
   } = data;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const incomeSources = profile.incomeSources || [];
@@ -401,61 +375,6 @@ export default function Setup({
   }
   function removeDebt(id) {
     onSave({ ...data, debts: debts.filter((d) => d.id !== id) });
-  }
-
-  // stock holdings (manually entered; prices sync nightly when enabled)
-  const [hold, setHold] = useState({ ticker: "", shares: "", costBasis: "", account: "taxable" });
-  function addHolding() {
-    const ticker = hold.ticker.trim().toUpperCase();
-    if (!ticker || !(Number(hold.shares) > 0)) {
-      return;
-    }
-    onSave({
-      ...data,
-      holdings: [
-        ...holdings,
-        {
-          id: uid(),
-          ticker,
-          shares: Number(hold.shares),
-          costBasis: hold.costBasis === "" ? null : Number(hold.costBasis),
-          account: hold.account || "taxable",
-        },
-      ],
-    });
-    setHold({ ticker: "", shares: "", costBasis: "", account: "taxable" });
-  }
-  function removeHolding(id) {
-    onSave({ ...data, holdings: holdings.filter((h) => h.id !== id) });
-  }
-
-  // category budgets (envelope caps), stored as profile.budgets = { cat: monthlyCap }
-  const budgets = profile.budgets || {};
-  const [budgetForm, setBudgetForm] = useState({ cat: "", amount: "" });
-  function addBudget() {
-    const cat = budgetForm.cat.trim();
-    const amount = Number(budgetForm.amount);
-    if (!cat || !(amount > 0)) {
-      return;
-    }
-    onSave({ ...data, profile: { ...profile, budgets: { ...budgets, [cat]: amount } } });
-    setBudgetForm({ cat: "", amount: "" });
-  }
-  function removeBudget(cat) {
-    const next = { ...budgets };
-    delete next[cat];
-    onSave({ ...data, profile: { ...profile, budgets: next } });
-  }
-  // fill budgets from each category's recent average (keeps any you've already set)
-  const budgetSuggestions = categoryAverages(transactions, 3);
-  function suggestBudgets() {
-    const merged = { ...budgets };
-    for (const [cat, avg] of Object.entries(budgetSuggestions)) {
-      if (!(merged[cat] > 0) && avg > 0) {
-        merged[cat] = avg;
-      }
-    }
-    onSave({ ...data, profile: { ...profile, budgets: merged } });
   }
 
   return (
@@ -886,77 +805,7 @@ export default function Setup({
             open={isOpen("holdings", holdings.length === 0)}
             onToggle={() => toggle("holdings", holdings.length === 0)}
           >
-            <div className="text-xs text-slate-400 mb-3">
-              Track individual stocks by ticker + shares. Cost basis (avg price/share) is optional —
-              it powers gain/loss.
-            </div>
-            {holdings.length > 0 && (
-              <div className="divide-y divide-slate-50 mb-3">
-                {holdings.map((h) => (
-                  <div key={h.id} className="flex items-center justify-between py-2">
-                    <div className="text-sm text-slate-700">
-                      {h.ticker}
-                      {h.account && h.account !== "taxable" && (
-                        <span className="ml-1.5 text-[10px] font-semibold text-brand-700 bg-brand-50 rounded px-1 py-0.5 align-middle">
-                          {ACCT_LABEL[h.account] || h.account}
-                        </span>
-                      )}
-                      <span className="text-xs text-slate-400">
-                        {" "}
-                        · {h.shares} sh{h.costBasis != null ? ` @ ${fmt(h.costBasis)}` : ""}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => removeHolding(h.id)}
-                      aria-label="Remove holding"
-                      className="p-1.5 -m-1 text-slate-300 hover:text-rose-400"
-                    >
-                      <X size={15} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="grid grid-cols-3 gap-2">
-              <input
-                value={hold.ticker}
-                onChange={(e) => setHold({ ...hold, ticker: e.target.value })}
-                placeholder="Ticker"
-                aria-label="Ticker"
-                className={field + " uppercase"}
-              />
-              <input
-                type="number"
-                value={hold.shares}
-                onChange={(e) => setHold({ ...hold, shares: e.target.value })}
-                placeholder="shares"
-                aria-label="Shares"
-                className={field}
-              />
-              <Money
-                value={hold.costBasis}
-                onChange={(v) => setHold({ ...hold, costBasis: v })}
-                placeholder="cost/sh"
-              />
-            </div>
-            <select
-              value={hold.account}
-              onChange={(e) => setHold({ ...hold, account: e.target.value })}
-              aria-label="Account type"
-              className={field + " mt-2"}
-            >
-              {HOLDING_ACCOUNTS.map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={addHolding}
-              className="w-full mt-2 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg"
-            >
-              Add holding
-            </button>
+            <HoldingsSection data={data} onSave={onSave} />
           </Section>
         </>
       )}
@@ -1157,7 +1006,7 @@ export default function Setup({
                     type="number"
                     value={form.iraLimit}
                     onChange={(e) => set("iraLimit")(e.target.value)}
-                    placeholder="7000"
+                    placeholder="7500"
                     className={field}
                   />
                 </div>
@@ -1192,66 +1041,7 @@ export default function Setup({
           </div>
 
           {/* Category budgets (envelope caps) */}
-          <div className={card}>
-            <div className={label + " mb-1"}>Monthly budgets</div>
-            <div className="text-xs text-slate-400 mb-3">
-              Set a monthly cap per spending category — the coach warns you as you approach it.
-            </div>
-            {Object.keys(budgets).length > 0 && (
-              <div className="divide-y divide-slate-50 mb-3">
-                {Object.entries(budgets).map(([cat, amount]) => (
-                  <div key={cat} className="flex items-center justify-between py-2">
-                    <div className="text-sm text-slate-700">{cat}</div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-slate-500">{fmt(amount)}/mo</span>
-                      <button
-                        onClick={() => removeBudget(cat)}
-                        aria-label="Remove budget"
-                        className="text-slate-300 hover:text-rose-400"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <input
-                value={budgetForm.cat}
-                onChange={(e) => setBudgetForm({ ...budgetForm, cat: e.target.value })}
-                placeholder="Category (e.g. Dining Out)"
-                list="tsumiki-cats"
-                className={field + " flex-1"}
-              />
-              <datalist id="tsumiki-cats">
-                {allCategories(transactions).map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-              <div className="relative" style={{ width: 110 }}>
-                <Money
-                  value={budgetForm.amount}
-                  onChange={(v) => setBudgetForm({ ...budgetForm, amount: v })}
-                  placeholder="/mo"
-                />
-              </div>
-              <button
-                onClick={addBudget}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg"
-              >
-                Add
-              </button>
-            </div>
-            {Object.keys(budgetSuggestions).length > 0 && (
-              <button
-                onClick={suggestBudgets}
-                className="press mt-2 w-full rounded-lg bg-brand-50 py-2 text-xs font-medium text-brand-700 hover:bg-brand-100"
-              >
-                Suggest from my spending (3-month average)
-              </button>
-            )}
-          </div>
+          <BudgetsSection data={data} onSave={onSave} />
 
           {/* Import transactions from a bank CSV */}
           <div className={card}>
@@ -1265,9 +1055,30 @@ export default function Setup({
           {/* Backup: export / import */}
           <div className={card}>
             <div className={label + " mb-3"}>Backup</div>
+            {(() => {
+              const hasData = transactions.length > 0 || accounts.length > 0;
+              const days = settings.lastBackup
+                ? Math.floor((Date.now() - settings.lastBackup) / 86400000)
+                : null;
+              const stale = hasData && (days == null || days >= 30);
+              return (
+                <div
+                  className={`mb-3 rounded-lg p-2.5 text-xs ${stale ? "bg-amber-50 text-amber-800" : "text-slate-400"}`}
+                >
+                  {days == null
+                    ? stale
+                      ? "You haven't backed up yet — export a copy to be safe."
+                      : "No backup yet."
+                    : `Last backed up ${days === 0 ? "today" : `${days} day${days === 1 ? "" : "s"} ago`}.${stale ? " Worth exporting a fresh copy." : ""}`}
+                </div>
+              );
+            })()}
             <div className="flex gap-2">
               <a
                 href={exportUrl()}
+                onClick={() =>
+                  onSave({ ...data, settings: { ...settings, lastBackup: Date.now() } })
+                }
                 className="flex-1 text-center py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg"
               >
                 Export data

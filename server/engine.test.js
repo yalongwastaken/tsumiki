@@ -78,7 +78,7 @@ test("YTD retirement caps the annual room", () => {
         id: "r",
         type: "contribution",
         bucket: "retirement",
-        amount: 6800,
+        amount: 7300, // leaves $200 of the $7,500 IRA room
         date: "2026-02-01T00:00:00Z",
       },
     ],
@@ -98,7 +98,7 @@ test("an employer match unlocks 401k room beyond the IRA cap", () => {
     debts: [],
     transactions: [],
   };
-  // no match → IRA-only room ($7k); with a match → IRA + 401k room ($30.5k)
+  // no match → IRA-only room ($7.5k); with a match → IRA + 401k room ($32k)
   const noMatch = buildPlan(
     { ...base, profile: { checkingFloor: 3000, strategy: "long_term" } },
     6000,
@@ -107,8 +107,8 @@ test("an employer match unlocks 401k room beyond the IRA cap", () => {
     { ...base, profile: { checkingFloor: 3000, strategy: "long_term", employerMatch: { pct: 4 } } },
     6000,
   );
-  assert.equal(noMatch.context.retirementRoom, 7000);
-  assert.equal(withMatch.context.retirementRoom, 7000 + 23500);
+  assert.equal(noMatch.context.retirementRoom, 7500);
+  assert.equal(withMatch.context.retirementRoom, 7500 + 24500);
 });
 
 test("a windfall check doesn't inflate the employer-match suggestion", () => {
