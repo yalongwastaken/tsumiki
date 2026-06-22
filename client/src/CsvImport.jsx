@@ -123,11 +123,18 @@ export default function CsvImport({ onImport, existing = [] }) {
             <>
               <div className="rounded-lg border border-slate-100 divide-y divide-slate-50">
                 {txs.slice(0, 4).map((t, i) => (
-                  <div key={i} className="flex items-center justify-between px-3 py-1.5 text-xs">
-                    <span className="text-slate-500">{new Date(t.date).toLocaleDateString()}</span>
-                    <span className="text-slate-600 flex-1 px-2 truncate">{t.note || "—"}</span>
+                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 text-xs">
+                    <span className="text-slate-500 flex-shrink-0">
+                      {new Date(t.date).toLocaleDateString()}
+                    </span>
+                    <span className="text-slate-600 flex-1 min-w-0 truncate">{t.note || "—"}</span>
+                    {t.cat && (
+                      <span className="flex-shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
+                        {t.cat}
+                      </span>
+                    )}
                     <span
-                      className={`font-mono ${t.type === "spending" ? "text-rose-500" : "text-emerald-600"}`}
+                      className={`font-mono flex-shrink-0 ${t.type === "spending" ? "text-rose-500" : "text-emerald-600"}`}
                     >
                       {t.type === "spending" ? "−" : "+"}
                       {fmt(t.amount)}

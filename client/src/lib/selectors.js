@@ -65,6 +65,23 @@ export function monthTotals(transactions = [], ym = thisMonth()) {
 }
 
 /**
+ * Average monthly contributions across months that have any — your recent saving
+ * pace, used to judge whether a dated goal is on track.
+ * @returns {number} 0 when nothing has been contributed
+ */
+export function avgMonthlyContribution(transactions = []) {
+  const byMonth = {};
+  for (const t of transactions) {
+    if (t.type === "contribution" && t.amount > 0) {
+      const m = monthKey(t.date);
+      byMonth[m] = (byMonth[m] || 0) + t.amount;
+    }
+  }
+  const vals = Object.values(byMonth);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+}
+
+/**
  * Average monthly spending, annualized (×12).
  * @returns {number} 0 when no spending has been logged
  */

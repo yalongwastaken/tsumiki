@@ -28,19 +28,20 @@ test("guessMapping finds date/amount/description columns by name", () => {
 
 test("rowsToTransactions: negative = spending, positive = income", () => {
   const rows = [
-    ["2026-06-01", "Coffee", "-4.50"],
+    ["2026-06-01", "Coffee shop", "-4.50"], // auto-categorized via merchant rules
     ["2026-06-02", "Paycheck", "2000"],
+    ["2026-06-04", "Gizmo Co", "-9"], // unknown merchant → "Imported" to review
     ["bad", "x", "10"], // unparseable date → skipped
     ["2026-06-03", "Zero", "0"], // zero → skipped
   ];
   const txs = rowsToTransactions(rows, { date: 0, description: 1, amount: 2 });
-  assert.equal(txs.length, 2);
+  assert.equal(txs.length, 3);
   assert.equal(txs[0].type, "spending");
   assert.equal(txs[0].amount, 4.5);
-  assert.equal(txs[0].note, "Coffee");
-  assert.equal(txs[0].cat, "Imported");
+  assert.equal(txs[0].cat, "Dining Out"); // "Coffee" matched
   assert.equal(txs[1].type, "income");
   assert.equal(txs[1].amount, 2000);
+  assert.equal(txs[2].cat, "Imported"); // unknown merchant
 });
 
 test("rowsToTransactions: invert flips the sign convention", () => {

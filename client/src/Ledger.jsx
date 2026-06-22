@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X, Check } from "lucide-react";
 import { fmt } from "./lib/format.js";
 import { bucketLabel } from "./lib/buckets.js";
+import { allCategories } from "./lib/categories.js";
 
 /** Read-only ledger with filter/search/delete + bulk recategorize of spending. */
 export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
@@ -96,8 +97,14 @@ export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
             value={bulkCat}
             onChange={(e) => setBulkCat(e.target.value)}
             placeholder="New category"
+            list="tsumiki-ledger-cats"
             className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-brand-200 rounded-lg bg-white text-slate-700"
           />
+          <datalist id="tsumiki-ledger-cats">
+            {allCategories(transactions).map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
           <button
             onClick={applyBulk}
             className="flex-shrink-0 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg"
@@ -160,7 +167,7 @@ export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
                   <button
                     onClick={() => onDelete(t.id)}
                     aria-label="Delete"
-                    className="p-1.5 -m-1 text-slate-300 hover:text-rose-400"
+                    className="-m-1 flex h-9 w-9 items-center justify-center text-slate-300 hover:text-rose-400"
                   >
                     <X size={15} />
                   </button>

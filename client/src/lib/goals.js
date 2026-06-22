@@ -23,9 +23,10 @@ function monthsUntil(dateStr, today = new Date()) {
  * @param {{amount:number, targetDate?:string}} goal
  * @param {number} current - current value of the goal's metric
  * @param {Date} [today]
- * @returns {{pct, reached, remaining, monthsLeft, requiredMonthly, overdue}}
+ * @param {number|null} [monthlyPace] - your actual recent saving rate, to judge on-track
+ * @returns {{pct, reached, remaining, monthsLeft, requiredMonthly, overdue, onTrack, behindBy}}
  */
-export function goalProgress(goal, current = 0, today = new Date()) {
+export function goalProgress(goal, current = 0, today = new Date(), monthlyPace = null) {
   const amount = Math.max(0, goal?.amount || 0);
   const remaining = Math.max(0, amount - current);
   const reached = amount > 0 && current >= amount;
@@ -35,6 +36,10 @@ export function goalProgress(goal, current = 0, today = new Date()) {
   // dollars/month to close the gap by the target date (null when no date or done)
   const requiredMonthly =
     monthsLeft && monthsLeft > 0 && !reached ? Math.ceil(remaining / monthsLeft) : null;
+  // compare the required pace to what you're actually saving (null if unknown)
+  const haveBoth = requiredMonthly != null && monthlyPace != null;
+  const onTrack = haveBoth ? monthlyPace >= requiredMonthly : null;
+  const behindBy = haveBoth ? Math.max(0, requiredMonthly - monthlyPace) : null;
   return {
     pct: amount > 0 ? Math.min(1, current / amount) : 0,
     reached,
@@ -42,5 +47,7 @@ export function goalProgress(goal, current = 0, today = new Date()) {
     monthsLeft,
     requiredMonthly,
     overdue,
+    onTrack,
+    behindBy,
   };
 }

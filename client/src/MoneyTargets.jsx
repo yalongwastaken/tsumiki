@@ -16,7 +16,7 @@ const METRICS = [
  * `values` maps each metric to its current dollar value so we can show how close
  * you are and what monthly saving lands a dated goal on time.
  */
-export default function MoneyTargets({ targets = [], values = {}, onChange }) {
+export default function MoneyTargets({ targets = [], values = {}, monthlyPace = null, onChange }) {
   const [form, setForm] = useState({ label: "", amount: "", metric: "net_worth", targetDate: "" });
   function add() {
     const amount = Number(form.amount);
@@ -45,7 +45,7 @@ export default function MoneyTargets({ targets = [], values = {}, onChange }) {
       {targets.length > 0 && (
         <div className="divide-y divide-slate-50 mb-3">
           {targets.map((t) => {
-            const p = goalProgress(t, values[t.metric] || 0);
+            const p = goalProgress(t, values[t.metric] || 0, new Date(), monthlyPace);
             return (
               <div key={t.id} className="py-2.5">
                 <div className="flex items-center justify-between">
@@ -81,8 +81,12 @@ export default function MoneyTargets({ targets = [], values = {}, onChange }) {
                       Target date passed — {fmt(p.remaining)} to go.
                     </span>
                   ) : p.requiredMonthly ? (
-                    <span className="text-slate-400">
+                    <span className={p.onTrack ? "text-emerald-600" : "text-slate-400"}>
                       Save {fmt(p.requiredMonthly)}/mo to hit it in {p.monthsLeft} mo.
+                      {p.onTrack === true && " On track 🎉"}
+                      {p.onTrack === false &&
+                        monthlyPace > 0 &&
+                        ` You're saving ~${fmt(monthlyPace)}/mo — ${fmt(p.behindBy)}/mo short.`}
                     </span>
                   ) : (
                     <span className="text-slate-400">{fmt(p.remaining)} to go.</span>

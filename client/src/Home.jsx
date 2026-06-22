@@ -300,7 +300,9 @@ export default function Home({
       >
         <div className="flex items-baseline justify-between mb-2">
           <span className="text-sm text-slate-600">Earned this month</span>
-          <span className="font-mono text-slate-800">{fmt(incomeThisMonth)}</span>
+          <span className="font-mono text-slate-800">
+            {incomeThisMonth > 0 ? fmt(incomeThisMonth) : "—"}
+          </span>
         </div>
         <div className="flex items-baseline justify-between">
           <span className="text-sm text-slate-600">Flexible / unassigned</span>
@@ -447,6 +449,14 @@ export default function Home({
                     className={`h-full rounded-full ${b.over ? "bg-rose-400" : b.pct >= 0.9 ? "bg-amber-400" : "bg-emerald-400"}`}
                     style={{ width: `${Math.min(100, b.pct * 100)}%` }}
                   />
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {b.over
+                    ? `${fmt(-b.remaining)} over`
+                    : b.perDayLeft > 0
+                      ? `${fmt(b.perDayLeft)}/day left`
+                      : `${fmt(b.remaining)} left`}
+                  {b.lastMonth > 0 && ` · ${fmt(b.lastMonth)} last month`}
                 </div>
               </div>
             ))}

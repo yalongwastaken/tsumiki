@@ -98,6 +98,10 @@ export default function SankeyFlow({ transactions, fallbackIncome }) {
       viewBox={`0 0 ${W} ${SVG_H}`}
       width="100%"
       style={{ display: "block", overflow: "visible" }}
+      role="img"
+      aria-label={`This month's flow of ${fmt(income)} income into: ${items
+        .map((it) => `${it.label} ${fmt(it.amount)}`)
+        .join(", ")}`}
     >
       {left.map((b, i) => (
         <rect key={i} x={LX} y={b.y} width={LW} height={Math.max(0.5, b.h)} fill={b.color} />

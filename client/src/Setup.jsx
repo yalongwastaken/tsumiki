@@ -8,6 +8,8 @@ import { detectRecurring, detectIncomeSchedule } from "./lib/insights.js";
 import { FILING_STATUSES } from "./lib/tax.js";
 import { CADENCE_LABEL } from "./lib/cadence.js";
 import { nextPaydays } from "./lib/paydays.js";
+import { allCategories } from "./lib/categories.js";
+import { categoryAverages } from "./lib/budgets.js";
 import CsvImport from "./CsvImport.jsx";
 
 // format a Date to the YYYY-MM-DD a <input type="date"> expects (local)
@@ -443,6 +445,17 @@ export default function Setup({
     const next = { ...budgets };
     delete next[cat];
     onSave({ ...data, profile: { ...profile, budgets: next } });
+  }
+  // fill budgets from each category's recent average (keeps any you've already set)
+  const budgetSuggestions = categoryAverages(transactions, 3);
+  function suggestBudgets() {
+    const merged = { ...budgets };
+    for (const [cat, avg] of Object.entries(budgetSuggestions)) {
+      if (!(merged[cat] > 0) && avg > 0) {
+        merged[cat] = avg;
+      }
+    }
+    onSave({ ...data, profile: { ...profile, budgets: merged } });
   }
 
   return (
@@ -1207,9 +1220,15 @@ export default function Setup({
               <input
                 value={budgetForm.cat}
                 onChange={(e) => setBudgetForm({ ...budgetForm, cat: e.target.value })}
-                placeholder="Category (e.g. Dining)"
+                placeholder="Category (e.g. Dining Out)"
+                list="tsumiki-cats"
                 className={field + " flex-1"}
               />
+              <datalist id="tsumiki-cats">
+                {allCategories(transactions).map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
               <div className="relative" style={{ width: 110 }}>
                 <Money
                   value={budgetForm.amount}
@@ -1224,6 +1243,14 @@ export default function Setup({
                 Add
               </button>
             </div>
+            {Object.keys(budgetSuggestions).length > 0 && (
+              <button
+                onClick={suggestBudgets}
+                className="press mt-2 w-full rounded-lg bg-brand-50 py-2 text-xs font-medium text-brand-700 hover:bg-brand-100"
+              >
+                Suggest from my spending (3-month average)
+              </button>
+            )}
           </div>
 
           {/* Import transactions from a bank CSV */}

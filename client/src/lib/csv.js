@@ -1,5 +1,6 @@
 // csv.js — minimal, dependency-free CSV parsing + bank-statement mapping. Pure and
 // testable: turns pasted/uploaded CSV text into transactions the ledger understands.
+import { categorize } from "./categories.js";
 
 /**
  * Parse CSV text into a header row + data rows. Handles quoted fields, escaped
@@ -126,7 +127,8 @@ export function rowsToTransactions(rows = [], mapping = {}, { invert = false } =
       amount: Math.abs(signed),
       date: d.toISOString(),
       note: note || null,
-      cat: type === "spending" ? "Imported" : null,
+      // auto-categorize from the merchant note; fall back to "Imported" to review
+      cat: type === "spending" ? categorize(note) || "Imported" : null,
     });
   }
   return out;

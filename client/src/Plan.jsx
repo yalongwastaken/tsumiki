@@ -198,7 +198,9 @@ export default function Plan({
           )}
         </div>
         <div className="flex items-baseline gap-2 mb-3">
-          <div className="text-3xl font-mono font-bold text-slate-900">{fmt(incomeThisMonth)}</div>
+          <div className="text-3xl font-mono font-bold text-slate-900">
+            {incomeThisMonth > 0 ? fmt(incomeThisMonth) : "—"}
+          </div>
           <div className="text-xs text-slate-400">
             earned this month{typical ? ` · ~${fmt(typical)} typical` : ""}
           </div>

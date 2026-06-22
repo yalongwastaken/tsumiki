@@ -1,7 +1,7 @@
 // budgets.test.mjs — envelope category budgets.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { budgetStatus, budgetAlert } from "../src/lib/budgets.js";
+import { budgetStatus, budgetAlert, categoryAverages } from "../src/lib/budgets.js";
 
 const ym = "2026-06";
 const tx = [
@@ -43,4 +43,26 @@ test("budgets with no/zero cap are ignored; empty is safe", () => {
     budgetStatus(tx, { Dining: 0 }, ym).map((r) => r.cat),
     [],
   );
+});
+
+test("budgetStatus adds per-day-left + last-month context", () => {
+  // mid-month (Jun 21 of 30) → 10 days left incl. today
+  const today = new Date(2026, 5, 21);
+  const rows = budgetStatus(tx, { Dining: 400 }, ym, today);
+  const dining = rows[0];
+  assert.equal(dining.daysLeft, 10);
+  assert.ok(Math.abs(dining.perDayLeft - 20 / 10) < 1e-9); // $20 left / 10 days = $2/day
+  assert.equal(dining.lastMonth, 999); // May Dining
+  // over-budget → no per-day allowance
+  assert.equal(budgetStatus(tx, { Dining: 300 }, ym, today)[0].perDayLeft, 0);
+});
+
+test("categoryAverages = mean monthly spend over complete prior months", () => {
+  const hist = [
+    { type: "spending", amount: 100, cat: "Dining", date: "2026-04-10" },
+    { type: "spending", amount: 200, cat: "Dining", date: "2026-05-10" },
+    { type: "spending", amount: 999, cat: "Dining", date: "2026-06-10" }, // current month, excluded
+  ];
+  const avg = categoryAverages(hist, 3, new Date(2026, 5, 21));
+  assert.equal(avg.Dining, 150); // (100 + 200) / 2 complete months
 });
