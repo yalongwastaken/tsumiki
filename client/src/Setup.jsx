@@ -5,6 +5,7 @@ import { fmt } from "./format.js";
 import { importData, exportUrl } from "./api.js";
 import { annualSpend } from "./selectors.js";
 import { detectRecurring } from "./insights.js";
+import { FILING_STATUSES } from "./tax.js";
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const ordinal = (n) =>
@@ -17,6 +18,13 @@ const ordinal = (n) =>
         : "th";
 const ACCOUNT_TYPES = ["checking", "savings", "brokerage", "ira", "other"];
 const SOURCE_TYPES = ["salary", "hourly", "self_employed", "passive", "other"];
+const HOLDING_ACCOUNTS = [
+  ["taxable", "Taxable"],
+  ["401k", "401(k)"],
+  ["ira", "IRA"],
+  ["roth", "Roth IRA"],
+];
+const ACCT_LABEL = Object.fromEntries(HOLDING_ACCOUNTS);
 const STRATEGIES = [
   ["short_term", "Safety first", "Kill debt + build a cash buffer before investing."],
   ["balanced", "Balanced", "Split between debt, safety, and investing."],
@@ -83,6 +91,9 @@ export default function Setup({
     employerMatchPct: profile.employerMatch?.pct ?? "",
     highApr: profile.highApr ?? "",
     iraLimit: profile.retirementLimits?.ira ?? profile.iraLimit ?? "",
+    filingStatus: profile.filingStatus ?? "single",
+    state: profile.state ?? "",
+    stateTaxRate: profile.stateTaxRate != null ? profile.stateTaxRate * 100 : "",
   });
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
   const num = (v) => (v === "" || v == null ? null : Number(v));
@@ -102,6 +113,9 @@ export default function Setup({
         employerMatch: form.employerMatchPct === "" ? null : { pct: Number(form.employerMatchPct) },
         highApr: num(form.highApr),
         iraLimit: num(form.iraLimit),
+        filingStatus: form.filingStatus,
+        state: form.state.trim().toUpperCase(),
+        stateTaxRate: form.stateTaxRate === "" ? null : Number(form.stateTaxRate) / 100,
       },
     };
     onSave(next);
@@ -336,7 +350,7 @@ export default function Setup({
   }
 
   // stock holdings (manually entered; prices sync nightly when enabled)
-  const [hold, setHold] = useState({ ticker: "", shares: "", costBasis: "" });
+  const [hold, setHold] = useState({ ticker: "", shares: "", costBasis: "", account: "taxable" });
   function addHolding() {
     const ticker = hold.ticker.trim().toUpperCase();
     if (!ticker || !(Number(hold.shares) > 0)) {
@@ -351,10 +365,11 @@ export default function Setup({
           ticker,
           shares: Number(hold.shares),
           costBasis: hold.costBasis === "" ? null : Number(hold.costBasis),
+          account: hold.account || "taxable",
         },
       ],
     });
-    setHold({ ticker: "", shares: "", costBasis: "" });
+    setHold({ ticker: "", shares: "", costBasis: "", account: "taxable" });
   }
   function removeHolding(id) {
     onSave({ ...data, holdings: holdings.filter((h) => h.id !== id) });
@@ -761,8 +776,14 @@ export default function Setup({
                 {holdings.map((h) => (
                   <div key={h.id} className="flex items-center justify-between py-2">
                     <div className="text-sm text-slate-700">
-                      {h.ticker}{" "}
+                      {h.ticker}
+                      {h.account && h.account !== "taxable" && (
+                        <span className="ml-1.5 text-[10px] font-semibold text-brand-700 bg-brand-50 rounded px-1 py-0.5 align-middle">
+                          {ACCT_LABEL[h.account] || h.account}
+                        </span>
+                      )}
                       <span className="text-xs text-slate-400">
+                        {" "}
                         · {h.shares} sh{h.costBasis != null ? ` @ ${fmt(h.costBasis)}` : ""}
                       </span>
                     </div>
@@ -799,6 +820,18 @@ export default function Setup({
                 placeholder="cost/sh"
               />
             </div>
+            <select
+              value={hold.account}
+              onChange={(e) => setHold({ ...hold, account: e.target.value })}
+              aria-label="Account type"
+              className={field + " mt-2"}
+            >
+              {HOLDING_ACCOUNTS.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
             <button
               onClick={addHolding}
               className="w-full mt-2 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg"
@@ -847,6 +880,47 @@ export default function Setup({
                     className={field}
                   />
                 </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <div className="text-sm text-slate-600 mb-1">Tax filing status</div>
+                  <select
+                    value={form.filingStatus}
+                    onChange={(e) => set("filingStatus")(e.target.value)}
+                    aria-label="Tax filing status"
+                    className={field}
+                  >
+                    {FILING_STATUSES.map(([v, l]) => (
+                      <option key={v} value={v}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <div className="text-sm text-slate-600 mb-1">State</div>
+                  <input
+                    value={form.state}
+                    onChange={(e) => set("state")(e.target.value)}
+                    placeholder="CA"
+                    maxLength={2}
+                    aria-label="State (2-letter)"
+                    className={field + " uppercase"}
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-slate-600 mb-1">
+                  State tax rate{" "}
+                  <span className="text-slate-400">(opt — overrides the estimate)</span>
+                </div>
+                <input
+                  type="number"
+                  value={form.stateTaxRate}
+                  onChange={(e) => set("stateTaxRate")(e.target.value)}
+                  placeholder="e.g. 5 (%)"
+                  className={field}
+                />
               </div>
               <div>
                 <div className="text-sm text-slate-600 mb-1">Strategy</div>

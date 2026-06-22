@@ -16,6 +16,7 @@ export function portfolioRows(holdings = [], prices = {}) {
       id: h.id,
       ticker,
       shares: h.shares,
+      account: h.account || "taxable", // taxable | 401k | ira | roth
       price,
       value,
       cost,
@@ -25,6 +26,16 @@ export function portfolioRows(holdings = [], prices = {}) {
       date: q.date || null,
     };
   });
+}
+
+/** Account types that are tax-advantaged (retirement) vs a taxable brokerage. */
+export const RETIREMENT_ACCOUNTS = new Set(["401k", "ira", "roth"]);
+
+/** Sum of priced value held in retirement (tax-advantaged) accounts. */
+export function retirementValue(rows = []) {
+  return rows
+    .filter((r) => RETIREMENT_ACCOUNTS.has(r.account) && r.value != null)
+    .reduce((s, r) => s + r.value, 0);
 }
 
 /**
@@ -77,6 +88,15 @@ export function portfolioInsights(rows = [], totals = {}) {
         text: `${r.ticker} is ${dir} ${Math.abs(Math.round(r.changePct * 100))}% recently.`,
       });
     }
+  }
+
+  // tax-advantaged nudge: holding only in taxable accounts
+  if (value > 0 && retirementValue(rows) === 0) {
+    out.push({
+      id: "tax-advantaged",
+      tone: "info",
+      text: "None of your tracked holdings are in a 401(k)/IRA. Tax-advantaged accounts let the same investments grow without yearly taxes.",
+    });
   }
 
   // general single-stock-risk education (skip if concentration already covers it)

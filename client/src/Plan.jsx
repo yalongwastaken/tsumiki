@@ -6,6 +6,7 @@ import { fmt } from "./format.js";
 import { typicalIncome } from "./income.js";
 import { BUCKETS, bucketOf } from "./buckets.js";
 import { thisMonth, monthKey, sumLatestByType } from "./selectors.js";
+import { estimateTax } from "./tax.js";
 import PlanSplitChart from "./PlanSplitChart.jsx";
 import Recurring from "./Recurring.jsx";
 
@@ -40,6 +41,20 @@ export default function Plan({
 
   const typical = useMemo(() => typicalIncome(profile, transactions), [profile, transactions]);
   const planIncome = incomeThisMonth > 0 ? incomeThisMonth : typical;
+
+  // tax estimate on annualized income (take-home + bracket); see tax.js
+  const age = profile.birthYear ? new Date().getFullYear() - profile.birthYear : null;
+  const tax = useMemo(
+    () =>
+      estimateTax({
+        income: (typical || 0) * 12,
+        filingStatus: profile.filingStatus,
+        state: profile.state,
+        age,
+        stateRate: profile.stateTaxRate,
+      }),
+    [typical, profile.filingStatus, profile.state, age, profile.stateTaxRate],
+  );
 
   const [amount, setAmount] = useState(planIncome);
   useEffect(() => {
@@ -229,6 +244,40 @@ export default function Plan({
       {err && (
         <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3">
           {err}
+        </div>
+      )}
+
+      {/* tax estimate on annualized income → take-home + bracket */}
+      {typical > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <div className="flex items-baseline justify-between mb-2">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Taxes (estimate)
+            </div>
+            <button onClick={onGoSetup} className="text-xs text-slate-400 hover:text-brand-600">
+              {profile.state || "set filing & state"} ›
+            </button>
+          </div>
+          <div className="flex items-baseline gap-2 mb-2">
+            <div className="text-2xl font-mono font-bold text-slate-900">
+              {fmt(tax.takeHomeMonthly)}
+              <span className="text-xs font-sans font-normal text-slate-400"> /mo take-home</span>
+            </div>
+            <div className="text-xs text-slate-400">
+              ~{Math.round(tax.effectiveRate * 100)}% effective ·{" "}
+              {Math.round(tax.marginalRate * 100)}% bracket
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+            <span>Federal {fmt(tax.federal)}</span>
+            <span>FICA {fmt(tax.fica)}</span>
+            <span>State {tax.stateNoTax ? "none" : fmt(tax.state)}</span>
+            <span className="text-slate-400">on ~{fmt(tax.gross)}/yr</span>
+          </div>
+          <div className="text-xs text-slate-400 mt-2">
+            2025 estimate{tax.stateNoTax ? ` · ${profile.state} has no income tax` : ""}
+            {!profile.state ? " — set your filing status & state in Settings for accuracy." : "."}
+          </div>
         </div>
       )}
 

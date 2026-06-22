@@ -1,7 +1,12 @@
 // portfolio.test.mjs — holdings math + deterministic recommendations.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { portfolioRows, portfolioTotals, portfolioInsights } from "../src/portfolio.js";
+import {
+  portfolioRows,
+  portfolioTotals,
+  portfolioInsights,
+  retirementValue,
+} from "../src/portfolio.js";
 
 const holdings = [
   { id: "1", ticker: "aapl", shares: 10, costBasis: 150 },
@@ -63,6 +68,34 @@ test("insights flag a big mover and stay capped at 3", () => {
   const recs = portfolioInsights(rows, portfolioTotals(rows));
   assert.ok(recs.length <= 3);
   assert.ok(recs.some((r) => r.id.startsWith("move-")));
+});
+
+test("account tag: rows default to taxable; retirementValue sums 401k/IRA/Roth", () => {
+  const rows = portfolioRows(
+    [
+      { id: "1", ticker: "VOO", shares: 1, account: "401k" },
+      { id: "2", ticker: "AAPL", shares: 1 }, // defaults to taxable
+    ],
+    { VOO: { price: 400 }, AAPL: { price: 200 } },
+  );
+  assert.equal(rows.find((r) => r.ticker === "AAPL").account, "taxable");
+  assert.equal(retirementValue(rows), 400);
+  // has a retirement holding → the tax-advantaged nudge should NOT fire
+  const recs = portfolioInsights(rows, portfolioTotals(rows));
+  assert.ok(!recs.some((r) => r.id === "tax-advantaged"));
+});
+
+test("tax-advantaged nudge fires when everything is taxable", () => {
+  const rows = portfolioRows(
+    [
+      { id: "1", ticker: "A", shares: 1 },
+      { id: "2", ticker: "B", shares: 1 },
+      { id: "3", ticker: "C", shares: 1 },
+    ],
+    { A: { price: 10 }, B: { price: 10 }, C: { price: 10 } },
+  );
+  const recs = portfolioInsights(rows, portfolioTotals(rows));
+  assert.ok(recs.some((r) => r.id === "tax-advantaged"));
 });
 
 test("evergreen single-stock nudge when no concentration/movers", () => {

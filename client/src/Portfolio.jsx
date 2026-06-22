@@ -1,7 +1,9 @@
 // Portfolio.jsx — manually-entered stock holdings + opt-in synced prices, with
 // deterministic portfolio-health recommendations (never buy/sell picks).
 import { fmt } from "./format.js";
-import { portfolioRows, portfolioTotals, portfolioInsights } from "./portfolio.js";
+import { portfolioRows, portfolioTotals, portfolioInsights, retirementValue } from "./portfolio.js";
+
+const ACCT_LABEL = { taxable: "Taxable", "401k": "401(k)", ira: "IRA", roth: "Roth IRA" };
 
 const REC_TONE = {
   warn: "bg-amber-50 text-amber-800",
@@ -40,6 +42,8 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup }) {
   const totals = portfolioTotals(rows);
   const recs = portfolioInsights(rows, totals);
   const synced = ago(prices?.fetchedAt);
+  const retire = retirementValue(rows);
+  const taxable = totals.value - retire;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -63,8 +67,13 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup }) {
           )}
         </div>
       ) : (
-        <div className="text-sm text-slate-500 mb-3">
+        <div className="text-sm text-slate-500 mb-1">
           Prices sync nightly when enabled on the server (off by default).
+        </div>
+      )}
+      {totals.priced && retire > 0 && (
+        <div className="text-xs text-slate-400 mb-3">
+          {fmt(retire)} in retirement (401k/IRA) · {fmt(taxable)} taxable
         </div>
       )}
 
@@ -72,7 +81,14 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup }) {
         {rows.map((r) => (
           <div key={r.id} className="flex items-center gap-3 py-2">
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-slate-700">{r.ticker}</div>
+              <div className="text-sm font-semibold text-slate-700">
+                {r.ticker}
+                {r.account !== "taxable" && (
+                  <span className="ml-1.5 text-[10px] font-semibold text-brand-700 bg-brand-50 rounded px-1 py-0.5 align-middle">
+                    {ACCT_LABEL[r.account] || r.account}
+                  </span>
+                )}
+              </div>
               <div className="text-xs text-slate-400">
                 {r.shares} sh{r.price != null ? ` · ${fmt(r.price)}` : ""}
               </div>
