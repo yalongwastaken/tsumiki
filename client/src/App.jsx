@@ -1,5 +1,5 @@
 // App.jsx — root component: loads/saves state, owns nav, and routes the tabs.
-import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { getState, putState, getPlan, addTransaction, resetAll } from "./api.js";
 import { fmt } from "./format.js";
 import { typicalIncome } from "./income.js";
@@ -35,9 +35,8 @@ import { computeMilestones } from "./milestones.js";
 
 import Fire from "./Fire.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
-// recharts is heavy and only used on the Grow tab — load it on demand.
-const Projection = lazy(() => import("./Projection.jsx"));
-const NetWorthHistory = lazy(() => import("./NetWorthHistory.jsx"));
+import Projection from "./Projection.jsx";
+import NetWorthHistory from "./NetWorthHistory.jsx";
 
 // Data model is the unified shape from the server: components read the single
 // `transactions` ledger; contributions are bucketed.
@@ -650,21 +649,13 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <Suspense
-                  fallback={
-                    <div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-slate-400 text-sm">
-                      Loading charts…
-                    </div>
-                  }
-                >
-                  <Projection
-                    start={netWorth}
-                    derivedInvest={derivedInvest}
-                    settings={settings}
-                    onChange={(s) => save({ ...data, settings: s })}
-                  />
-                  <NetWorthHistory data={nwSeries} />
-                </Suspense>
+                <Projection
+                  start={netWorth}
+                  derivedInvest={derivedInvest}
+                  settings={settings}
+                  onChange={(s) => save({ ...data, settings: s })}
+                />
+                <NetWorthHistory data={nwSeries} />
                 <Fire
                   netWorth={netWorth}
                   monthlyInvest={monthlyForFire}

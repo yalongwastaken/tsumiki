@@ -1,9 +1,7 @@
-// Projection.jsx — compound-growth projection chart (lazy-loaded recharts).
+// Projection.jsx — interactive compound-growth projection.
 import { useState } from "react";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { fmt, fmtK } from "./format.js";
-
-// own chunk, lazy-loaded by App so recharts (~400kB) only loads on the Grow tab
+import AreaChart from "./Chart.jsx";
+import { fmt } from "./format.js";
 
 /** Yearly balance + contributed series from compounding `monthly` at annual `rate`. */
 function projectSeries(start, monthly, rate, years) {
@@ -71,37 +69,7 @@ export default function Projection({ start, settings, onChange, derivedInvest })
         <div className="text-3xl font-mono font-bold text-emerald-600">{fmt(end.value)}</div>
         <div className="text-xs text-emerald-500">+{fmt(gains)} growth</div>
       </div>
-      <div style={{ width: "100%", height: 180 }}>
-        <ResponsiveContainer>
-          <AreaChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#10B981" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="#10B981" stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <XAxis
-              dataKey="year"
-              tick={{ fontSize: 11, fill: "#94A3B8" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tickFormatter={fmtK}
-              tick={{ fontSize: 11, fill: "#94A3B8" }}
-              axisLine={false}
-              tickLine={false}
-              width={44}
-            />
-            <Tooltip
-              formatter={(v) => fmt(v)}
-              labelFormatter={(l) => `Year ${l}`}
-              contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}
-            />
-            <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2} fill="url(#g)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      <AreaChart data={data} xKey="year" yKey="value" color="#10B981" />
       <div className="space-y-4 mt-4">
         <Slider
           label="Time horizon"
