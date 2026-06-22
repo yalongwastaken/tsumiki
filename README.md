@@ -10,9 +10,6 @@ It's a single-user app designed to run on a mini PC at home and be reached priva
 from your phone or laptop over [Tailscale](https://tailscale.com) — no public ports,
 no cloud, your financial data never leaves your own devices.
 
-See [`docs/SPEC.md`](./docs/SPEC.md) for the full vision and data model, and
-[`IMPROVEMENTS.md`](./IMPROVEMENTS.md) for the design notes behind the current build.
-
 ## Architecture
 
 The **mini PC is the brain**: it runs the server, holds the SQLite database, and runs
