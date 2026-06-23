@@ -73,6 +73,24 @@ test("user money targets track their chosen metric", () => {
   assert.equal(m2.find((x) => x.id === "target_t1").achieved, true);
 });
 
+test("earmarked goals read their per-goal balance from ctx.earmarked", () => {
+  const m = computeMilestones({
+    ...ctx,
+    userTargets: [{ id: "vac", label: "Vacation", amount: 2000, metric: "earmarked" }],
+    earmarked: { vac: 2000 },
+  });
+  const t = m.find((x) => x.id === "target_vac");
+  assert.equal(t.cur, 2000);
+  assert.equal(t.achieved, true); // earmarked 2000 >= 2000
+  // a different goal's earmark doesn't bleed in
+  const m2 = computeMilestones({
+    ...ctx,
+    userTargets: [{ id: "vac", label: "Vacation", amount: 2000, metric: "earmarked" }],
+    earmarked: { car: 5000 },
+  });
+  assert.equal(m2.find((x) => x.id === "target_vac").cur, 0);
+});
+
 test("nextMilestone returns the first unachieved with a target", () => {
   const n = nextMilestone(computeMilestones(ctx));
   assert.ok(n && !n.achieved && n.target > 0);

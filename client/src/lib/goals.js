@@ -43,6 +43,23 @@ function monthsUntil(dateStr, today = new Date()) {
 }
 
 /**
+ * Total contributed (earmarked) to each goal: sum of contribution transactions tagged
+ * with that goal's id. Lets a goal track a real per-goal balance instead of a shared
+ * global metric.
+ * @param {Array} transactions
+ * @returns {Object} map of goalId → earmarked dollars
+ */
+export function earmarkedByGoal(transactions = []) {
+  const out = {};
+  for (const t of transactions) {
+    if (t.type === "contribution" && t.goalId && t.amount > 0) {
+      out[t.goalId] = (out[t.goalId] || 0) + t.amount;
+    }
+  }
+  return out;
+}
+
+/**
  * Progress + pace for one goal.
  * @param {{amount:number, targetDate?:string}} goal
  * @param {number} current - current value of the goal's metric

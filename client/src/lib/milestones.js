@@ -10,12 +10,14 @@ const NOSPEND_TIERS = [1, 5, 25, 100];
 const MONTHS_TIERS = [3, 6, 12, 24];
 const money = (n) => "$" + Math.round(Number.isFinite(n) ? n : 0).toLocaleString();
 
-const METRIC_VALUE = (metric, ctx) =>
-  metric === "net_worth"
+const METRIC_VALUE = (g, ctx) =>
+  g.metric === "net_worth"
     ? ctx.realNetWorth
-    : metric === "emergency"
+    : g.metric === "emergency"
       ? ctx.savings
-      : ctx.investedTotal;
+      : g.metric === "earmarked"
+        ? (ctx.earmarked || {})[g.id] || 0
+        : ctx.investedTotal;
 
 // quick ledger tallies for the habit/game achievements
 function ledgerStats(transactions = []) {
@@ -108,7 +110,7 @@ export function computeMilestones(ctx) {
 
   // user-defined money targets (the gamified "save $X" goals)
   for (const g of userTargets) {
-    const cur = METRIC_VALUE(g.metric, ctx);
+    const cur = METRIC_VALUE(g, ctx);
     add(
       `target_${g.id}`,
       g.label || `${money(g.amount)} target`,

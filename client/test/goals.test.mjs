@@ -1,7 +1,7 @@
 // goals.test.mjs — goal progress + pace math.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { goalProgress } from "../src/lib/goals.js";
+import { goalProgress, earmarkedByGoal } from "../src/lib/goals.js";
 
 // local-component fixture (NOT a "…Z" literal): a UTC instant like noon-Z lands on
 // the next calendar day past UTC+12, which would shift monthsUntil by one day.
@@ -72,4 +72,20 @@ test("zero/empty goal is safe", () => {
   const p = goalProgress({}, 0, TODAY);
   assert.equal(p.pct, 0);
   assert.equal(p.reached, false);
+});
+
+test("earmarkedByGoal sums contributions tagged to each goal", () => {
+  const tx = [
+    { type: "contribution", amount: 200, goalId: "vacation" },
+    { type: "contribution", amount: 150, goalId: "vacation" },
+    { type: "contribution", amount: 500, goalId: "car" },
+    { type: "contribution", amount: 100 }, // untagged → ignored
+    { type: "spending", amount: 99, goalId: "vacation" }, // not a contribution → ignored
+    { type: "contribution", amount: 0, goalId: "car" }, // zero → ignored
+  ];
+  const e = earmarkedByGoal(tx);
+  assert.equal(e.vacation, 350);
+  assert.equal(e.car, 500);
+  assert.equal("untagged" in e, false);
+  assert.deepEqual(earmarkedByGoal([]), {});
 });
