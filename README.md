@@ -1,6 +1,6 @@
 # Tsumiki — personal money coach
 
-**v1.4.0** · self-hosted · single-user · no cloud, no AI in the product
+**v1.5.0** · self-hosted · single-user · no cloud, no AI in the product
 
 A self-hosted money **coach**, not just a tracker. Given the money you have, it tells
 you where it should go — essentials, debt, a checking buffer, savings, retirement, and
@@ -70,14 +70,15 @@ make start        # builds the client, then serves everything from :4000
 
 Open `http://<mini-pc-ip>:4000`. Configuration via environment variables:
 
-| Variable            | Default                  | Purpose                                                           |
-| ------------------- | ------------------------ | ----------------------------------------------------------------- |
-| `PORT`              | `4000`                   | port to listen on                                                 |
-| `HOST`              | `0.0.0.0`                | bind address (LAN / Tailscale)                                    |
-| `TSUMIKI_DB`        | `server/data/tsumiki.db` | SQLite database file path                                         |
-| `TSUMIKI_NEWS_FEED` | _(unset → off)_          | optional public RSS/Atom URL for money headlines                  |
-| `TSUMIKI_PRICES`    | _(unset → off)_          | set to `1` to sync prices for your stock holdings                 |
-| `TSUMIKI_PRICE_URL` | _(Stooq CSV)_            | optional override of the price feed URL (`{SYMBOLS}` placeholder) |
+| Variable              | Default                  | Purpose                                                                                                                          |
+| --------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                | `4000`                   | port to listen on                                                                                                                |
+| `HOST`                | `0.0.0.0`                | bind address (LAN / Tailscale)                                                                                                   |
+| `TSUMIKI_DB`          | `server/data/tsumiki.db` | SQLite database file path                                                                                                        |
+| `TSUMIKI_NEWS_FEED`   | _(unset → off)_          | optional public RSS/Atom URL for money headlines                                                                                 |
+| `TSUMIKI_PRICES`      | _(unset → off)_          | set to `1` to sync prices for your stock holdings                                                                                |
+| `TSUMIKI_PRICE_URL`   | _(Stooq CSV)_            | optional override of the price feed URL (`{SYMBOLS}` placeholder)                                                                |
+| `TSUMIKI_TRUST_PROXY` | _(unset → off)_          | set to `1` only when behind a TLS-terminating proxy (Tailscale serve / nginx) so `x-forwarded-proto` is trusted for the app lock |
 
 The money-news card and price sync are both **off by default** — the server makes
 no outbound calls unless you opt in. With `TSUMIKI_NEWS_FEED` set it fetches that
@@ -86,6 +87,17 @@ closing prices **for only the tickers you hold** (symbols aren't personal) from 
 keyless public source, caches them, and falls back to the last good prices when
 offline. Both are general info, never personalized, and nothing about you leaves
 the device.
+
+## App lock (optional password)
+
+Off by default — the app is open on your trusted LAN/tailnet. In **Settings → App lock**
+you can set a password; once set, opening Tsumiki requires it, and a device stays
+trusted for 7 days. For security the password can only be set or entered over a private
+connection (HTTPS, your Tailscale address, or `localhost`) — never plain-LAN `http`,
+where it could be sniffed. Behind a TLS-terminating proxy (e.g. `tailscale serve`), set
+`TSUMIKI_TRUST_PROXY=1` so the proxy's `https` is recognized. Locked out (e.g. a cert
+broke)? Open the app from the mini-PC itself at `http://localhost:4000` to sign in and
+change or remove the password.
 
 ## Reach it from your phone, securely (Tailscale)
 
@@ -151,7 +163,7 @@ Run `make help` for the full list: `install`, `dev`, `server`, `client`, `build`
 ## Releases
 
 See [`CHANGELOG.md`](./CHANGELOG.md). Releases follow [SemVer](https://semver.org);
-the current release is **v1.4.0**.
+the current release is **v1.5.0**.
 
 ## License
 

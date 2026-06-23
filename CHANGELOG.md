@@ -4,6 +4,28 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-06-23
+
+### Added
+
+- **App lock (optional password).** Off by default. In Settings → App lock you can set
+  a password; once set, opening Tsumiki requires it and a device stays trusted for 7
+  days. Passwords are scrypt-hashed; the session is an HMAC-signed, HttpOnly,
+  SameSite=Strict cookie. Setting or entering the password is only allowed over a
+  private connection (HTTPS / Tailscale / `localhost`) so a credential is never sent
+  over sniffable plain-LAN http. Behind a TLS-terminating proxy, set
+  `TSUMIKI_TRUST_PROXY=1`. Recovery: sign in from the box's own `localhost`.
+
+### Security
+
+- The auth gate matches API paths case-insensitively (Express routes are
+  case-insensitive, so a case-sensitive gate would have let `/API/state` bypass the
+  lock); case-sensitive routing is also enabled as defense-in-depth.
+- `x-forwarded-proto` is trusted only when `TSUMIKI_TRUST_PROXY` is set, so a plain-LAN
+  client can't spoof `https` to set or use a password. The session secret rotates on
+  every password change (invalidating other devices), and a data reset leaves the lock
+  intact.
+
 ## [1.4.0] — 2026-06-23
 
 ### Added
@@ -216,6 +238,7 @@ own devices.
   for date-sensitive code) plus server-rendered component tests; Prettier + ESLint
   enforced.
 
+[1.5.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.5.0
 [1.4.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.4.0
 [1.3.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.3.0
 [1.2.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.2.0
