@@ -71,8 +71,8 @@ export default function MoneyTargets({
                     </span>
                     <button
                       onClick={() => onChange(targets.filter((x) => x.id !== t.id))}
-                      className="text-slate-400 hover:text-rose-400"
-                      aria-label="Remove"
+                      className="-m-1.5 flex h-11 w-11 items-center justify-center text-slate-400 hover:text-rose-500"
+                      aria-label={`Remove ${t.label}`}
                     >
                       <X size={14} />
                     </button>
@@ -134,7 +134,7 @@ export default function MoneyTargets({
           Funded by tagging contributions “toward this goal” in the + Add sheet.
         </div>
       )}
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <span className="text-xs text-slate-500">By (optional)</span>
         <input
           type="date"

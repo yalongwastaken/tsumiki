@@ -152,7 +152,7 @@ export default function BudgetsSection({ data, onSave }) {
       {Object.keys(budgetSuggestions).length > 0 && (
         <button
           onClick={suggestBudgets}
-          className="press mt-2 w-full rounded-lg bg-brand-50 py-2 text-xs font-medium text-brand-700 hover:bg-brand-100"
+          className="press mt-2 w-full rounded-lg bg-brand-50 py-2 text-xs font-medium text-brand-800 hover:bg-brand-100"
         >
           Suggest from my spending (3-month average)
         </button>

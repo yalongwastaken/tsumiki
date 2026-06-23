@@ -312,7 +312,7 @@ export default function Home({
                 <button
                   onClick={() => setDismissed((s) => new Set(s).add(r.id))}
                   aria-label={`Dismiss: ${r.title}`}
-                  className="-m-1.5 flex h-10 w-10 flex-shrink-0 items-center justify-center opacity-70 hover:opacity-100"
+                  className="-m-1.5 flex h-11 w-11 flex-shrink-0 items-center justify-center opacity-70 hover:opacity-100"
                 >
                   <X size={14} />
                 </button>
