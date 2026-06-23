@@ -11,6 +11,7 @@ import BillsSection from "./setup/BillsSection.jsx";
 import DebtsSection from "./setup/DebtsSection.jsx";
 import BudgetsSection from "./setup/BudgetsSection.jsx";
 import ProfileSection from "./setup/ProfileSection.jsx";
+import AppLock from "./setup/AppLock.jsx";
 import CsvImport from "./CsvImport.jsx";
 
 /** Collapsible card: title + one-line summary collapsed, full form when open. */
@@ -211,6 +212,9 @@ export default function Setup({
               ))}
             </div>
           </div>
+
+          {/* App lock (optional password) */}
+          <AppLock />
 
           {/* Reminders — which time-based alerts show on Home */}
           <div className={card}>
