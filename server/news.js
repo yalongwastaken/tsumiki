@@ -82,11 +82,18 @@ function pickLink(block) {
  * by link (then title) so a feed that repeats an entry doesn't show it twice.
  * @returns {Array<{title, link, date}>}
  */
+// bound the parse so a hostile/compromised feed can't stall the (single-threaded)
+// server: cap how many item blocks we scan and truncate any one giant block. The
+// per-tag regexes are linear over a block, so bounding block size bounds total work.
+const MAX_BLOCKS = 200;
+const MAX_BLOCK_LEN = 16_384;
+
 export function parseFeed(xml = "") {
-  const blocks = xml.match(/<(item|entry)\b[\s\S]*?<\/\1>/gi) || [];
+  const blocks = (xml.match(/<(item|entry)\b[\s\S]*?<\/\1>/gi) || []).slice(0, MAX_BLOCKS);
   const out = [];
   const seen = new Set();
-  for (const b of blocks) {
+  for (const raw of blocks) {
+    const b = raw.length > MAX_BLOCK_LEN ? raw.slice(0, MAX_BLOCK_LEN) : raw;
     const title = tagText(b, "title");
     if (!title) {
       continue;

@@ -100,6 +100,12 @@ test("de-duplicates repeated entries by link", () => {
   );
 });
 
+test("caps how many item blocks it scans (DoS bound)", () => {
+  const items = Array.from({ length: 300 }, (_, i) => `<item><title>H${i}</title></item>`).join("");
+  const out = parseFeed(`<rss><channel>${items}</channel></rss>`);
+  assert.ok(out.length <= 200); // MAX_BLOCKS bound
+});
+
 test("drops non-http(s) links (javascript:/data: from a hostile feed)", () => {
   const xml = `<rss><channel>
     <item><title>A</title><link>javascript:fetch('/api/reset',{method:'POST'})</link></item>

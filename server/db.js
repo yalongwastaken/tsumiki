@@ -259,6 +259,9 @@ export function validateState(s) {
     if (typeof sn.balance !== "number" || !isFinite(sn.balance)) {
       return "snapshot.balance must be a finite number";
     }
+    if (!sn.date || Number.isNaN(Date.parse(sn.date))) {
+      return "snapshot.date is not a valid date";
+    }
   }
   for (const d of s.debts || []) {
     if (!d?.id || !d?.name) {
