@@ -9,7 +9,13 @@ const startOfDay = (d) => {
   if (typeof d === "string") {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
     if (m) {
-      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      const [, y, mo, day] = m.map(Number);
+      const dt = new Date(y, mo - 1, day);
+      // reject out-of-range parts (e.g. "2026-13-99") instead of rolling them over
+      if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== day) {
+        return new Date(NaN);
+      }
+      return dt;
     }
   }
   const x = new Date(d);
