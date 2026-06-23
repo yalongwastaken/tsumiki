@@ -24,7 +24,17 @@ All notable changes to Tsumiki are documented here. The format follows
 
 - `thisMonth()` is now local (matching `monthOf`), so the current month/year isn't
   briefly mis-detected around the UTC/local boundary (which blanked an annual budget's
-  days-left and per-day pace).
+  days-left and per-day pace); the allocation engine derives its month the same way, so
+  a "this month" strategy override isn't dropped at the boundary.
+- The weekly adherence streak steps by the local calendar, fixing a DST drift that reset
+  the run twice a year; out-of-range goal target dates are rejected instead of rolled over.
+- Accessibility: 44px tap targets on the goal/reminder remove buttons, and the selected
+  income/spending type labels darkened to clear WCAG AA contrast.
+
+### Performance
+
+- Memoized the category-list and monthly-pace derivations that previously re-walked the
+  full ledger on every render via the always-mounted Quick-Add.
 
 ### Internal
 
