@@ -4,6 +4,31 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-06-23
+
+### Added
+
+- **Reminders (in-app).** A new Reminders card on Home surfaces time-based alerts: an
+  upcoming payday, a bill due soon (bills with a day-of-month), checking dropping below
+  your buffer, a self-employed quarterly estimated-tax deadline, and a daily streak
+  about to lapse. Each is severity-toned (urgent / warn / info), dismissable for the
+  session, and the card hides when there's nothing to show.
+- **Reminder preferences.** A Settings card toggles each reminder kind on or off
+  (paydays / bills / buffer / taxes / streak); the engine honors it.
+
+### Notes
+
+- Reminders are **in-app only** — shown when you open Tsumiki. OS push notifications
+  were intentionally deferred: Web Push needs HTTPS and routes through a third-party
+  push service, which is at odds with the "nothing leaves the device" default. It may
+  return as its own release once TLS is set up.
+
+### Internal
+
+- Pure `reminders.js` engine (`computeReminders(state, today)`), timezone-correct
+  (local date keys, DST-safe day math), with stable unique ids. +10 tests across UTC,
+  US/Pacific, Tokyo, and UTC+14.
+
 ## [1.2.0] — 2026-06-23
 
 ### Added
@@ -153,6 +178,7 @@ own devices.
   for date-sensitive code) plus server-rendered component tests; Prettier + ESLint
   enforced.
 
+[1.3.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.3.0
 [1.2.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.2.0
 [1.1.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.1.0
 [1.0.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.0.0
