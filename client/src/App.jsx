@@ -21,6 +21,7 @@ import {
 import { computeAdherence, computeDailyStreak } from "./lib/streak.js";
 import { holdingsValueByAccount, INVESTMENT_TYPES } from "./lib/portfolio.js";
 import { computeReminders } from "./lib/reminders.js";
+import { earmarkedByGoal } from "./lib/goals.js";
 import { allCategories } from "./lib/categories.js";
 import { uid } from "./lib/uid.js";
 import Setup from "./Setup.jsx";
@@ -370,6 +371,8 @@ export default function App() {
     [transactions, freezes],
   );
   const streakNow = dailyStreak.current;
+  // per-goal earmarked balances (contributions tagged to a goal) for earmarked targets
+  const earmarked = useMemo(() => earmarkedByGoal(transactions), [transactions]);
   // time-based alerts (paydays, bills, buffer, est. taxes, streak) for the Home card.
   // Depend on the slices it reads (not the whole `data` ref, which churns on every
   // save) and reuse the streak we already computed.
@@ -389,6 +392,7 @@ export default function App() {
         debts,
         streak: streakNow,
         userTargets: moneyTargets || [],
+        earmarked,
         transactions,
       }),
     // depend on the specific profile fields used, not the whole object, so an
@@ -401,6 +405,7 @@ export default function App() {
       moneyTargets,
       debts,
       streakNow,
+      earmarked,
       transactions,
     ],
   );
@@ -449,14 +454,22 @@ export default function App() {
     save({ ...data, transactions: transactions.filter((t) => t.id !== id) });
   }
   // append via the lean endpoint instead of re-sending the whole state.
-  function logTx({ type, amount, cat = null, sourceId = null, bucket = null, note = null }) {
+  function logTx({
+    type,
+    amount,
+    cat = null,
+    sourceId = null,
+    bucket = null,
+    goalId = null,
+    note = null,
+  }) {
     const tx = {
       id: uid(),
       type,
       amount,
       date: new Date().toISOString(),
       cat,
-      goalId: null,
+      goalId,
       sourceId,
       bucket,
       note,
@@ -793,6 +806,7 @@ export default function App() {
                     contributed: investedTotal,
                     emergency: savingsBalance,
                   }}
+                  earmarked={earmarked}
                   monthlyPace={avgMonthlyContribution(transactions)}
                   onChange={(list) =>
                     save({ ...data, profile: { ...profile, moneyTargets: list } })
@@ -834,6 +848,7 @@ export default function App() {
         onLog={logTx}
         cats={allCategories(transactions)}
         sources={incomeSources}
+        goals={profile?.moneyTargets || []}
         transactions={transactions}
       />
       <Onboarding

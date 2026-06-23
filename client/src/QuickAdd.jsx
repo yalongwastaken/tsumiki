@@ -17,12 +17,21 @@ const TYPES = [
 const BUCKET_KEYS = ["emergency", "retirement", "invest", "debt"];
 
 /** Always-available bottom sheet for logging spending / income / contributions fast. */
-export default function QuickAdd({ open, onClose, onLog, cats, sources = [], transactions }) {
+export default function QuickAdd({
+  open,
+  onClose,
+  onLog,
+  cats,
+  sources = [],
+  goals = [],
+  transactions,
+}) {
   const [type, setType] = useState("spending");
   const [amount, setAmount] = useState("");
   const [cat, setCat] = useState(null);
   const [bucket, setBucket] = useState("invest");
   const [sourceId, setSourceId] = useState(null);
+  const [goalId, setGoalId] = useState(null);
   const [note, setNote] = useState("");
   const amountRef = useRef(null);
   const panelRef = useFocusTrap(open, onClose); // trap Tab + Escape; restore focus on close
@@ -83,6 +92,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
       setCat(orderedCats[0] || null);
       setBucket("invest");
       setSourceId(sources[0]?.id || null);
+      setGoalId(null);
       setNote("");
       setTimeout(() => amountRef.current?.focus(), 50);
     }
@@ -114,6 +124,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
       note: note || null,
       cat: type === "spending" ? cat : null,
       bucket: type === "contribution" ? bucket : null,
+      goalId: type === "contribution" ? goalId : null,
       sourceId: type === "income" ? sourceId : null,
     });
     onClose();
@@ -197,6 +208,23 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
                 {bucketLabel(v)}
               </button>
             ))}
+          </div>
+        )}
+        {/* optionally earmark a contribution toward a specific goal */}
+        {type === "contribution" && goals.length > 0 && (
+          <div className="mb-4">
+            <div className="text-xs text-slate-500 mb-1.5">Toward a goal (optional)</div>
+            <div className="flex flex-wrap gap-2">
+              {goals.map((g) => (
+                <button
+                  key={g.id}
+                  onClick={() => setGoalId(goalId === g.id ? null : g.id)}
+                  className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${goalId === g.id ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {type === "income" && sources.length > 0 && (

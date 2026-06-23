@@ -6,6 +6,7 @@ import { goalProgress } from "./lib/goals.js";
 import { uid } from "./lib/uid.js";
 
 const METRICS = [
+  ["earmarked", "Earmarked savings"],
   ["net_worth", "Net worth"],
   ["contributed", "Total contributed"],
   ["emergency", "Emergency fund"],
@@ -16,8 +17,17 @@ const METRICS = [
  * `values` maps each metric to its current dollar value so we can show how close
  * you are and what monthly saving lands a dated goal on time.
  */
-export default function MoneyTargets({ targets = [], values = {}, monthlyPace = null, onChange }) {
-  const [form, setForm] = useState({ label: "", amount: "", metric: "net_worth", targetDate: "" });
+export default function MoneyTargets({
+  targets = [],
+  values = {},
+  earmarked = {},
+  monthlyPace = null,
+  onChange,
+}) {
+  const [form, setForm] = useState({ label: "", amount: "", metric: "earmarked", targetDate: "" });
+  // current dollar value of a target's metric (per-goal balance for "earmarked")
+  const currentOf = (t) =>
+    t.metric === "earmarked" ? earmarked[t.id] || 0 : values[t.metric] || 0;
   function add() {
     const amount = Number(form.amount);
     if (!(amount > 0)) {
@@ -33,7 +43,7 @@ export default function MoneyTargets({ targets = [], values = {}, monthlyPace = 
         targetDate: form.targetDate || null,
       },
     ]);
-    setForm({ label: "", amount: "", metric: "net_worth", targetDate: "" });
+    setForm({ label: "", amount: "", metric: "earmarked", targetDate: "" });
   }
   const metricLabel = (m) => METRICS.find(([v]) => v === m)?.[1] || m;
 
@@ -45,7 +55,8 @@ export default function MoneyTargets({ targets = [], values = {}, monthlyPace = 
       {targets.length > 0 && (
         <div className="divide-y divide-slate-50 mb-3">
           {targets.map((t) => {
-            const p = goalProgress(t, values[t.metric] || 0, new Date(), monthlyPace);
+            const cur = currentOf(t);
+            const p = goalProgress(t, cur, new Date(), monthlyPace);
             return (
               <div key={t.id} className="py-2.5">
                 <div className="flex items-center justify-between">
@@ -55,8 +66,8 @@ export default function MoneyTargets({ targets = [], values = {}, monthlyPace = 
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-mono text-slate-500">
-                      {fmt(values[t.metric] || 0)}
-                      <span className="text-slate-400"> / {fmt(t.amount)}</span>
+                      {fmt(cur)}
+                      <span className="text-slate-500"> / {fmt(t.amount)}</span>
                     </span>
                     <button
                       onClick={() => onChange(targets.filter((x) => x.id !== t.id))}
