@@ -145,8 +145,15 @@ export default function Home({
   const sources = profile.incomeSources || [];
   // category budgets: this month's spend vs each cap + the most-pressing alert
   const budgetRows = useMemo(
-    () => budgetStatus(transactions, profile.budgets || {}),
-    [transactions, profile.budgets],
+    () =>
+      budgetStatus(
+        transactions,
+        profile.budgets || {},
+        thisMonth(),
+        new Date(),
+        profile.budgetOpts,
+      ),
+    [transactions, profile.budgets, profile.budgetOpts],
   );
   const budgetWarn = budgetAlert(budgetRows);
   // this month's spending split by category (for the "where it went" breakdown)
@@ -485,7 +492,17 @@ export default function Home({
             {budgetRows.slice(0, 5).map((b) => (
               <div key={b.cat}>
                 <div className="flex items-baseline justify-between text-sm mb-1">
-                  <span className="text-slate-600">{b.cat}</span>
+                  <span className="text-slate-600">
+                    {b.cat}
+                    {b.period === "annual" && <span className="text-slate-500"> · yearly</span>}
+                    {b.rollover && b.carry !== 0 && (
+                      <span className={b.carry > 0 ? "text-emerald-600" : "text-rose-500"}>
+                        {" "}
+                        · rollover {b.carry > 0 ? "+" : "−"}
+                        {fmt(Math.abs(b.carry))}
+                      </span>
+                    )}
+                  </span>
                   <span className="font-mono text-xs text-slate-500">
                     {fmt(b.spent)}
                     <span className="text-slate-500"> / {fmt(b.budget)}</span>
