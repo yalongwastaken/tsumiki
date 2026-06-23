@@ -14,6 +14,7 @@ export default {
           500: "#8B7CF6",
           600: "#7C6FE8",
           700: "#6D5DD3",
+          800: "#5A4BB8", // darker violet — clears WCAG AA on bg-brand-50
         },
       },
     },
