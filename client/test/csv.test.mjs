@@ -23,6 +23,16 @@ test("a bare ISO date keeps its calendar day in any timezone (no UTC-midnight sh
   assert.equal(dayKey(tx.date), "2026-06-21"); // not 2026-06-20 in US timezones
 });
 
+test("out-of-range bare dates are rejected, not rolled over", () => {
+  const map = { date: 0, description: 1, amount: 2 };
+  // "2026-13-99" / "2026-02-30" / "2026-00-15" must not silently become other dates
+  assert.equal(rowsToTransactions([["2026-13-99", "X", "-1"]], map).length, 0);
+  assert.equal(rowsToTransactions([["2026-02-30", "X", "-1"]], map).length, 0);
+  assert.equal(rowsToTransactions([["2026-00-15", "X", "-1"]], map).length, 0);
+  // a real leap day still imports
+  assert.equal(rowsToTransactions([["2028-02-29", "X", "-1"]], map).length, 1);
+});
+
 test("parseCsv tolerates CRLF and trailing blank lines", () => {
   const { headers, rows } = parseCsv("a,b\r\n1,2\r\n\r\n");
   assert.deepEqual(headers, ["a", "b"]);

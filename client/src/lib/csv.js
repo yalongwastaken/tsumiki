@@ -120,9 +120,18 @@ export function rowsToTransactions(rows = [], mapping = {}, { invert = false } =
     // previous calendar day in western timezones — anchor it to LOCAL noon so the
     // imported row keeps the day the bank actually printed.
     const isoBare = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate);
-    const d = isoBare
-      ? new Date(Number(isoBare[1]), Number(isoBare[2]) - 1, Number(isoBare[3]), 12)
-      : new Date(rawDate);
+    let d;
+    if (isoBare) {
+      const [, y, mo, day] = isoBare.map(Number);
+      d = new Date(y, mo - 1, day, 12);
+      // reject out-of-range parts (e.g. "2026-13-99", "2026-02-30") instead of
+      // letting Date silently roll them into another month/year
+      if (d.getFullYear() !== y || d.getMonth() !== mo - 1 || d.getDate() !== day) {
+        continue;
+      }
+    } else {
+      d = new Date(rawDate);
+    }
     if (isNaN(d.getTime())) {
       continue;
     }
