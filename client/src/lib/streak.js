@@ -135,12 +135,20 @@ export function computeAdherence(transactions = [], freezes = 0) {
     (byWeek[weekKey(t.date)] ??= []).push(t);
   }
   const met = (wk) => objectiveForWeek(wk).test(byWeek[wk] || []);
+  // step `n` weeks from a week key via the local calendar (re-normalized to local
+  // Monday midnight), so a DST transition doesn't drift the key by an hour and miss
+  // the byWeek lookup — a fixed ±WEEK ms step would.
+  const shiftWeeks = (wk, n) => {
+    const d = new Date(wk);
+    d.setDate(d.getDate() + n * 7);
+    return weekKey(d);
+  };
 
   const thisWeek = weekKey(Date.now());
   // current streak: this week's objective may not be done yet — don't penalize until it's over
   let cur = thisWeek;
   if (!met(cur)) {
-    cur -= WEEK;
+    cur = shiftWeeks(cur, -1);
   }
   let current = 0,
     fz = freezes,
@@ -148,11 +156,11 @@ export function computeAdherence(transactions = [], freezes = 0) {
   while (true) {
     if (met(cur)) {
       current++;
-      cur -= WEEK;
+      cur = shiftWeeks(cur, -1);
     } else if (fz > 0 && current > 0) {
       fz--;
       used++;
-      cur -= WEEK;
+      cur = shiftWeeks(cur, -1);
     } else {
       break;
     }
@@ -163,7 +171,7 @@ export function computeAdherence(transactions = [], freezes = 0) {
   let longest = 0;
   if (allWeeks.length) {
     let run = 0;
-    for (let wk = Math.min(...allWeeks); wk <= thisWeek; wk += WEEK) {
+    for (let wk = Math.min(...allWeeks); wk <= thisWeek; wk = shiftWeeks(wk, 1)) {
       run = met(wk) ? run + 1 : 0;
       longest = Math.max(longest, run);
     }
@@ -172,7 +180,7 @@ export function computeAdherence(transactions = [], freezes = 0) {
 
   const cells = [];
   for (let i = 11; i >= 0; i--) {
-    const wk = thisWeek - i * WEEK;
+    const wk = shiftWeeks(thisWeek, -i);
     cells.push({ wk, met: met(wk), isNow: wk === thisWeek });
   }
 
