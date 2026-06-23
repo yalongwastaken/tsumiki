@@ -373,6 +373,9 @@ export default function App() {
   const streakNow = dailyStreak.current;
   // per-goal earmarked balances (contributions tagged to a goal) for earmarked targets
   const earmarked = useMemo(() => earmarkedByGoal(transactions), [transactions]);
+  // memoize the full-ledger walks feeding always-mounted QuickAdd + the goals tab
+  const quickAddCats = useMemo(() => allCategories(transactions), [transactions]);
+  const monthlyPace = useMemo(() => avgMonthlyContribution(transactions), [transactions]);
   // time-based alerts (paydays, bills, buffer, est. taxes, streak) for the Home card.
   // Depend on the slices it reads (not the whole `data` ref, which churns on every
   // save) and reuse the streak we already computed.
@@ -807,7 +810,7 @@ export default function App() {
                     emergency: savingsBalance,
                   }}
                   earmarked={earmarked}
-                  monthlyPace={avgMonthlyContribution(transactions)}
+                  monthlyPace={monthlyPace}
                   onChange={(list) =>
                     save({ ...data, profile: { ...profile, moneyTargets: list } })
                   }
@@ -846,7 +849,7 @@ export default function App() {
         open={showAdd}
         onClose={() => setShowAdd(false)}
         onLog={logTx}
-        cats={allCategories(transactions)}
+        cats={quickAddCats}
         sources={incomeSources}
         goals={(profile?.moneyTargets || []).filter((g) => g.metric === "earmarked")}
         transactions={transactions}

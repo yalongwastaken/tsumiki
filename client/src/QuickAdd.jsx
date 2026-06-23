@@ -8,10 +8,12 @@ import { useFocusTrap } from "./useFocusTrap.js";
 export const NO_SPEND_CAT = "No-spend day";
 
 // amount first, frequency-sorted categories, recents to repeat
+// selected-tab label colors are the -700 shades so the text clears WCAG AA on the
+// white pill (the lighter brand hues failed contrast)
 const TYPES = [
-  ["spending", "Spending", "#F59E0B"],
-  ["income", "Income", "#10B981"],
-  ["contribution", "Contribution", "#6366F1"],
+  ["spending", "Spending", "#B45309"],
+  ["income", "Income", "#047857"],
+  ["contribution", "Contribution", "#4F46E5"],
 ];
 // contributions target an engine bucket; labels come from buckets.js (single source)
 const BUCKET_KEYS = ["emergency", "retirement", "invest", "debt"];
@@ -111,6 +113,7 @@ export default function QuickAdd({
     if (t.type === "contribution") {
       setBucket(t.bucket || "invest");
     }
+    setGoalId(t.type === "contribution" ? t.goalId || null : null);
     setNote(t.note || "");
   }
   function submit() {
@@ -157,7 +160,8 @@ export default function QuickAdd({
             <button
               key={v}
               onClick={() => setType(v)}
-              className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${type === v ? "bg-white dark:bg-slate-600 shadow-sm" : "text-slate-500"}`}
+              aria-pressed={type === v}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${type === v ? "bg-white dark:bg-slate-600 shadow-sm" : "text-slate-500"}`}
               style={type === v ? { color } : undefined}
             >
               {l}
@@ -190,7 +194,8 @@ export default function QuickAdd({
               <button
                 key={c}
                 onClick={() => setCat(c)}
-                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${cat === c ? "border-amber-500 bg-amber-50 text-amber-700" : "border-slate-200 text-slate-600"}`}
+                aria-pressed={cat === c}
+                className={`px-3 py-2 text-sm rounded-full border transition-colors ${cat === c ? "border-amber-500 bg-amber-50 text-amber-700" : "border-slate-200 text-slate-600"}`}
               >
                 {c}
               </button>
@@ -203,7 +208,8 @@ export default function QuickAdd({
               <button
                 key={v}
                 onClick={() => setBucket(v)}
-                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${bucket === v ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+                aria-pressed={bucket === v}
+                className={`px-3 py-2 text-sm rounded-full border transition-colors ${bucket === v ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
               >
                 {bucketLabel(v)}
               </button>
@@ -219,6 +225,7 @@ export default function QuickAdd({
                 <button
                   key={g.id}
                   onClick={() => setGoalId(goalId === g.id ? null : g.id)}
+                  aria-pressed={goalId === g.id}
                   title={g.label}
                   className={`max-w-[12rem] truncate px-3 py-2 text-sm rounded-full border transition-colors ${goalId === g.id ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
                 >
@@ -234,7 +241,8 @@ export default function QuickAdd({
               <button
                 key={s.id}
                 onClick={() => setSourceId(s.id)}
-                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${sourceId === s.id ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-200 text-slate-600"}`}
+                aria-pressed={sourceId === s.id}
+                className={`px-3 py-2 text-sm rounded-full border transition-colors ${sourceId === s.id ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-200 text-slate-600"}`}
               >
                 {s.name}
               </button>
