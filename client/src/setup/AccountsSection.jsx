@@ -54,16 +54,19 @@ export default function AccountsSection({ data, onSave, prices = null }) {
     if (!isInvestment(a.type)) {
       return latestBalance(a.id);
     }
+    // net worth is snapshot-based and the reconcile keeps this account's snapshot at
+    // market+cash, so prefer the snapshot to stay consistent with Home/net worth
+    // (and to respect a manual same-day override the reconcile won't clobber).
+    const snap = latestBalance(a.id);
+    if (snap != null) {
+      return snap;
+    }
     const market = marketByAcct[a.id] || 0;
     const cash = Number(a.cash) || 0;
     if (market > 0) {
-      return market + cash;
+      return market + cash; // priced but not yet written to a snapshot
     }
-    const snap = latestBalance(a.id);
-    if (snap != null) {
-      return snap; // last synced value
-    }
-    return holdingsFor(a.id).length || cash ? cash : null;
+    return cash > 0 ? cash : null; // nothing to value yet → empty state
   }
 
   function toggleOpen(id) {

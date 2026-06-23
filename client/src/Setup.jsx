@@ -89,16 +89,20 @@ export default function Setup({
     [holdings, prices],
   );
   const acctValue = (a) => {
-    if (INVESTMENT_TYPES.has(a.type)) {
-      const market = marketByAcct[a.id] || 0;
-      const cash = Number(a.cash) || 0;
-      if (market > 0) {
-        return market + cash;
-      }
-      const snap = latestBalances.get(a.id)?.balance;
-      return snap != null ? snap : holdings.some((h) => h.accountId === a.id) || cash ? cash : null;
+    if (!INVESTMENT_TYPES.has(a.type)) {
+      return latestBalances.get(a.id)?.balance ?? null;
     }
-    return latestBalances.get(a.id)?.balance ?? null;
+    // snapshot-first, matching net worth + AccountsSection (reconcile keeps it current)
+    const snap = latestBalances.get(a.id)?.balance;
+    if (snap != null) {
+      return snap;
+    }
+    const market = marketByAcct[a.id] || 0;
+    const cash = Number(a.cash) || 0;
+    if (market > 0) {
+      return market + cash;
+    }
+    return cash > 0 ? cash : null;
   };
   const accountsTotal = accounts.some((a) => acctValue(a) != null)
     ? accounts.reduce((s, a) => s + (acctValue(a) || 0), 0)
