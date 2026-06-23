@@ -20,6 +20,7 @@ import { getPrices, refreshPrices, schedulePrices } from "./prices.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
+app.disable("x-powered-by"); // don't advertise the framework
 app.use(express.json({ limit: "5mb" }));
 
 // CSRF / DNS-rebinding guard: a browser sends Origin on cross-site writes. If a
@@ -174,7 +175,12 @@ if (existsSync(dist)) {
 app.use((err, _req, res, _next) => {
   console.warn("unhandled route error:", err?.message || err);
   if (!res.headersSent) {
-    res.status(500).json({ error: "server error" });
+    // honor a client-error status (e.g. 413 oversized body, 400 malformed JSON)
+    // instead of flattening every body-parser error to a 500
+    const status = err?.status || err?.statusCode || 500;
+    res.status(status >= 400 && status < 600 ? status : 500).json({
+      error: status >= 400 && status < 500 ? "bad request" : "server error",
+    });
   }
 });
 

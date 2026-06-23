@@ -22,5 +22,15 @@ test("nonTaxableMonthly is 0 with no sources / all taxable", () => {
 
 test("monthOf is safe on bad dates", () => {
   assert.equal(monthOf("nope"), "");
-  assert.equal(monthOf("2026-06-15T00:00:00Z"), "2026-06");
+});
+
+test("monthOf returns a bare date's month verbatim (timezone-independent)", () => {
+  assert.equal(monthOf("2026-06-30"), "2026-06");
+  assert.equal(monthOf("2026-01-01"), "2026-01");
+});
+
+test("monthOf buckets a full timestamp by LOCAL month (no UTC month-edge slip)", () => {
+  // a late-evening instant on the last day of the month stays in that month locally
+  assert.equal(monthOf(new Date(2026, 5, 30, 23, 0, 0)), "2026-06");
+  assert.equal(monthOf(new Date(2026, 0, 1, 0, 30, 0)), "2026-01");
 });

@@ -219,6 +219,9 @@ export function validateState(s) {
     if (!t.date) {
       return "transaction needs a date";
     }
+    if (Number.isNaN(Date.parse(t.date))) {
+      return "transaction.date is not a valid date";
+    }
   }
   for (const sn of s.snapshots || []) {
     if (!sn?.id) {
@@ -277,6 +280,10 @@ export function validateTransaction(t) {
   }
   if (!t.date) {
     return "transaction needs a date";
+  }
+  // a garbage date string would persist and silently skew month/streak/forecast math
+  if (Number.isNaN(Date.parse(t.date))) {
+    return "transaction.date is not a valid date";
   }
   return null;
 }

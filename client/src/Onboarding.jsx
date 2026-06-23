@@ -83,6 +83,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
+      aria-label="Set up Tsumiki"
     >
       <div className="anim-fade absolute inset-0 bg-slate-900/50" />
       <div
@@ -138,7 +139,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
             <input
               value={srcName}
               onChange={(e) => setSrcName(e.target.value)}
-              onKeyDown={onEnter}
+              aria-label="Income source name"
               placeholder="e.g. Day job"
               className={field + " mb-2"}
             />
@@ -160,7 +161,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
                   min="0"
                   value={srcAmount}
                   onChange={(e) => setSrcAmount(e.target.value)}
-                  onKeyDown={onEnter}
+                  aria-label={srcBasis === "annual" ? "Income per year" : "Income per month"}
                   placeholder={srcBasis === "annual" ? "salary / year" : "typical / month"}
                   className={field + " pl-7"}
                 />
@@ -182,6 +183,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
                 value={srcPayday}
                 onChange={(e) => setSrcPayday(e.target.value)}
                 title="Next payday"
+                aria-label="Next payday"
                 className={field}
               />
             </div>
@@ -215,7 +217,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
                   inputMode="decimal"
                   value={balChecking}
                   onChange={(e) => setBalChecking(e.target.value)}
-                  onKeyDown={onEnter}
+                  aria-label="Checking balance"
                   placeholder="checking balance"
                   className={field + " pl-7"}
                 />
@@ -227,7 +229,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
                   inputMode="decimal"
                   value={balSavings}
                   onChange={(e) => setBalSavings(e.target.value)}
-                  onKeyDown={onEnter}
+                  aria-label="Savings balance"
                   placeholder="savings balance"
                   className={field + " pl-7"}
                 />
@@ -251,6 +253,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
                 value={emergencyTarget}
                 onChange={(e) => setEmergencyTarget(e.target.value)}
                 onKeyDown={onEnter}
+                aria-label="Emergency fund target"
                 placeholder="emergency fund target"
                 className={field + " pl-7"}
               />
@@ -269,6 +272,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
                 <button
                   key={v}
                   onClick={() => setStrategy(v)}
+                  aria-pressed={strategy === v}
                   className={`w-full text-left px-3 py-2.5 rounded-lg border transition-colors ${strategy === v ? "border-brand-500 bg-brand-50" : "border-slate-200 hover:border-slate-300"}`}
                 >
                   <div className="text-sm font-medium text-slate-800">{l}</div>

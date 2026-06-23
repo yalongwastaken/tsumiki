@@ -22,6 +22,10 @@ test("validateState rejects malformed bodies", () => {
   assert.ok(validateState({ holdings: [{ id: "h", ticker: "a b", shares: 1 }] }));
   assert.equal(validateState({ holdings: [{ id: "h", ticker: "BRK.B", shares: 1 }] }), null);
   assert.equal(validateState({ holdings: [{ id: "h", ticker: "^GSPC", shares: 1 }] }), null);
+  // a garbage date would persist and skew month/streak/forecast math
+  assert.ok(
+    validateState({ transactions: [{ id: "x", type: "income", amount: 5, date: "not-a-date" }] }),
+  );
   assert.equal(validateState({ debts: [{ id: "d", name: "Card", balance: 1000, apr: 20 }] }), null);
   assert.equal(validateState({ goals: [{ id: "g", name: "Trip", target: 5000 }] }), null);
   assert.equal(
@@ -31,10 +35,14 @@ test("validateState rejects malformed bodies", () => {
 });
 
 test("validateTransaction guards type/amount/id/date", () => {
-  assert.ok(validateTransaction({ type: "income", amount: 5, date: "d" })); // no id
-  assert.ok(validateTransaction({ id: "x", type: "nope", amount: 5, date: "d" }));
-  assert.ok(validateTransaction({ id: "x", type: "income", amount: NaN, date: "d" }));
-  assert.equal(validateTransaction({ id: "x", type: "income", amount: 5, date: "d" }), null);
+  assert.ok(validateTransaction({ type: "income", amount: 5, date: "2026-01-01" })); // no id
+  assert.ok(validateTransaction({ id: "x", type: "nope", amount: 5, date: "2026-01-01" }));
+  assert.ok(validateTransaction({ id: "x", type: "income", amount: NaN, date: "2026-01-01" }));
+  assert.ok(validateTransaction({ id: "x", type: "income", amount: 5, date: "garbage" })); // bad date
+  assert.equal(
+    validateTransaction({ id: "x", type: "income", amount: 5, date: "2026-01-01" }),
+    null,
+  );
 });
 
 test("putState round-trips and bumps rev", () => {

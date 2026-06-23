@@ -3,7 +3,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { goalProgress } from "../src/lib/goals.js";
 
-const TODAY = new Date("2026-06-21T12:00:00Z");
+// local-component fixture (NOT a "…Z" literal): a UTC instant like noon-Z lands on
+// the next calendar day past UTC+12, which would shift monthsUntil by one day.
+const TODAY = new Date(2026, 5, 21, 12, 0, 0);
 
 test("progress percent + reached flag", () => {
   const p = goalProgress({ amount: 10000 }, 2500, TODAY);

@@ -71,14 +71,12 @@ const EMPTY = {
 };
 
 // ─── Streak ─── daily logging streak (headline) + weekly rotating challenge ─────
-function StreakPanel({ transactions, freezes = 0 }) {
-  const { current, longest, freezesUsed, loggedToday, cells } = computeDailyStreak(
-    transactions,
-    freezes,
-  );
+function StreakPanel({ streak, transactions, freezes = 2 }) {
+  const { current, longest, freezesUsed, loggedToday, cells } = streak;
   // secondary: this week's rotating plan-adherence challenge (a bonus to chase)
   const { objective, metThisWeek } = computeAdherence(transactions, freezes);
   const freezesLeft = Math.max(0, freezes - freezesUsed);
+  const daysLogged = cells.filter((c) => c.met).length;
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex items-center justify-between mb-3">
@@ -86,9 +84,14 @@ function StreakPanel({ transactions, freezes = 0 }) {
           Daily streak
         </div>
         <div className="flex items-center gap-1 text-xs text-slate-400">
-          {Array.from({ length: freezesLeft }).map((_, i) => (
-            <Snowflake key={i} size={12} className="text-blue-400" />
-          ))}
+          <span
+            className="inline-flex items-center gap-0.5"
+            aria-label={`${freezesLeft} streak freezes left`}
+          >
+            {Array.from({ length: freezesLeft }).map((_, i) => (
+              <Snowflake key={i} size={12} className="text-blue-400" aria-hidden="true" />
+            ))}
+          </span>
           <span>
             longest {longest} {longest === 1 ? "day" : "days"}
           </span>
@@ -102,6 +105,7 @@ function StreakPanel({ transactions, freezes = 0 }) {
         </div>
       </div>
       <div
+        role="status"
         className={`rounded-lg px-3 py-2 mb-3 text-sm flex items-center gap-1.5 ${loggedToday ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
       >
         {loggedToday ? (
@@ -115,6 +119,7 @@ function StreakPanel({ transactions, freezes = 0 }) {
           </>
         )}
       </div>
+      <span className="sr-only">{daysLogged} of the last 14 days logged.</span>
       <div className="flex gap-1.5" aria-hidden="true">
         {cells.map((c, i) => (
           <div
@@ -294,23 +299,38 @@ export default function App() {
     () => sumLatestByType(accounts, snapshots, ["savings"]),
     [accounts, snapshots],
   );
-  const streakNow = useMemo(
-    () => computeDailyStreak(transactions, freezes).current,
+  // one daily-streak computation, reused by the panel + milestones (was derived 3×)
+  const dailyStreak = useMemo(
+    () => computeDailyStreak(transactions, freezes),
     [transactions, freezes],
   );
+  const streakNow = dailyStreak.current;
+  const emergencyTarget = profile?.emergencyTarget || 0;
+  const moneyTargets = profile?.moneyTargets; // stable ref (don't `|| []` here — see deps)
   const milestoneList = useMemo(
     () =>
       computeMilestones({
         realNetWorth,
         investedTotal,
         savings: savingsBalance,
-        emergencyTarget: profile?.emergencyTarget || 0,
+        emergencyTarget,
         debts,
         streak: streakNow,
-        userTargets: profile?.moneyTargets || [],
+        userTargets: moneyTargets || [],
         transactions,
       }),
-    [realNetWorth, investedTotal, savingsBalance, profile, debts, streakNow, transactions],
+    // depend on the specific profile fields used, not the whole object, so an
+    // unrelated save (theme, strategy, month override) doesn't re-walk the ledger
+    [
+      realNetWorth,
+      investedTotal,
+      savingsBalance,
+      emergencyTarget,
+      moneyTargets,
+      debts,
+      streakNow,
+      transactions,
+    ],
   );
 
   // celebrate milestones newly achieved during this session — pure, no writes.
@@ -690,7 +710,7 @@ export default function App() {
 
             {tab === "goals" && (
               <>
-                <StreakPanel transactions={transactions} freezes={freezes} />
+                <StreakPanel streak={dailyStreak} transactions={transactions} freezes={freezes} />
                 <Milestones list={milestoneList} />
                 <MoneyTargets
                   targets={profile?.moneyTargets || []}

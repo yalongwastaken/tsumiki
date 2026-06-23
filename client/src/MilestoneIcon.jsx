@@ -30,8 +30,9 @@ const MAP = {
   sparkles: Sparkles,
 };
 
-/** Render the lucide icon for a milestone key (falls back to Award). */
+/** Render the lucide icon for a milestone key (falls back to Award). Decorative —
+ * the milestone label always sits beside it, so it's hidden from assistive tech. */
 export default function MilestoneIcon({ name, size = 16, className = "" }) {
   const Icon = MAP[name] || Award;
-  return <Icon size={size} className={className} />;
+  return <Icon size={size} className={className} aria-hidden="true" />;
 }

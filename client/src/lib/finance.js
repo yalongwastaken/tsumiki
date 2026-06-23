@@ -4,9 +4,21 @@
 
 // "YYYY-MM" for a date; "" for an unparseable one (so a single bad/corrupt
 // transaction date can't throw "Invalid time value" and crash the whole view).
+// A bare "YYYY-MM-DD" returns its month verbatim (timezone-independent). A full
+// timestamp is bucketed by LOCAL month — transactions are stamped with the local
+// instant, so a late-evening spend on the last day of the month must not slip into
+// the next month (which a UTC slice would do in western timezones).
 export const monthOf = (date) => {
+  if (typeof date === "string") {
+    const bare = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+    if (bare) {
+      return `${bare[1]}-${bare[2]}`;
+    }
+  }
   const d = new Date(date);
-  return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 7);
+  return isNaN(d.getTime())
+    ? ""
+    : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
 /**
