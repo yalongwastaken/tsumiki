@@ -2,7 +2,12 @@
 
 const NW_TIERS = [10000, 25000, 50000, 100000, 250000, 500000, 1000000];
 const CONTRIB_TIERS = [1000, 5000, 10000, 25000, 50000];
-const STREAK_TIERS = [4, 12, 26, 52];
+// daily logging streak, in days
+const STREAK_TIERS = [3, 7, 14, 30, 60, 100, 180, 365];
+// habit achievements derived from the raw ledger
+const LOG_TIERS = [10, 50, 100, 500, 1000];
+const NOSPEND_TIERS = [1, 5, 25, 100];
+const MONTHS_TIERS = [3, 6, 12, 24];
 const money = (n) => "$" + Math.round(Number.isFinite(n) ? n : 0).toLocaleString();
 
 const METRIC_VALUE = (metric, ctx) =>
@@ -11,6 +16,28 @@ const METRIC_VALUE = (metric, ctx) =>
     : metric === "emergency"
       ? ctx.savings
       : ctx.investedTotal;
+
+// quick ledger tallies for the habit/game achievements
+function ledgerStats(transactions = []) {
+  let logs = 0,
+    noSpend = 0,
+    invested = false;
+  const months = new Set();
+  for (const t of transactions) {
+    logs++;
+    if (t.type === "spending" && !(t.amount > 0)) {
+      noSpend++;
+    }
+    if (t.type === "contribution" && (t.bucket === "invest" || t.bucket === "retirement")) {
+      invested = true;
+    }
+    const d = new Date(t.date);
+    if (!isNaN(d.getTime())) {
+      months.add(`${d.getFullYear()}-${d.getMonth()}`);
+    }
+  }
+  return { logs, noSpend, invested, months: months.size };
+}
 
 /**
  * Build the ordered milestone list from a context snapshot, each flagged
@@ -26,13 +53,38 @@ export function computeMilestones(ctx) {
     debts = [],
     streak = 0,
     userTargets = [],
+    transactions = [],
   } = ctx;
+  const stats = ledgerStats(transactions);
   const m = [];
   const add = (id, label, icon, achieved, cur, target) =>
     m.push({ id, label, icon, achieved, cur, target });
 
-  add("first", "First contribution", "sprout", investedTotal > 0);
+  // ── habit: showing up + logging ──────────────────────────────────────────────
+  add("first_log", "Logged your first entry", "pencil", stats.logs > 0);
+  for (const t of LOG_TIERS) {
+    add(`logs_${t}`, `${t} entries logged`, "list", stats.logs >= t, stats.logs, t);
+  }
+  for (const t of STREAK_TIERS) {
+    add(`streak_${t}`, `${t}-day streak`, "flame", streak >= t, streak, t);
+  }
+  for (const t of NOSPEND_TIERS) {
+    add(
+      `nospend_${t}`,
+      t === 1 ? "First no-spend day" : `${t} no-spend days`,
+      "ban",
+      stats.noSpend >= t,
+      stats.noSpend,
+      t,
+    );
+  }
+  for (const t of MONTHS_TIERS) {
+    add(`months_${t}`, `${t} months tracked`, "calendar", stats.months >= t, stats.months, t);
+  }
 
+  // ── money: contributions, net worth, safety, debt ────────────────────────────
+  add("first", "First contribution", "sprout", investedTotal > 0);
+  add("invested", "First investment", "sparkles", stats.invested);
   for (const t of CONTRIB_TIERS) {
     add(`contrib_${t}`, `${money(t)} contributed`, "coins", investedTotal >= t, investedTotal, t);
   }
@@ -53,10 +105,6 @@ export function computeMilestones(ctx) {
 
   const hasDebt = debts.some((d) => (d.balance || 0) > 0);
   add("debt_free", "Debt-free", "check", debts.length > 0 && !hasDebt);
-
-  for (const t of STREAK_TIERS) {
-    add(`streak_${t}`, `${t}-week streak`, "flame", streak >= t, streak, t);
-  }
 
   // user-defined money targets (the gamified "save $X" goals)
   for (const g of userTargets) {

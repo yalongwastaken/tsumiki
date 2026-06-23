@@ -20,29 +20,71 @@ const HIST_MAX = 40;
 
 let cache = { prices: {}, fetchedAt: 0 };
 
+// split one CSV line, honoring "quoted, fields" and "" escapes. Stooq's own feed is
+// plain, but a custom TSUMIKI_PRICE_URL might not be — be tolerant either way.
+function splitCsvLine(line) {
+  const out = [];
+  let cur = "",
+    q = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (q) {
+      if (c === '"') {
+        if (line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          q = false;
+        }
+      } else {
+        cur += c;
+      }
+    } else if (c === '"') {
+      q = true;
+    } else if (c === ",") {
+      out.push(cur);
+      cur = "";
+    } else {
+      cur += c;
+    }
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+}
+
 /**
  * Parse a Stooq CSV (header + rows) into latest closes. Pure — no network.
+ * Tolerant of a BOM, quoted fields, blank lines, and Stooq's "N/D" no-data marker
+ * (which yields NaN and is skipped rather than cached as a price).
  * @returns {Array<{symbol, close, date}>}
  */
 export function parseStooqCsv(csv = "") {
-  const lines = String(csv).trim().split(/\r?\n/);
+  const lines = String(csv)
+    .replace(/^\uFEFF/, "") // strip a leading byte-order mark
+    .trim()
+    .split(/\r?\n/)
+    .filter((l) => l.trim());
   if (lines.length < 2) {
     return [];
   }
-  const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
+  const header = splitCsvLine(lines[0]).map((h) => h.toLowerCase());
   const ci = header.indexOf("close");
   const si = header.indexOf("symbol");
   const di = header.indexOf("date");
+  // without a symbol+close column there's nothing reliable to read
+  if (ci === -1 || si === -1) {
+    return [];
+  }
   const out = [];
   for (const line of lines.slice(1)) {
-    const cells = line.split(",");
+    const cells = splitCsvLine(line);
     const close = parseFloat(cells[ci]);
     // strip the exchange suffix (.US/.UK/.DE …) but NOT a 1-letter class share (BRK.B)
     const symbol = (cells[si] || "").replace(/\.[A-Z]{2,}$/i, "").toUpperCase();
     if (!symbol || !isFinite(close) || close <= 0) {
       continue;
     }
-    out.push({ symbol, close, date: (cells[di] || "").trim() });
+    out.push({ symbol, close, date: di === -1 ? "" : cells[di] || "" });
   }
   return out;
 }

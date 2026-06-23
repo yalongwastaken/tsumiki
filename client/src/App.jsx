@@ -18,7 +18,7 @@ import {
   thisMonth,
   avgMonthlyContribution,
 } from "./lib/selectors.js";
-import { computeAdherence } from "./lib/streak.js";
+import { computeAdherence, computeDailyStreak } from "./lib/streak.js";
 import { allCategories } from "./lib/categories.js";
 import { uid } from "./lib/uid.js";
 import Setup from "./Setup.jsx";
@@ -70,52 +70,70 @@ const EMPTY = {
   settings: { returnRate: 0.07, monthlyInvest: null },
 };
 
-// ─── Streak ─── plan-adherence with a rotating weekly objective ────────────────
+// ─── Streak ─── daily logging streak (headline) + weekly rotating challenge ─────
 function StreakPanel({ transactions, freezes = 0 }) {
-  const { current, longest, freezesUsed, cells, objective, metThisWeek } = computeAdherence(
+  const { current, longest, freezesUsed, loggedToday, cells } = computeDailyStreak(
     transactions,
     freezes,
   );
+  // secondary: this week's rotating plan-adherence challenge (a bonus to chase)
+  const { objective, metThisWeek } = computeAdherence(transactions, freezes);
   const freezesLeft = Math.max(0, freezes - freezesUsed);
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          Adherence streak
+          Daily streak
         </div>
         <div className="flex items-center gap-1 text-xs text-slate-400">
           {Array.from({ length: freezesLeft }).map((_, i) => (
             <Snowflake key={i} size={12} className="text-blue-400" />
           ))}
-          <span>longest {longest} wk</span>
+          <span>
+            longest {longest} {longest === 1 ? "day" : "days"}
+          </span>
         </div>
       </div>
       <div className="flex items-center gap-3 mb-3">
         <Flame size={34} className={current > 0 ? "text-orange-500" : "text-slate-300"} />
         <div>
           <div className="text-3xl font-mono font-bold text-slate-900">{current}</div>
-          <div className="text-xs text-slate-400">{current === 1 ? "week" : "weeks"} in a row</div>
+          <div className="text-xs text-slate-400">{current === 1 ? "day" : "days"} in a row</div>
         </div>
       </div>
       <div
-        className={`rounded-lg px-3 py-2 mb-3 text-sm flex items-center gap-1.5 ${metThisWeek ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}
+        className={`rounded-lg px-3 py-2 mb-3 text-sm flex items-center gap-1.5 ${loggedToday ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
       >
-        <span className="font-semibold">This week:</span> {objective.label}{" "}
-        {metThisWeek && <Check size={14} />}
+        {loggedToday ? (
+          <>
+            <Check size={14} /> <span className="font-semibold">Logged today</span> — streak safe.
+          </>
+        ) : (
+          <>
+            <span className="font-semibold">Nothing logged today.</span> Any entry (even a no-spend
+            day) keeps it going.
+          </>
+        )}
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5" aria-hidden="true">
         {cells.map((c, i) => (
           <div
             key={i}
-            title={new Date(c.wk).toLocaleDateString()}
+            title={c.day ? new Date(`${c.day}T00:00:00`).toLocaleDateString() : ""}
             className={`flex-1 rounded transition-colors ${c.met ? "bg-orange-400" : "bg-slate-100"} ${c.isNow ? "ring-2 ring-orange-300" : ""}`}
             style={{ height: 28 }}
           />
         ))}
       </div>
-      <div className="flex justify-between mt-1.5 text-xs text-slate-300">
-        <span>12 weeks ago</span>
-        <span>this week</span>
+      <div className="flex justify-between mt-1.5 mb-3 text-xs text-slate-300">
+        <span>14 days ago</span>
+        <span>today</span>
+      </div>
+      <div
+        className={`rounded-lg px-3 py-2 text-xs flex items-center gap-1.5 ${metThisWeek ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-500"}`}
+      >
+        <span className="font-semibold">Weekly bonus:</span> {objective.label}{" "}
+        {metThisWeek && <Check size={13} />}
       </div>
     </div>
   );
@@ -277,7 +295,7 @@ export default function App() {
     [accounts, snapshots],
   );
   const streakNow = useMemo(
-    () => computeAdherence(transactions, freezes).current,
+    () => computeDailyStreak(transactions, freezes).current,
     [transactions, freezes],
   );
   const milestoneList = useMemo(
@@ -290,8 +308,9 @@ export default function App() {
         debts,
         streak: streakNow,
         userTargets: profile?.moneyTargets || [],
+        transactions,
       }),
-    [realNetWorth, investedTotal, savingsBalance, profile, debts, streakNow],
+    [realNetWorth, investedTotal, savingsBalance, profile, debts, streakNow, transactions],
   );
 
   // celebrate milestones newly achieved during this session — pure, no writes.

@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseCsv, guessMapping, rowsToTransactions, dedupeAgainst } from "../src/lib/csv.js";
+import { dayKey } from "../src/lib/streak.js";
 
 test("parseCsv handles quotes, escaped quotes, and commas in fields", () => {
   const text =
@@ -11,6 +12,15 @@ test("parseCsv handles quotes, escaped quotes, and commas in fields", () => {
   assert.equal(rows.length, 2);
   assert.equal(rows[0][1], "Coffee, large"); // comma inside quotes preserved
   assert.equal(rows[1][1], 'He said "hi"'); // escaped quotes
+});
+
+test("a bare ISO date keeps its calendar day in any timezone (no UTC-midnight shift)", () => {
+  const [tx] = rowsToTransactions([["2026-06-21", "Coffee", "-4.50"]], {
+    date: 0,
+    description: 1,
+    amount: 2,
+  });
+  assert.equal(dayKey(tx.date), "2026-06-21"); // not 2026-06-20 in US timezones
 });
 
 test("parseCsv tolerates CRLF and trailing blank lines", () => {

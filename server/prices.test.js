@@ -62,3 +62,24 @@ test("tolerates a header in any column order", () => {
   assert.equal(rows[0].close, 7.5);
   assert.equal(rows[0].date, "2026-06-20");
 });
+
+test("strips a leading BOM from the header so the first column still matches", () => {
+  const csv = ["﻿Symbol,Date,Close", "AAPL.US,2026-06-20,200"].join("\n");
+  const rows = parseStooqCsv(csv);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].symbol, "AAPL");
+  assert.equal(rows[0].close, 200);
+});
+
+test("returns nothing when the close or symbol column is missing", () => {
+  assert.deepEqual(parseStooqCsv(["Date,Open,High", "2026-06-20,1,2"].join("\n")), []);
+  assert.deepEqual(parseStooqCsv(["Symbol,Date", "AAPL.US,2026-06-20"].join("\n")), []);
+});
+
+test("honors quoted fields (commas inside quotes don't shift columns)", () => {
+  const csv = ["Symbol,Name,Date,Close", '"AAPL.US","Apple, Inc.",2026-06-20,200'].join("\n");
+  const rows = parseStooqCsv(csv);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].symbol, "AAPL");
+  assert.equal(rows[0].close, 200);
+});

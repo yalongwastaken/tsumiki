@@ -18,6 +18,7 @@ const BLANK = {
   hours: "40",
   cadence: "biweekly",
   payday: "",
+  taxable: true,
 };
 const toDateInput = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -60,6 +61,7 @@ export default function IncomeSection({ data, onSave }) {
       hours: Number(src.hours || 0),
       cadence: src.cadence || "biweekly",
       payday: src.payday || null,
+      taxable: src.taxable !== false,
       typicalMonthly: toMonthly(src),
     };
     commitSources(
@@ -79,6 +81,7 @@ export default function IncomeSection({ data, onSave }) {
       hours: String(s.hours || 40),
       cadence: s.cadence || "biweekly",
       payday: s.payday || "",
+      taxable: s.taxable !== false,
     });
     setEditingSrc(s.id);
   }
@@ -109,6 +112,7 @@ export default function IncomeSection({ data, onSave }) {
                 </div>
                 <div className="text-xs text-slate-400">
                   {s.basis ? `${srcDetail(s)} → ` : ""}~{fmt(s.typicalMonthly || 0)}/mo
+                  {s.taxable === false && <span className="text-emerald-600"> · non-taxable</span>}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -221,6 +225,15 @@ export default function IncomeSection({ data, onSave }) {
         />
         <span className="text-xs text-slate-400">— optional, shows dated reminders</span>
       </div>
+      <label className="flex items-center gap-2 mb-3 text-xs text-slate-600 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={src.taxable === false}
+          onChange={(e) => setSrc({ ...src, taxable: !e.target.checked })}
+          className="h-4 w-4 rounded border-slate-300 text-brand-600"
+        />
+        Non-taxable income (e.g. Roth withdrawal, gift, disability) — excluded from the tax estimate
+      </label>
       <div className="flex items-center justify-between gap-2">
         {src.basis === "hourly" && (
           <span className="text-xs text-slate-400">≈ {fmt(toMonthly(src))}/mo</span>

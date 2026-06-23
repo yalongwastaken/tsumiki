@@ -116,7 +116,13 @@ export function rowsToTransactions(rows = [], mapping = {}, { invert = false } =
     if (!isFinite(amt) || amt === 0 || !rawDate) {
       continue;
     }
-    const d = new Date(rawDate);
+    // a bare ISO date ("2026-06-21") parses as UTC midnight, which lands on the
+    // previous calendar day in western timezones — anchor it to LOCAL noon so the
+    // imported row keeps the day the bank actually printed.
+    const isoBare = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate);
+    const d = isoBare
+      ? new Date(Number(isoBare[1]), Number(isoBare[2]) - 1, Number(isoBare[3]), 12)
+      : new Date(rawDate);
     if (isNaN(d.getTime())) {
       continue;
     }

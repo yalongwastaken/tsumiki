@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { getPlan } from "./lib/api.js";
 import { fmt } from "./lib/format.js";
 import { typicalIncome } from "./lib/income.js";
+import { nonTaxableMonthly } from "./lib/finance.js";
 import { BUCKETS, bucketOf } from "./lib/buckets.js";
 import { thisMonth, monthKey, sumLatestByType, monthTotals } from "./lib/selectors.js";
 import { estimateTax, nextQuarterlyDue } from "./lib/tax.js";
@@ -51,10 +52,13 @@ export default function Plan({
   const spouseAge = profile.spouseBirthYear ? yr - profile.spouseBirthYear : null;
   // self-employed income has no withholding → estimated payments + SE-tax handling
   const selfEmployed = (profile.incomeSources || []).some((s) => s.type === "self_employed");
+  // income flagged non-taxable is excluded from the tax base but still planned for
+  const nonTaxable = nonTaxableMonthly(profile);
+  const taxableAnnual = Math.max(0, (typical || 0) - nonTaxable) * 12;
   const tax = useMemo(
     () =>
       estimateTax({
-        income: (typical || 0) * 12,
+        income: taxableAnnual,
         filingStatus: profile.filingStatus,
         state: profile.state,
         age,
@@ -63,7 +67,7 @@ export default function Plan({
         selfEmployed,
       }),
     [
-      typical,
+      taxableAnnual,
       profile.filingStatus,
       profile.state,
       age,
@@ -343,6 +347,11 @@ export default function Plan({
                 })}
               </b>
               .
+            </div>
+          )}
+          {nonTaxable > 0 && (
+            <div className="text-xs text-slate-400 mt-2">
+              Excludes ~{fmt(nonTaxable)}/mo of income you marked non-taxable.
             </div>
           )}
           <div className="text-xs text-slate-400 mt-2">

@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { fmt } from "./lib/format.js";
 import { getPlan, getNews } from "./lib/api.js";
 import { thisMonth, monthKey, annualSpend, sumLatestByType, monthTotals } from "./lib/selectors.js";
-import { computeAdherence } from "./lib/streak.js";
+import { computeDailyStreak } from "./lib/streak.js";
 import { nextMilestone } from "./lib/milestones.js";
 import { nextPaydays } from "./lib/paydays.js";
 import { cashflowForecast, spendingTrends, coachNudges } from "./lib/insights.js";
@@ -97,7 +97,7 @@ export default function Home({
   }, []);
   const leftToAllocate = incomeThisMonth - contribThisMonth - spendThisMonth;
 
-  const adh = useMemo(() => computeAdherence(transactions, freezes), [transactions, freezes]);
+  const adh = useMemo(() => computeDailyStreak(transactions, freezes), [transactions, freezes]);
   const next = nextMilestone(milestoneList);
   const nw = snapshots.length ? realNetWorth : investedTotal;
 
@@ -342,11 +342,16 @@ export default function Home({
           <div>
             <div className="text-2xl font-mono font-bold text-slate-900">
               {adh.current}
-              <span className="text-sm font-sans font-normal text-slate-400"> wk streak</span>
+              <span className="text-sm font-sans font-normal text-slate-400"> day streak</span>
             </div>
             <div className="text-xs text-slate-500 inline-flex items-center gap-1">
-              This week: {adh.objective.label}{" "}
-              {adh.metThisWeek && <Check size={13} className="text-emerald-600" />}
+              {adh.loggedToday ? (
+                <>
+                  Logged today <Check size={13} className="text-emerald-600" />
+                </>
+              ) : (
+                "Log anything today to keep it"
+              )}
             </div>
           </div>
         </div>

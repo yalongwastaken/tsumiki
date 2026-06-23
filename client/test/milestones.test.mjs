@@ -23,13 +23,40 @@ test("net-worth and contributed tiers resolve correctly", () => {
   assert.equal(a("nw_25000"), false);
 });
 
-test("emergency + debt-free + streak tiers", () => {
+test("emergency + debt-free + daily streak tiers", () => {
   const m = computeMilestones(ctx);
   const a = (id) => m.find((x) => x.id === id)?.achieved;
   assert.equal(a("emergency"), false); // 5000 < 10000
   assert.equal(a("debt_free"), true); // a debt exists, all zero balance
-  assert.equal(a("streak_4"), true); // streak 5 ≥ 4
-  assert.equal(a("streak_12"), false);
+  assert.equal(a("streak_3"), true); // streak 5 ≥ 3 days
+  assert.equal(a("streak_7"), false); // 5 < 7 days
+});
+
+test("ledger-derived habit achievements (logs, no-spend, months tracked)", () => {
+  const transactions = [
+    { id: "1", type: "spending", amount: 10, date: "2026-04-02" },
+    { id: "2", type: "spending", amount: 0, cat: "No-spend day", date: "2026-05-02" },
+    { id: "3", type: "contribution", amount: 50, bucket: "invest", date: "2026-06-02" },
+  ];
+  const m = computeMilestones({ ...ctx, transactions });
+  const a = (id) => m.find((x) => x.id === id)?.achieved;
+  assert.equal(a("first_log"), true); // ≥1 entry
+  assert.equal(a("nospend_1"), true); // one $0 no-spend day
+  assert.equal(a("nospend_5"), false);
+  assert.equal(a("invested"), true); // an invest contribution exists
+  assert.equal(a("months_3"), true); // Apr/May/Jun → 3 distinct months
+  assert.equal(a("months_6"), false);
+  const logs10 = m.find((x) => x.id === "logs_10");
+  assert.equal(logs10.cur, 3);
+  assert.equal(logs10.achieved, false);
+});
+
+test("no transactions → habit achievements unearned, no crash", () => {
+  const m = computeMilestones({ ...ctx, transactions: [] });
+  const a = (id) => m.find((x) => x.id === id)?.achieved;
+  assert.equal(a("first_log"), false);
+  assert.equal(a("invested"), false);
+  assert.equal(a("months_3"), false);
 });
 
 test("debt-free is false when there are no debts at all", () => {

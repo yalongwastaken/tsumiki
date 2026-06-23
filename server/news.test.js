@@ -72,6 +72,34 @@ test("Atom: picks the href when <link> has no text node", () => {
   assert.equal(parseFeed(xml)[0].link, "https://e.com/x");
 });
 
+test("decodes entity-encoded hrefs and prefers the Atom alternate link", () => {
+  const xml = `<feed><entry><title>X</title>
+    <link href="https://e.com/feed" rel="self"/>
+    <link href="https://e.com/a?x=1&amp;y=2" rel="alternate"/>
+  </entry></feed>`;
+  const items = parseFeed(xml);
+  assert.equal(items[0].link, "https://e.com/a?x=1&y=2"); // &amp; decoded, self skipped
+});
+
+test("accepts single-quoted hrefs", () => {
+  const xml = `<feed><entry><title>Y</title><link href='https://e.com/y'/></entry></feed>`;
+  assert.equal(parseFeed(xml)[0].link, "https://e.com/y");
+});
+
+test("de-duplicates repeated entries by link", () => {
+  const xml = `<rss><channel>
+    <item><title>A</title><link>https://e.com/a</link></item>
+    <item><title>A (dupe)</title><link>https://e.com/a</link></item>
+    <item><title>B</title><link>https://e.com/b</link></item>
+  </channel></rss>`;
+  const items = parseFeed(xml);
+  assert.equal(items.length, 2);
+  assert.deepEqual(
+    items.map((i) => i.link),
+    ["https://e.com/a", "https://e.com/b"],
+  );
+});
+
 test("drops non-http(s) links (javascript:/data: from a hostile feed)", () => {
   const xml = `<rss><channel>
     <item><title>A</title><link>javascript:fetch('/api/reset',{method:'POST'})</link></item>

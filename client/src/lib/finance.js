@@ -37,6 +37,19 @@ export function typicalIncome({ profile = {}, transactions = [] } = {}) {
   return typed;
 }
 
+/**
+ * Sum of declared monthly income from sources flagged non-taxable (e.g. Roth
+ * withdrawals, gifts, child support, disability, muni-bond interest). Counts toward
+ * planning but should be excluded from the tax estimate's gross.
+ * @param {{incomeSources?:Array}} profile
+ * @returns {number}
+ */
+export function nonTaxableMonthly(profile = {}) {
+  return (profile.incomeSources || [])
+    .filter((s) => s.taxable === false)
+    .reduce((sum, s) => sum + (s.typicalMonthly || 0), 0);
+}
+
 /** Average logged income per month across ALL months with income (incl. the current). */
 export function avgMonthlyIncome(transactions = []) {
   const byMonth = {};

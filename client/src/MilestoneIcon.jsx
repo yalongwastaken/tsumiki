@@ -8,6 +8,11 @@ import {
   Flame,
   Target,
   Award,
+  PencilLine,
+  ListChecks,
+  Ban,
+  CalendarDays,
+  Sparkles,
 } from "lucide-react";
 
 const MAP = {
@@ -18,6 +23,11 @@ const MAP = {
   check: CircleCheck,
   flame: Flame,
   target: Target,
+  pencil: PencilLine,
+  list: ListChecks,
+  ban: Ban,
+  calendar: CalendarDays,
+  sparkles: Sparkles,
 };
 
 /** Render the lucide icon for a milestone key (falls back to Award). */

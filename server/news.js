@@ -45,30 +45,60 @@ const tagText = (block, name) => {
 // otherwise smuggle a `javascript:` (or `data:`) link that runs in the app origin
 // on click — drop anything that isn't a normal web URL.
 function safeLink(url = "") {
-  const u = url.trim();
+  const u = (url || "").trim();
   return /^https?:\/\//i.test(u) ? u : "";
 }
 
+// extract a headline link from an item/entry block. RSS uses <link>url</link>; Atom
+// uses one or more <link href="..." rel="..."/> — prefer the alternate (the article)
+// and never the self/edit feed links. hrefs may be single- or double-quoted and
+// entity-encoded (&amp; in query strings), so decode them.
+function pickLink(block) {
+  const text = tagText(block, "link"); // RSS text node
+  if (text) {
+    return text;
+  }
+  let fallback = "";
+  for (const tag of block.match(/<link\b[^>]*>/gi) || []) {
+    const href = /href=["']([^"']+)["']/i.exec(tag);
+    if (!href) {
+      continue;
+    }
+    const url = decode(href[1]);
+    const rel = (/rel=["']([^"']+)["']/i.exec(tag)?.[1] || "").toLowerCase();
+    if (rel === "self" || rel === "edit") {
+      continue;
+    }
+    if (rel === "alternate" || rel === "") {
+      return url;
+    }
+    fallback = fallback || url;
+  }
+  return fallback;
+}
+
 /**
- * Parse an RSS or Atom feed into headline items. Pure — no network.
+ * Parse an RSS or Atom feed into headline items. Pure — no network. De-duplicates
+ * by link (then title) so a feed that repeats an entry doesn't show it twice.
  * @returns {Array<{title, link, date}>}
  */
 export function parseFeed(xml = "") {
   const blocks = xml.match(/<(item|entry)\b[\s\S]*?<\/\1>/gi) || [];
   const out = [];
+  const seen = new Set();
   for (const b of blocks) {
     const title = tagText(b, "title");
     if (!title) {
       continue;
     }
-    // RSS <link>url</link>, or Atom <link href="url"/>
-    let link = tagText(b, "link");
-    if (!link) {
-      const m = /<link[^>]*href="([^"]+)"/i.exec(b);
-      link = m ? m[1] : "";
+    const link = safeLink(pickLink(b));
+    const sig = (link || title).toLowerCase();
+    if (seen.has(sig)) {
+      continue;
     }
+    seen.add(sig);
     const date = tagText(b, "pubDate") || tagText(b, "updated") || tagText(b, "published") || "";
-    out.push({ title, link: safeLink(link), date });
+    out.push({ title, link, date });
   }
   return out;
 }

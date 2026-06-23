@@ -1,7 +1,88 @@
-// streak.js — plan-adherence streak with a rotating weekly objective.
-// the challenge changes week to week instead of being the same goal forever.
+// streak.js — two streaks: a DAILY logging streak (the headline — keep showing up,
+// any log counts) and a weekly plan-adherence challenge with a rotating objective.
 
-export const WEEK = 7 * 86400000;
+export const DAY = 86400000;
+export const WEEK = 7 * DAY;
+
+// local "YYYY-MM-DD" for a date ("" for an unparseable one). Local — not UTC — so a
+// day bucket lines up with the user's own calendar across timezones.
+export const dayKey = (d) => {
+  const x = new Date(d);
+  if (isNaN(x.getTime())) {
+    return "";
+  }
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+};
+
+/**
+ * Daily logging streak: consecutive days, ending today, with at least one log of
+ * ANY type (income, spending, a contribution, or a $0 no-spend day). Today not
+ * being logged yet doesn't break it — the count just runs through yesterday until
+ * the day is over. `freezes` lets a limited number of missed days be forgiven.
+ * @returns {{current:number, longest:number, freezesUsed:number, loggedToday:boolean, cells:Array<{day,met,isNow}>}}
+ */
+export function computeDailyStreak(transactions = [], freezes = 0, now = Date.now()) {
+  const active = new Set();
+  for (const t of transactions) {
+    const k = dayKey(t.date);
+    if (k) {
+      active.add(k);
+    }
+  }
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const loggedToday = active.has(dayKey(today));
+
+  // current run: start at today, or yesterday if today isn't logged yet
+  const cursor = new Date(today);
+  if (!loggedToday) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  let current = 0,
+    fz = freezes,
+    used = 0;
+  while (true) {
+    if (active.has(dayKey(cursor))) {
+      current++;
+      cursor.setDate(cursor.getDate() - 1);
+    } else if (fz > 0 && current > 0) {
+      fz--;
+      used++;
+      cursor.setDate(cursor.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  // longest run ever (no freezes): walk calendar days from the first logged day to
+  // the later of today / the last logged day. Bounding by the last logged day (not
+  // just today) means a stray FUTURE-dated entry can't make this loop run forever.
+  let longest = 0;
+  if (active.size) {
+    const sorted = [...active].sort();
+    const d = new Date(`${sorted[0]}T00:00:00`); // local parse
+    const lastActive = new Date(`${sorted[sorted.length - 1]}T00:00:00`);
+    const end = lastActive > today ? lastActive : today;
+    let run = 0;
+    while (d <= end) {
+      run = active.has(dayKey(d)) ? run + 1 : 0;
+      longest = Math.max(longest, run);
+      d.setDate(d.getDate() + 1);
+    }
+  }
+  longest = Math.max(longest, current);
+
+  // last 14 days for the grid
+  const cells = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const k = dayKey(d);
+    cells.push({ day: k, met: active.has(k), isNow: i === 0 });
+  }
+
+  return { current, longest, freezesUsed: used, loggedToday, cells };
+}
 
 /** Timestamp of the Monday that starts the week containing `d`. */
 export const weekKey = (d) => {

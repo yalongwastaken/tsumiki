@@ -17,6 +17,8 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
   const [name, setName] = useState(initial.name || "");
   const [srcName, setSrcName] = useState("");
   const [srcAmount, setSrcAmount] = useState("");
+  const [srcBasis, setSrcBasis] = useState("monthly"); // monthly | annual
+  const [srcTaxable, setSrcTaxable] = useState(true);
   const [srcCadence, setSrcCadence] = useState("biweekly");
   const [srcPayday, setSrcPayday] = useState("");
   const [balChecking, setBalChecking] = useState("");
@@ -29,13 +31,25 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
 
   const steps = ["welcome", "income", "accounts", "emergency", "strategy", "how"];
   const last = step === steps.length - 1;
+  const next = () => (last ? finish() : setStep(step + 1));
+  // Enter advances the step from any single-line text/number input
+  const onEnter = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      next();
+    }
+  };
   function finish() {
+    const monthly = srcBasis === "annual" ? Number(srcAmount || 0) / 12 : Number(srcAmount || 0);
     const source = srcName.trim()
       ? {
           id: uid(),
           name: srcName.trim(),
           type: "salary",
-          typicalMonthly: Number(srcAmount || 0),
+          basis: srcBasis,
+          amount: Math.max(0, Number(srcAmount || 0)),
+          taxable: srcTaxable,
+          typicalMonthly: Math.max(0, Math.round(monthly)),
           cadence: srcCadence,
           payday: srcPayday || null,
         }
@@ -60,7 +74,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
       source,
       accounts,
       snapshots,
-      emergencyTarget: emergencyTarget === "" ? null : Number(emergencyTarget),
+      emergencyTarget: emergencyTarget === "" ? null : Math.max(0, Number(emergencyTarget) || 0),
     });
   }
 
@@ -75,7 +89,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
         ref={panelRef}
         className="modal-in relative w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl max-h-[90vh] overflow-y-auto"
       >
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-1">
           <div className="flex gap-1.5">
             {steps.map((_, i) => (
               <div
@@ -87,6 +101,9 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
           <button onClick={onSkip} className="text-xs text-slate-400 hover:text-slate-600">
             Skip
           </button>
+        </div>
+        <div className="text-xs text-slate-400 mb-3" aria-live="polite">
+          Step {step + 1} of {steps.length}
         </div>
 
         {steps[step] === "welcome" && (
@@ -105,6 +122,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onKeyDown={onEnter}
               placeholder="Your name"
               className={field}
             />
@@ -120,18 +138,33 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
             <input
               value={srcName}
               onChange={(e) => setSrcName(e.target.value)}
+              onKeyDown={onEnter}
               placeholder="e.g. Day job"
               className={field + " mb-2"}
             />
-            <div className="relative mb-2">
-              <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
-              <input
-                type="number"
-                value={srcAmount}
-                onChange={(e) => setSrcAmount(e.target.value)}
-                placeholder="typical / month"
-                className={field + " pl-7"}
-              />
+            <div className="flex gap-2 mb-2">
+              <select
+                value={srcBasis}
+                onChange={(e) => setSrcBasis(e.target.value)}
+                className={field + " max-w-[8rem]"}
+                aria-label="Income basis"
+              >
+                <option value="monthly">per month</option>
+                <option value="annual">per year</option>
+              </select>
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  value={srcAmount}
+                  onChange={(e) => setSrcAmount(e.target.value)}
+                  onKeyDown={onEnter}
+                  placeholder={srcBasis === "annual" ? "salary / year" : "typical / month"}
+                  className={field + " pl-7"}
+                />
+              </div>
             </div>
             <div className="flex gap-2">
               <select
@@ -155,6 +188,15 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
             <div className="text-xs text-slate-400 mt-1">
               A payday date unlocks dated transfer reminders + a cashflow forecast.
             </div>
+            <label className="flex items-center gap-2 mt-3 text-xs text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!srcTaxable}
+                onChange={(e) => setSrcTaxable(!e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-brand-600"
+              />
+              This income is non-taxable (e.g. Roth withdrawal, gift, disability)
+            </label>
           </div>
         )}
 
@@ -170,8 +212,10 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
                 <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
                 <input
                   type="number"
+                  inputMode="decimal"
                   value={balChecking}
                   onChange={(e) => setBalChecking(e.target.value)}
+                  onKeyDown={onEnter}
                   placeholder="checking balance"
                   className={field + " pl-7"}
                 />
@@ -180,8 +224,10 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
                 <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
                 <input
                   type="number"
+                  inputMode="decimal"
                   value={balSavings}
                   onChange={(e) => setBalSavings(e.target.value)}
+                  onKeyDown={onEnter}
                   placeholder="savings balance"
                   className={field + " pl-7"}
                 />
@@ -201,8 +247,10 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
               <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
               <input
                 type="number"
+                inputMode="decimal"
                 value={emergencyTarget}
                 onChange={(e) => setEmergencyTarget(e.target.value)}
+                onKeyDown={onEnter}
                 placeholder="emergency fund target"
                 className={field + " pl-7"}
               />
@@ -265,7 +313,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
             </button>
           )}
           <button
-            onClick={() => (last ? finish() : setStep(step + 1))}
+            onClick={next}
             className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg"
           >
             {last ? "Start" : "Next"}
