@@ -4,6 +4,34 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-06-23
+
+### Added
+
+- **Budget rollover (per category).** Any category budget can opt into rollover:
+  unused budget carries forward and overspend carries back, as a net "envelope"
+  balance accumulated over the trailing complete months (capped at 12). Home shows
+  the carried amount ("· rollover +$80").
+- **Annual budgets.** A category's cap can be monthly (default) or annual — an annual
+  cap is tracked against the whole calendar year's spend, for lumpy categories like
+  travel or gifts. Toggle period per category in Settings.
+- **Goal earmarking.** Contributions can be tagged "toward a goal" in the + Add sheet,
+  and a goal can use the new **Earmarked savings** metric to track its own balance =
+  the sum earmarked to it. Two goals now grow independently instead of all reading one
+  global number.
+
+### Fixed
+
+- `thisMonth()` is now local (matching `monthOf`), so the current month/year isn't
+  briefly mis-detected around the UTC/local boundary (which blanked an annual budget's
+  days-left and per-day pace).
+
+### Internal
+
+- `budgetStatus` takes a per-category options map and returns `{cap, budget(effective),
+period, rollover, carry}`; `rolloverBalance()` + `earmarkedByGoal()` are pure and
+  tested. Suite: 57 server + 138 client tests across UTC, US/Pacific, Tokyo, UTC+14.
+
 ## [1.3.0] — 2026-06-23
 
 ### Added
@@ -178,6 +206,7 @@ own devices.
   for date-sensitive code) plus server-rendered component tests; Prettier + ESLint
   enforced.
 
+[1.4.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.4.0
 [1.3.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.3.0
 [1.2.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.2.0
 [1.1.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.1.0
