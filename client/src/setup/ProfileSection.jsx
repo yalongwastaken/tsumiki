@@ -83,7 +83,7 @@ export default function ProfileSection({ data, onSave }) {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <div className="text-sm text-slate-600 mb-1">
-              Birth year <span className="text-slate-400">(opt)</span>
+              Birth year <span className="text-slate-500">(opt)</span>
             </div>
             <input
               type="number"
@@ -134,7 +134,7 @@ export default function ProfileSection({ data, onSave }) {
         </div>
         <div>
           <div className="text-sm text-slate-600 mb-1">
-            State tax rate <span className="text-slate-400">(opt — overrides the estimate)</span>
+            State tax rate <span className="text-slate-500">(opt — overrides the estimate)</span>
           </div>
           <input
             type="number"
@@ -147,7 +147,7 @@ export default function ProfileSection({ data, onSave }) {
         {form.filingStatus === "married" && (
           <div>
             <div className="text-sm text-slate-600 mb-1">
-              Spouse birth year <span className="text-slate-400">(opt)</span>
+              Spouse birth year <span className="text-slate-500">(opt)</span>
             </div>
             <input
               type="number"
@@ -211,7 +211,7 @@ export default function ProfileSection({ data, onSave }) {
         )}
         <div>
           <div className="text-sm text-slate-600 mb-1">
-            Employer 401k match % <span className="text-slate-400">(optional)</span>
+            Employer 401k match % <span className="text-slate-500">(optional)</span>
           </div>
           <input
             type="number"
@@ -242,7 +242,7 @@ export default function ProfileSection({ data, onSave }) {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <div className="text-sm text-slate-600 mb-1">
-              High-interest APR <span className="text-slate-400">(opt)</span>
+              High-interest APR <span className="text-slate-500">(opt)</span>
             </div>
             <input
               type="number"
@@ -254,7 +254,7 @@ export default function ProfileSection({ data, onSave }) {
           </div>
           <div>
             <div className="text-sm text-slate-600 mb-1">
-              IRA annual limit <span className="text-slate-400">(opt)</span>
+              IRA annual limit <span className="text-slate-500">(opt)</span>
             </div>
             <input
               type="number"

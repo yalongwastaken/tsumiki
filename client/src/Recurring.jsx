@@ -99,7 +99,7 @@ export default function Recurring({ plan, profile = {}, accounts = [] }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
           Recurring by paycheck
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -137,7 +137,7 @@ export default function Recurring({ plan, profile = {}, accounts = [] }) {
                   {fmtDate(e.date)}
                 </span>
                 <span className="text-slate-600 flex-1 truncate">{e.name}</span>
-                <span className="text-slate-400">move</span>
+                <span className="text-slate-500">move</span>
                 <span className="font-mono font-semibold text-slate-800">{fmt(e.move)}</span>
               </div>
             ))}
@@ -159,7 +159,7 @@ export default function Recurring({ plan, profile = {}, accounts = [] }) {
             <div key={i} className={i > 0 ? "pt-4 border-t border-slate-100" : ""}>
               <div className="flex items-baseline justify-between mb-2">
                 <div className="text-sm font-semibold text-slate-700">{src.name}</div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-500">
                   {perCheck ? CADENCE_LABEL[src.cadence] : "monthly"}
                   {next ? ` · next ${fmtDate(next)}` : ""} ·{" "}
                   <span className="font-mono text-slate-500">
@@ -179,11 +179,11 @@ export default function Recurring({ plan, profile = {}, accounts = [] }) {
                       />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm text-slate-700">{d.label}</div>
-                        <div className="text-xs text-slate-400 truncate">→ {routeFor(d.key)}</div>
+                        <div className="text-xs text-slate-500 truncate">→ {routeFor(d.key)}</div>
                       </div>
                       <span className="text-sm font-mono font-semibold text-slate-900">
                         {fmt(d.amt)}
-                        <span className="text-slate-300 text-xs">{suffix}</span>
+                        <span className="text-slate-400 text-xs">{suffix}</span>
                       </span>
                     </div>
                   ))}
@@ -195,7 +195,7 @@ export default function Recurring({ plan, profile = {}, accounts = [] }) {
                     </div>
                     <span className="text-sm font-mono text-slate-500">
                       {fmt(stays)}
-                      <span className="text-slate-300 text-xs">{suffix}</span>
+                      <span className="text-slate-400 text-xs">{suffix}</span>
                     </span>
                   </div>
                 )}
@@ -206,7 +206,7 @@ export default function Recurring({ plan, profile = {}, accounts = [] }) {
       </div>
 
       {sources.length > 1 && (
-        <div className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-50">
+        <div className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-50">
           Each paycheck is split by the same plan percentages — set them up as automatic transfers
           on each payday.
         </div>

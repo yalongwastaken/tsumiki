@@ -192,11 +192,11 @@ export default function Plan({
       {/* header */}
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <div className="flex items-center justify-between mb-1">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
             {monthName()} — your plan
           </div>
           {plan && (
-            <button onClick={onGoSetup} className="text-xs text-slate-400 hover:text-brand-600">
+            <button onClick={onGoSetup} className="text-xs text-slate-500 hover:text-brand-600">
               {plan.strategy?.replace("_", " ")} ›
             </button>
           )}
@@ -205,14 +205,14 @@ export default function Plan({
           <div className="text-3xl font-mono font-bold text-slate-900">
             {incomeThisMonth > 0 ? fmt(incomeThisMonth) : "—"}
           </div>
-          <div className="text-xs text-slate-400">
+          <div className="text-xs text-slate-500">
             earned this month{typical ? ` · ~${fmt(typical)} typical` : ""}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-500">Plan for</span>
           <div className="relative" style={{ width: 120 }}>
-            <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
+            <span className="absolute left-3 top-2 text-slate-500 text-sm">$</span>
             <input
               type="number"
               aria-label="Income to plan for"
@@ -231,7 +231,7 @@ export default function Plan({
           )}
         </div>
         {plan?.essentials > 0 && (
-          <div className="text-xs text-slate-400 mt-2">
+          <div className="text-xs text-slate-500 mt-2">
             {fmt(plan.essentials)} reserved for essentials{" "}
             {plan.essentialsSource === "bills" ? "(your bills)" : "(est. from spending)"} — the rest
             is allocated below.
@@ -312,19 +312,19 @@ export default function Plan({
       {typical > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-baseline justify-between mb-2">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Taxes (estimate)
             </div>
-            <button onClick={onGoSetup} className="text-xs text-slate-400 hover:text-brand-600">
+            <button onClick={onGoSetup} className="text-xs text-slate-500 hover:text-brand-600">
               {profile.state || "set filing & state"} ›
             </button>
           </div>
           <div className="flex items-baseline gap-2 mb-2">
             <div className="text-2xl font-mono font-bold text-slate-900">
               {fmt(tax.takeHomeMonthly)}
-              <span className="text-xs font-sans font-normal text-slate-400"> /mo take-home</span>
+              <span className="text-xs font-sans font-normal text-slate-500"> /mo take-home</span>
             </div>
-            <div className="text-xs text-slate-400">
+            <div className="text-xs text-slate-500">
               ~{Math.round(tax.effectiveRate * 100)}% effective ·{" "}
               {Math.round(tax.marginalRate * 100)}% bracket
             </div>
@@ -333,7 +333,7 @@ export default function Plan({
             <span>Federal {fmt(tax.federal)}</span>
             <span>FICA {fmt(tax.fica)}</span>
             <span>State {tax.stateNoTax ? "none" : fmt(tax.state)}</span>
-            <span className="text-slate-400">on ~{fmt(tax.gross)}/yr</span>
+            <span className="text-slate-500">on ~{fmt(tax.gross)}/yr</span>
           </div>
           {quarterlyDue && tax.total > 0 && (
             <div className="mt-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800">
@@ -350,11 +350,11 @@ export default function Plan({
             </div>
           )}
           {nonTaxable > 0 && (
-            <div className="text-xs text-slate-400 mt-2">
+            <div className="text-xs text-slate-500 mt-2">
               Excludes ~{fmt(nonTaxable)}/mo of income you marked non-taxable.
             </div>
           )}
-          <div className="text-xs text-slate-400 mt-2">
+          <div className="text-xs text-slate-500 mt-2">
             2026 estimate{tax.stateNoTax ? ` · ${profile.state} has no income tax` : ""}
             {!profile.state ? " — set your filing status & state in Settings for accuracy." : "."}
           </div>
@@ -365,17 +365,17 @@ export default function Plan({
       {payoff && (
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-baseline justify-between mb-2">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Debt-free timeline
             </div>
-            <span className="text-xs text-slate-400">{debtStrategy}</span>
+            <span className="text-xs text-slate-500">{debtStrategy}</span>
           </div>
           {payoff.base.debtFree ? (
             <div className="mb-1">
               <div className="text-2xl font-mono font-bold text-slate-900">
                 {monthYear(payoff.base.payoffDate)}
               </div>
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-slate-500">
                 at your {fmt(payoff.base.monthlyPayment)}/mo minimums ·{" "}
                 {fmtMonths(payoff.base.months)} · {fmt(payoff.base.totalInterest)} interest
               </div>
@@ -396,7 +396,7 @@ export default function Plan({
             </div>
           )}
           {payoff.base.order.length > 1 && (
-            <div className="text-xs text-slate-400 mt-2">
+            <div className="text-xs text-slate-500 mt-2">
               Order: {payoff.base.order.map((o) => o.name).join(" → ")}
             </div>
           )}
@@ -417,7 +417,7 @@ export default function Plan({
       {/* per-bucket plan vs actual */}
       {rows.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
             Plan vs. actual
           </div>
           {rows.map(([k, label, color]) => {
@@ -431,7 +431,7 @@ export default function Plan({
                   <span className="font-medium text-slate-700">{label}</span>
                   <span className="font-mono text-slate-600">
                     {fmt(act)}
-                    <span className="text-slate-300"> / {fmt(tgt)}</span>
+                    <span className="text-slate-400"> / {fmt(tgt)}</span>
                   </span>
                 </div>
                 <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -441,7 +441,7 @@ export default function Plan({
                   />
                 </div>
                 {tgt > 0 && !done && (
-                  <div className="text-xs text-slate-400 mt-1">
+                  <div className="text-xs text-slate-500 mt-1">
                     {fmt(tgt - act)} to go this month
                   </div>
                 )}
@@ -460,10 +460,10 @@ export default function Plan({
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <div className="flex items-baseline justify-between">
           <div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
               Flexible / unassigned
             </div>
-            <div className="text-xs text-slate-400">
+            <div className="text-xs text-slate-500">
               income earned − assigned − spent, this month
             </div>
           </div>
@@ -478,14 +478,14 @@ export default function Plan({
       {/* checking minimum watch — only when there's something to watch */}
       {hasCheckingContext && (
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
             Checking buffer
           </div>
           <div className="flex items-baseline justify-between mb-1">
             <span className="text-sm text-slate-600">Balance vs. floor</span>
             <span className="font-mono text-sm text-slate-700">
               {fmt(checkingBalance)}
-              <span className="text-slate-300"> / {fmt(floor)} min</span>
+              <span className="text-slate-400"> / {fmt(floor)} min</span>
             </span>
           </div>
           {checkingBalance < floor ? (

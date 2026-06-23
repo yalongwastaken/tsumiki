@@ -19,6 +19,7 @@ import {
   avgMonthlyContribution,
 } from "./lib/selectors.js";
 import { computeAdherence, computeDailyStreak } from "./lib/streak.js";
+import { holdingsValueByAccount, INVESTMENT_TYPES } from "./lib/portfolio.js";
 import { allCategories } from "./lib/categories.js";
 import { uid } from "./lib/uid.js";
 import Setup from "./Setup.jsx";
@@ -80,10 +81,10 @@ function StreakPanel({ streak, transactions, freezes = 2 }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
           Daily streak
         </div>
-        <div className="flex items-center gap-1 text-xs text-slate-400">
+        <div className="flex items-center gap-1 text-xs text-slate-500">
           <span
             className="inline-flex items-center gap-0.5"
             aria-label={`${freezesLeft} streak freezes left`}
@@ -98,10 +99,10 @@ function StreakPanel({ streak, transactions, freezes = 2 }) {
         </div>
       </div>
       <div className="flex items-center gap-3 mb-3">
-        <Flame size={34} className={current > 0 ? "text-orange-500" : "text-slate-300"} />
+        <Flame size={34} className={current > 0 ? "text-orange-500" : "text-slate-400"} />
         <div>
           <div className="text-3xl font-mono font-bold text-slate-900">{current}</div>
-          <div className="text-xs text-slate-400">{current === 1 ? "day" : "days"} in a row</div>
+          <div className="text-xs text-slate-500">{current === 1 ? "day" : "days"} in a row</div>
         </div>
       </div>
       <div
@@ -130,7 +131,7 @@ function StreakPanel({ streak, transactions, freezes = 2 }) {
           />
         ))}
       </div>
-      <div className="flex justify-between mt-1.5 mb-3 text-xs text-slate-300">
+      <div className="flex justify-between mt-1.5 mb-3 text-xs text-slate-400">
         <span>14 days ago</span>
         <span>today</span>
       </div>
@@ -206,6 +207,69 @@ export default function App() {
       setLoading(false);
     })();
   }, []);
+
+  // auto-value investment accounts: write/refresh today's snapshot for each
+  // brokerage/IRA/Roth/401k account = its holdings' market value (from synced prices)
+  // plus any uninvested cash. Client-owned (rev-checked save) so the nightly server
+  // refresh can't race the main state, and idempotent (no change → no save). An account
+  // with holdings we can't price right now is skipped so its LAST SYNCED value stands;
+  // a cash-only investment account still persists. Never clobbers a manual same-day edit.
+  useEffect(() => {
+    if (loading || !prices) {
+      return;
+    }
+    const byAcct = holdingsValueByAccount(data.holdings, prices.prices || {});
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const isToday = (s, accId) => s.accountId === accId && String(s.date).slice(0, 10) === todayKey;
+    let snaps = data.snapshots;
+    let changed = false;
+    for (const a of data.accounts) {
+      if (!INVESTMENT_TYPES.has(a.type)) {
+        continue;
+      }
+      const hasHoldings = data.holdings.some((h) => h.accountId === a.id);
+      const market = byAcct[a.id] || 0;
+      const cash = Number(a.cash) || 0;
+      if (!hasHoldings && cash <= 0) {
+        continue; // nothing to value yet — don't write a spurious $0 snapshot
+      }
+      if (hasHoldings && market <= 0) {
+        // can't price the shares right now. Keep the last synced "holdings" snapshot if
+        // we have one; only when there's none (brand-new, never synced) do we still
+        // record the cash floor so it isn't invisible to net worth.
+        const hasPrior = snaps.some((s) => s.accountId === a.id && s.source === "holdings");
+        if (hasPrior || cash <= 0) {
+          continue;
+        }
+      }
+      const val = Math.round(market + cash);
+      // only ever touch our own auto-valued snapshot — never clobber a manual same-day edit
+      const ours = snaps.find((s) => isToday(s, a.id) && s.source === "holdings");
+      if (ours) {
+        if (Math.round(ours.balance) !== val) {
+          snaps = snaps.map((s) => (s === ours ? { ...s, balance: val } : s));
+          changed = true;
+        }
+      } else if (snaps.some((s) => isToday(s, a.id))) {
+        continue; // a manual snapshot already exists for today — respect it
+      } else {
+        snaps = [
+          ...snaps,
+          {
+            id: uid(),
+            accountId: a.id,
+            date: new Date().toISOString(),
+            balance: val,
+            source: "holdings",
+          },
+        ];
+        changed = true;
+      }
+    }
+    if (changed) {
+      save({ ...data, snapshots: snaps });
+    }
+  }, [prices, data.holdings, data.accounts, data.snapshots]); // eslint-disable-line
 
   function save(next) {
     setData(next); // optimistic UI
@@ -472,7 +536,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-40 text-slate-400 text-sm">
+      <div className="flex items-center justify-center h-40 text-slate-500 text-sm">
         Loading your data…
       </div>
     );
@@ -530,7 +594,7 @@ export default function App() {
         <button
           onClick={toggleRail}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="hidden md:flex items-center gap-2 px-4 py-3 border-t border-slate-100 text-slate-400 hover:text-slate-600 text-sm"
+          className="hidden md:flex items-center gap-2 px-4 py-3 border-t border-slate-100 text-slate-500 hover:text-slate-600 text-sm"
         >
           {collapsed ? (
             <PanelLeftOpen size={18} />
@@ -581,7 +645,7 @@ export default function App() {
             ) : (
               <span className="text-sm font-mono font-bold text-slate-700">
                 {fmt(netWorthDisplay)}{" "}
-                <span className="text-xs font-sans font-normal text-slate-400">net worth</span>
+                <span className="text-xs font-sans font-normal text-slate-500">net worth</span>
               </span>
             )}
           </div>
@@ -659,7 +723,7 @@ export default function App() {
                 )}
                 {realityCheck && (
                   <div className="bg-white rounded-xl border border-slate-200 p-4">
-                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                       Reality check
                     </div>
                     <div className="text-sm text-slate-600">
@@ -727,7 +791,9 @@ export default function App() {
               </>
             )}
 
-            {tab === "accounts" && <Setup section="accounts" data={data} onSave={save} />}
+            {tab === "accounts" && (
+              <Setup section="accounts" data={data} onSave={save} prices={prices} />
+            )}
 
             {tab === "settings" && (
               <Setup

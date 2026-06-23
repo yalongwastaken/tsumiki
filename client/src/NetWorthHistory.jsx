@@ -8,7 +8,7 @@ export default function NetWorthHistory({ data }) {
   }
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
         Net worth over time
       </div>
       <AreaChart data={data} xKey="label" yKey="value" color="#6366F1" />

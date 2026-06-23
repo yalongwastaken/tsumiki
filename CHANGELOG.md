@@ -4,6 +4,38 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-06-23
+
+### Added
+
+- **Hourly income in onboarding.** The first-run income step now offers per-hour
+  (alongside per-month and per-year), with an hours/week field and a live monthly
+  estimate — matching the full income editor in Settings.
+- **Investment accounts hold their shares.** Brokerage / IRA / Roth / 401(k) accounts
+  now hold their stock holdings inline (entered right in the account) plus optional
+  uninvested cash, and their balance auto-values from synced prices + cash — recorded
+  as a tagged daily snapshot so it flows into net worth and history, with the last
+  synced value preserved between syncs. The reconciliation is client-owned and
+  idempotent and never overwrites a balance you set manually the same day. The separate
+  "Stock holdings" setup section is gone; any holdings not yet attached to an account
+  surface in Accounts with an "assign to account" prompt (no data loss).
+
+### Changed
+
+- **Accessibility / contrast pass.** Secondary text was bumped one step darker
+  (slate-400 → slate-500, slate-300 → slate-400) across the app so muted labels,
+  captions, and axis text meet WCAG AA contrast. Onboarding gained an accessible
+  dialog name, labeled inputs, and `aria-pressed` on the strategy choices; the
+  milestone badge list collapses past ten with a "+N more" toggle.
+
+### Internal
+
+- Snapshots carry an optional `source` tag (`"holdings"` = auto-valued vs. manual),
+  with a backward-compatible column migration for existing databases.
+- Holdings validate an optional `accountId` (string) server-side.
+- Test suite: 56 server + 119 client unit tests (across UTC, US/Pacific, Tokyo) plus
+  6 component tests.
+
 ## [1.1.0] — 2026-06-22
 
 ### Added
@@ -121,5 +153,6 @@ own devices.
   for date-sensitive code) plus server-rendered component tests; Prettier + ESLint
   enforced.
 
+[1.2.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.2.0
 [1.1.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.1.0
 [1.0.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.0.0

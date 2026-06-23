@@ -6,6 +6,8 @@ import {
   portfolioTotals,
   portfolioInsights,
   retirementValue,
+  holdingsValueByAccount,
+  investmentAccountValue,
 } from "../src/lib/portfolio.js";
 
 const holdings = [
@@ -16,6 +18,47 @@ const prices = {
   AAPL: { price: 200, date: "2026-06-20", changePct: 0.03 },
   VTI: { price: 250, date: "2026-06-20" },
 };
+
+test("holdingsValueByAccount groups linked holdings' market value by account", () => {
+  const holdings = [
+    { id: "1", ticker: "AAPL", shares: 10, accountId: "acc1" },
+    { id: "2", ticker: "VTI", shares: 5, accountId: "acc1" },
+    { id: "3", ticker: "MSFT", shares: 2, accountId: "acc2" },
+    { id: "4", ticker: "TSLA", shares: 3 }, // no linked account → ignored
+    { id: "5", ticker: "NOPRICE", shares: 9, accountId: "acc2" }, // no price → ignored
+  ];
+  const prices = { AAPL: { price: 200 }, VTI: { price: 100 }, MSFT: { price: 50 } };
+  const byAcct = holdingsValueByAccount(holdings, prices);
+  assert.equal(byAcct.acc1, 2500); // 10×200 + 5×100
+  assert.equal(byAcct.acc2, 100); // 2×50; NOPRICE excluded
+  assert.equal("acc3" in byAcct, false);
+});
+
+test("investmentAccountValue = holdings market value + cash; null for cash accounts", () => {
+  const holdings = [
+    { id: "1", ticker: "AAPL", shares: 10, accountId: "brk" },
+    { id: "2", ticker: "VTI", shares: 4, accountId: "brk" },
+  ];
+  const prices = { AAPL: { price: 200 }, VTI: { price: 100 } };
+  assert.equal(
+    investmentAccountValue({ id: "brk", type: "brokerage", cash: 500 }, holdings, prices),
+    2900, // 10×200 + 4×100 + 500 cash
+  );
+  // no cash, no prices yet → 0 (last-synced handled by the snapshot layer, not here)
+  assert.equal(investmentAccountValue({ id: "brk", type: "ira" }, holdings, {}), 0);
+  // a cash account is not auto-valued
+  assert.equal(investmentAccountValue({ id: "chk", type: "checking" }, holdings, prices), null);
+});
+
+test("holdingsValueByAccount tolerates empty / NaN shares", () => {
+  assert.deepEqual(holdingsValueByAccount([], {}), {});
+  assert.deepEqual(
+    holdingsValueByAccount([{ id: "1", ticker: "A", shares: NaN, accountId: "x" }], {
+      A: { price: 10 },
+    }),
+    {},
+  );
+});
 
 test("a non-finite shares count yields null value, not NaN-poisoned totals", () => {
   const rows = portfolioRows(

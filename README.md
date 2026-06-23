@@ -1,6 +1,6 @@
 # Tsumiki — personal money coach
 
-**v1.1.0** · self-hosted · single-user · no cloud, no AI in the product
+**v1.2.0** · self-hosted · single-user · no cloud, no AI in the product
 
 A self-hosted money **coach**, not just a tracker. Given the money you have, it tells
 you where it should go — essentials, debt, a checking buffer, savings, retirement, and
@@ -151,7 +151,7 @@ Run `make help` for the full list: `install`, `dev`, `server`, `client`, `build`
 ## Releases
 
 See [`CHANGELOG.md`](./CHANGELOG.md). Releases follow [SemVer](https://semver.org);
-the current release is **v1.1.0**.
+the current release is **v1.2.0**.
 
 ## License
 

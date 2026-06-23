@@ -44,7 +44,7 @@ export default function BudgetsSection({ data, onSave }) {
   return (
     <div className={card}>
       <div className={label + " mb-1"}>Monthly budgets</div>
-      <div className="text-xs text-slate-400 mb-3">
+      <div className="text-xs text-slate-500 mb-3">
         Set a monthly cap per spending category — the coach warns you as you approach it.
       </div>
       {Object.keys(budgets).length > 0 && (
@@ -57,7 +57,7 @@ export default function BudgetsSection({ data, onSave }) {
                 <button
                   onClick={() => removeBudget(cat)}
                   aria-label="Remove budget"
-                  className="-m-1 flex h-9 w-9 items-center justify-center text-slate-300 hover:text-rose-400"
+                  className="-m-1 flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-400"
                 >
                   <X size={14} />
                 </button>

@@ -4,11 +4,11 @@ import { ChevronDown } from "lucide-react";
 import { fmt } from "./lib/format.js";
 import { importData, exportUrl } from "./lib/api.js";
 import { card, label } from "./setup/ui.jsx";
+import { INVESTMENT_TYPES, holdingsValueByAccount } from "./lib/portfolio.js";
 import IncomeSection from "./setup/IncomeSection.jsx";
 import AccountsSection from "./setup/AccountsSection.jsx";
 import BillsSection from "./setup/BillsSection.jsx";
 import DebtsSection from "./setup/DebtsSection.jsx";
-import HoldingsSection from "./setup/HoldingsSection.jsx";
 import BudgetsSection from "./setup/BudgetsSection.jsx";
 import ProfileSection from "./setup/ProfileSection.jsx";
 import CsvImport from "./CsvImport.jsx";
@@ -24,7 +24,7 @@ function Section({ title, summary, open, onToggle, children }) {
         className="press flex w-full items-center justify-between text-left"
       >
         <span className={label}>{title}</span>
-        <span className="flex items-center gap-2 text-xs text-slate-400">
+        <span className="flex items-center gap-2 text-xs text-slate-500">
           {summary}
           <ChevronDown
             size={15}
@@ -46,6 +46,7 @@ export default function Setup({
   theme = "light",
   onSetTheme,
   section = "settings",
+  prices = null,
 }) {
   const {
     profile = {},
@@ -81,8 +82,26 @@ export default function Setup({
     }
     return m;
   }, [snapshots]);
-  const accountsTotal = accounts.some((a) => latestBalances.has(a.id))
-    ? accounts.reduce((s, a) => s + (latestBalances.get(a.id)?.balance || 0), 0)
+  // an account's effective value: investment accounts derive from market value + cash
+  // (falling back to the last synced snapshot), cash accounts use their latest balance.
+  const marketByAcct = useMemo(
+    () => holdingsValueByAccount(holdings, prices?.prices || {}),
+    [holdings, prices],
+  );
+  const acctValue = (a) => {
+    if (INVESTMENT_TYPES.has(a.type)) {
+      const market = marketByAcct[a.id] || 0;
+      const cash = Number(a.cash) || 0;
+      if (market > 0) {
+        return market + cash;
+      }
+      const snap = latestBalances.get(a.id)?.balance;
+      return snap != null ? snap : holdings.some((h) => h.accountId === a.id) || cash ? cash : null;
+    }
+    return latestBalances.get(a.id)?.balance ?? null;
+  };
+  const accountsTotal = accounts.some((a) => acctValue(a) != null)
+    ? accounts.reduce((s, a) => s + (acctValue(a) || 0), 0)
     : null;
 
   // backup: export (download) + import (replace)
@@ -137,7 +156,7 @@ export default function Setup({
             open={isOpen("accounts", accounts.length === 0)}
             onToggle={() => toggle("accounts", accounts.length === 0)}
           >
-            <AccountsSection data={data} onSave={onSave} />
+            <AccountsSection data={data} onSave={onSave} prices={prices} />
           </Section>
 
           {/* Recurring bills (essentials) */}
@@ -160,16 +179,6 @@ export default function Setup({
             onToggle={() => toggle("debts", debts.length === 0)}
           >
             <DebtsSection data={data} onSave={onSave} />
-          </Section>
-
-          {/* Stock holdings (prices sync nightly when enabled on the server) */}
-          <Section
-            title="Stock holdings"
-            summary={`${holdings.length} ${holdings.length === 1 ? "holding" : "holdings"}`}
-            open={isOpen("holdings", holdings.length === 0)}
-            onToggle={() => toggle("holdings", holdings.length === 0)}
-          >
-            <HoldingsSection data={data} onSave={onSave} />
           </Section>
         </>
       )}
@@ -222,7 +231,7 @@ export default function Setup({
               const stale = hasData && (days == null || days >= 30);
               return (
                 <div
-                  className={`mb-3 rounded-lg p-2.5 text-xs ${stale ? "bg-amber-50 text-amber-800" : "text-slate-400"}`}
+                  className={`mb-3 rounded-lg p-2.5 text-xs ${stale ? "bg-amber-50 text-amber-800" : "text-slate-500"}`}
                 >
                   {days == null
                     ? stale
@@ -256,7 +265,7 @@ export default function Setup({
                 className="hidden"
               />
             </div>
-            <div className="text-xs text-slate-400 mt-2">
+            <div className="text-xs text-slate-500 mt-2">
               Export downloads everything as JSON. Import replaces all current data.
             </div>
           </div>
@@ -264,7 +273,7 @@ export default function Setup({
           {/* Danger zone: wipe everything and start over */}
           <div className={card + " border-rose-200"}>
             <div className={label + " mb-1"}>Danger zone</div>
-            <div className="text-xs text-slate-400 mb-3">
+            <div className="text-xs text-slate-500 mb-3">
               Permanently erase all your data — accounts, transactions, profile, everything — and
               start fresh. Export first if you might want it back.
             </div>

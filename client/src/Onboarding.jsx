@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useFocusTrap } from "./useFocusTrap.js";
 import { uid } from "./lib/uid.js";
+import { fmt } from "./lib/format.js";
 const STRATEGIES = [
   ["short_term", "Safety first", "Kill debt & build a cash cushion before investing."],
   ["balanced", "Balanced", "Split between debt, safety, and investing."],
@@ -17,7 +18,8 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
   const [name, setName] = useState(initial.name || "");
   const [srcName, setSrcName] = useState("");
   const [srcAmount, setSrcAmount] = useState("");
-  const [srcBasis, setSrcBasis] = useState("monthly"); // monthly | annual
+  const [srcBasis, setSrcBasis] = useState("monthly"); // monthly | annual | hourly
+  const [srcHours, setSrcHours] = useState("40"); // hours/week, only when hourly
   const [srcTaxable, setSrcTaxable] = useState(true);
   const [srcCadence, setSrcCadence] = useState("biweekly");
   const [srcPayday, setSrcPayday] = useState("");
@@ -40,14 +42,19 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
     }
   };
   function finish() {
-    const monthly = srcBasis === "annual" ? Number(srcAmount || 0) / 12 : Number(srcAmount || 0);
+    const amt = Math.max(0, Number(srcAmount || 0));
+    const hrs = Math.max(0, Number(srcHours || 0));
+    // mirror IncomeSection.toMonthly: annual/12, hourly × hrs/wk × 52 / 12, else monthly
+    const monthly =
+      srcBasis === "annual" ? amt / 12 : srcBasis === "hourly" ? (amt * hrs * 52) / 12 : amt;
     const source = srcName.trim()
       ? {
           id: uid(),
           name: srcName.trim(),
-          type: "salary",
+          type: srcBasis === "hourly" ? "hourly" : "salary",
           basis: srcBasis,
-          amount: Math.max(0, Number(srcAmount || 0)),
+          amount: amt,
+          ...(srcBasis === "hourly" ? { hours: hrs } : {}),
           taxable: srcTaxable,
           typicalMonthly: Math.max(0, Math.round(monthly)),
           cadence: srcCadence,
@@ -99,11 +106,11 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
               />
             ))}
           </div>
-          <button onClick={onSkip} className="text-xs text-slate-400 hover:text-slate-600">
+          <button onClick={onSkip} className="text-xs text-slate-500 hover:text-slate-600">
             Skip
           </button>
         </div>
-        <div className="text-xs text-slate-400 mb-3" aria-live="polite">
+        <div className="text-xs text-slate-500 mb-3" aria-live="polite">
           Step {step + 1} of {steps.length}
         </div>
 
@@ -152,21 +159,53 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
               >
                 <option value="monthly">per month</option>
                 <option value="annual">per year</option>
+                <option value="hourly">per hour</option>
               </select>
               <div className="relative flex-1">
-                <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
+                <span className="absolute left-3 top-3 text-slate-500 text-sm">$</span>
                 <input
                   type="number"
                   inputMode="decimal"
                   min="0"
                   value={srcAmount}
                   onChange={(e) => setSrcAmount(e.target.value)}
-                  aria-label={srcBasis === "annual" ? "Income per year" : "Income per month"}
-                  placeholder={srcBasis === "annual" ? "salary / year" : "typical / month"}
+                  aria-label={
+                    srcBasis === "annual"
+                      ? "Income per year"
+                      : srcBasis === "hourly"
+                        ? "Hourly rate"
+                        : "Income per month"
+                  }
+                  placeholder={
+                    srcBasis === "annual"
+                      ? "salary / year"
+                      : srcBasis === "hourly"
+                        ? "rate / hour"
+                        : "typical / month"
+                  }
                   className={field + " pl-7"}
                 />
               </div>
             </div>
+            {srcBasis === "hourly" && (
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  value={srcHours}
+                  onChange={(e) => setSrcHours(e.target.value)}
+                  aria-label="Hours per week"
+                  placeholder="hours / week"
+                  className={field + " max-w-[8rem]"}
+                />
+                <span className="text-xs text-slate-500">
+                  hrs/week ≈{" "}
+                  {fmt(Math.round((Number(srcAmount || 0) * Number(srcHours || 0) * 52) / 12))}
+                  /mo
+                </span>
+              </div>
+            )}
             <div className="flex gap-2">
               <select
                 value={srcCadence}
@@ -187,7 +226,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
                 className={field}
               />
             </div>
-            <div className="text-xs text-slate-400 mt-1">
+            <div className="text-xs text-slate-500 mt-1">
               A payday date unlocks dated transfer reminders + a cashflow forecast.
             </div>
             <label className="flex items-center gap-2 mt-3 text-xs text-slate-600 cursor-pointer">
@@ -211,7 +250,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
             </div>
             <div className="space-y-2">
               <div className="relative">
-                <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
+                <span className="absolute left-3 top-3 text-slate-500 text-sm">$</span>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -223,7 +262,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
                 />
               </div>
               <div className="relative">
-                <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
+                <span className="absolute left-3 top-3 text-slate-500 text-sm">$</span>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -246,7 +285,7 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
               plan builds toward this first.
             </div>
             <div className="relative">
-              <span className="absolute left-3 top-3 text-slate-400 text-sm">$</span>
+              <span className="absolute left-3 top-3 text-slate-500 text-sm">$</span>
               <input
                 type="number"
                 inputMode="decimal"

@@ -35,10 +35,10 @@ export default function Fire({
   if (!annualExpenses || annualExpenses <= 0) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
           Financial independence
         </div>
-        <div className="text-sm text-slate-400">
+        <div className="text-sm text-slate-500">
           Log a month of spending and I'll estimate your FIRE number (25× your annual expenses).
         </div>
       </div>
@@ -63,14 +63,14 @@ export default function Fire({
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex items-baseline justify-between mb-1">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
           Financial independence
         </div>
-        <div className="text-xs text-slate-400">25× {fmt(annualExpenses)}/yr</div>
+        <div className="text-xs text-slate-500">25× {fmt(annualExpenses)}/yr</div>
       </div>
       <div className="flex items-baseline gap-2 mb-3">
         <div className="text-3xl font-mono font-bold text-brand-600">{fmt(fireNumber)}</div>
-        <div className="text-xs text-slate-400">your FIRE number</div>
+        <div className="text-xs text-slate-500">your FIRE number</div>
       </div>
 
       <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-1.5">
@@ -79,22 +79,22 @@ export default function Fire({
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="text-xs text-slate-400 mb-4">
+      <div className="text-xs text-slate-500 mb-4">
         {pct.toFixed(1)}% there ({fmt(nw)})
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-lg bg-slate-50 p-3">
-          <div className="text-xs text-slate-400">At your pace</div>
+          <div className="text-xs text-slate-500">At your pace</div>
           <div className="text-lg font-mono font-bold text-slate-800">{yr(atPace)}</div>
-          <div className="text-xs text-slate-400">
+          <div className="text-xs text-slate-500">
             {whenYear(atPace)} · {fmt(monthlyInvest)}/mo invested
           </div>
         </div>
         <div className="rounded-lg bg-slate-50 p-3">
-          <div className="text-xs text-slate-400">Coast (no new $)</div>
+          <div className="text-xs text-slate-500">Coast (no new $)</div>
           <div className="text-lg font-mono font-bold text-slate-800">{yr(coast)}</div>
-          <div className="text-xs text-slate-400">growth alone gets you there</div>
+          <div className="text-xs text-slate-500">growth alone gets you there</div>
         </div>
       </div>
 

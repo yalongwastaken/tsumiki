@@ -6,7 +6,7 @@ export default function NetWorthCard({ realNetWorth, onSet }) {
   const [v, setV] = useState("");
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
         Starting point
       </div>
       <div className="flex items-center gap-2">
@@ -14,7 +14,7 @@ export default function NetWorthCard({ realNetWorth, onSet }) {
           Record your current net worth (a balance snapshot)
         </span>
         <div className="relative" style={{ width: 130 }}>
-          <span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
+          <span className="absolute left-3 top-2.5 text-slate-500 text-sm">$</span>
           <input
             type="number"
             aria-label="Current net worth"

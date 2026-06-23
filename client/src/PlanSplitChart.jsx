@@ -49,7 +49,7 @@ export default function PlanSplitChart({ plan, strategy, saved, onSetStrategy })
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
         Where it splits
       </div>
       <div className="flex items-center gap-4 flex-wrap">
@@ -116,7 +116,7 @@ export default function PlanSplitChart({ plan, strategy, saved, onSetStrategy })
 
       {/* alternative strategies — even though one is active, show the others */}
       <div className="mt-4 pt-3 border-t border-slate-50">
-        <div className="text-xs text-slate-400 mb-2">
+        <div className="text-xs text-slate-500 mb-2">
           Surplus split by strategy {onSetStrategy ? "— tap to preview" : ""}
         </div>
         <div className="space-y-1.5">
@@ -134,7 +134,7 @@ export default function PlanSplitChart({ plan, strategy, saved, onSetStrategy })
                 >
                   {label}
                   {saved === key && (
-                    <span className="text-[10px] font-normal text-slate-400">· default</span>
+                    <span className="text-[10px] font-normal text-slate-500">· default</span>
                   )}
                 </span>
                 <span className="flex-1 flex h-3 rounded-full overflow-hidden">
@@ -150,7 +150,7 @@ export default function PlanSplitChart({ plan, strategy, saved, onSetStrategy })
             );
           })}
         </div>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-400">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-500">
           {SPLIT_SEG.map(([k, color]) => (
             <span key={k}>
               <span

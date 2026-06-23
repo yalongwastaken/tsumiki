@@ -41,13 +41,13 @@ export default function DebtsSection({ data, onSave }) {
             <div key={d.id} className="flex items-center justify-between py-2.5">
               <div>
                 <div className="text-sm text-slate-700">{d.name}</div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-500">
                   {fmt(d.balance)} · {d.apr}% APR · {fmt(d.minPayment)}/mo min
                 </div>
               </div>
               <button
                 onClick={() => removeDebt(d.id)}
-                className="-m-1 flex h-9 w-9 items-center justify-center text-slate-300 hover:text-rose-400"
+                className="-m-1 flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-400"
                 aria-label="Remove"
               >
                 <X size={14} />

@@ -39,7 +39,7 @@ export default function MoneyTargets({ targets = [], values = {}, monthlyPace = 
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
         Your money goals
       </div>
       {targets.length > 0 && (
@@ -51,16 +51,16 @@ export default function MoneyTargets({ targets = [], values = {}, monthlyPace = 
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-slate-700">
                     {t.label}{" "}
-                    <span className="text-xs text-slate-400">· {metricLabel(t.metric)}</span>
+                    <span className="text-xs text-slate-500">· {metricLabel(t.metric)}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-mono text-slate-500">
                       {fmt(values[t.metric] || 0)}
-                      <span className="text-slate-300"> / {fmt(t.amount)}</span>
+                      <span className="text-slate-400"> / {fmt(t.amount)}</span>
                     </span>
                     <button
                       onClick={() => onChange(targets.filter((x) => x.id !== t.id))}
-                      className="text-slate-300 hover:text-rose-400"
+                      className="text-slate-400 hover:text-rose-400"
                       aria-label="Remove"
                     >
                       <X size={14} />
@@ -81,7 +81,7 @@ export default function MoneyTargets({ targets = [], values = {}, monthlyPace = 
                       Target date passed — {fmt(p.remaining)} to go.
                     </span>
                   ) : p.requiredMonthly ? (
-                    <span className={p.onTrack ? "text-emerald-600" : "text-slate-400"}>
+                    <span className={p.onTrack ? "text-emerald-600" : "text-slate-500"}>
                       Save {fmt(p.requiredMonthly)}/mo to hit it in {p.monthsLeft} mo.
                       {p.onTrack === true && " On track 🎉"}
                       {p.onTrack === false &&
@@ -89,7 +89,7 @@ export default function MoneyTargets({ targets = [], values = {}, monthlyPace = 
                         ` You're saving ~${fmt(monthlyPace)}/mo — ${fmt(p.behindBy)}/mo short.`}
                     </span>
                   ) : (
-                    <span className="text-slate-400">{fmt(p.remaining)} to go.</span>
+                    <span className="text-slate-500">{fmt(p.remaining)} to go.</span>
                   )}
                 </div>
               </div>
@@ -127,11 +127,11 @@ export default function MoneyTargets({ targets = [], values = {}, monthlyPace = 
           aria-label="Goal target date"
           className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
         />
-        <span className="text-xs text-slate-400">— adds a savings-pace target</span>
+        <span className="text-xs text-slate-500">— adds a savings-pace target</span>
       </div>
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
+          <span className="absolute left-3 top-2.5 text-slate-500 text-sm">$</span>
           <input
             type="number"
             value={form.amount}

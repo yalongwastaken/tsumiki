@@ -19,15 +19,17 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS accounts (
     id    TEXT PRIMARY KEY,
     name  TEXT NOT NULL,
-    type  TEXT NOT NULL,            -- checking | savings | brokerage | ira | other
-    color TEXT
+    type  TEXT NOT NULL,            -- checking | savings | brokerage | ira | roth | 401k | other
+    color TEXT,
+    cash  REAL                      -- uninvested cash in an investment account (null otherwise)
   );
 
   CREATE TABLE IF NOT EXISTS snapshots (
     id         TEXT PRIMARY KEY,
     account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     date       TEXT NOT NULL,       -- ISO string
-    balance    REAL NOT NULL
+    balance    REAL NOT NULL,
+    source     TEXT                 -- null = manual; "holdings" = auto-valued from a linked holding
   );
 
   CREATE TABLE IF NOT EXISTS goals (
@@ -80,6 +82,22 @@ db.exec(`
   }
   if (!cols.includes("bucket")) {
     db.exec("ALTER TABLE transactions ADD COLUMN bucket TEXT");
+  }
+  // migrate older DBs that predate the snapshot source tag (auto-valued vs manual)
+  const snapCols = db
+    .prepare("PRAGMA table_info(snapshots)")
+    .all()
+    .map((c) => c.name);
+  if (!snapCols.includes("source")) {
+    db.exec("ALTER TABLE snapshots ADD COLUMN source TEXT");
+  }
+  // migrate older DBs that predate per-account uninvested cash
+  const acctCols = db
+    .prepare("PRAGMA table_info(accounts)")
+    .all()
+    .map((c) => c.name);
+  if (!acctCols.includes("cash")) {
+    db.exec("ALTER TABLE accounts ADD COLUMN cash REAL");
   }
 }
 
@@ -197,6 +215,10 @@ export function validateState(s) {
     if (typeof h.shares !== "number" || !isFinite(h.shares)) {
       return "holding.shares must be a finite number";
     }
+    // optional link to an account whose balance tracks this holding's value
+    if (h.accountId != null && typeof h.accountId !== "string") {
+      return "holding.accountId must be a string";
+    }
   }
   for (const a of s.accounts || []) {
     if (!a?.id || !a?.type) {
@@ -204,6 +226,10 @@ export function validateState(s) {
     }
     if (!a.name || !String(a.name).trim()) {
       return "account needs a name";
+    }
+    // optional uninvested cash held in an investment account
+    if (a.cash != null && (typeof a.cash !== "number" || !isFinite(a.cash))) {
+      return "account.cash must be a finite number";
     }
   }
   for (const t of s.transactions || []) {
@@ -313,9 +339,11 @@ export function addTransaction(t) {
 export function getState() {
   return {
     rev: getRev(),
-    accounts: db.prepare("SELECT id, name, type, color FROM accounts").all(),
+    accounts: db.prepare("SELECT id, name, type, color, cash FROM accounts").all(),
     snapshots: db
-      .prepare("SELECT id, account_id AS accountId, date, balance FROM snapshots ORDER BY date")
+      .prepare(
+        "SELECT id, account_id AS accountId, date, balance, source FROM snapshots ORDER BY date",
+      )
       .all(),
     goals: db
       .prepare("SELECT id, name, target, pledge, color, target_date AS targetDate FROM goals")
@@ -344,9 +372,11 @@ function replaceAll(state) {
   db.prepare("DELETE FROM debts").run();
 
   const ins = {
-    account: db.prepare("INSERT INTO accounts(id,name,type,color) VALUES(@id,@name,@type,@color)"),
+    account: db.prepare(
+      "INSERT INTO accounts(id,name,type,color,cash) VALUES(@id,@name,@type,@color,@cash)",
+    ),
     snapshot: db.prepare(
-      "INSERT INTO snapshots(id,account_id,date,balance) VALUES(@id,@accountId,@date,@balance)",
+      "INSERT INTO snapshots(id,account_id,date,balance,source) VALUES(@id,@accountId,@date,@balance,@source)",
     ),
     goal: db.prepare(
       "INSERT INTO goals(id,name,target,pledge,color,target_date) VALUES(@id,@name,@target,@pledge,@color,@targetDate)",
@@ -360,10 +390,10 @@ function replaceAll(state) {
   };
 
   for (const a of state.accounts || []) {
-    ins.account.run({ color: null, ...a });
+    ins.account.run({ color: null, cash: null, ...a });
   }
   for (const s of state.snapshots || []) {
-    ins.snapshot.run(s);
+    ins.snapshot.run({ source: null, ...s });
   }
   for (const g of state.goals || []) {
     ins.goal.run({ color: null, targetDate: null, pledge: 0, ...g });

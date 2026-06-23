@@ -18,7 +18,7 @@ export default function Milestones({ list }) {
   const hidden = achieved.length - shown.length;
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
         Milestones {achieved.length > 0 && `(${achieved.length} earned)`}
       </div>
 
@@ -44,7 +44,7 @@ export default function Milestones({ list }) {
           )}
         </div>
       ) : (
-        <div className="text-sm text-slate-400 mb-3">
+        <div className="text-sm text-slate-500 mb-3">
           No milestones yet — your first contribution starts it.
         </div>
       )}

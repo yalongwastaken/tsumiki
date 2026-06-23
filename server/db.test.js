@@ -22,6 +22,14 @@ test("validateState rejects malformed bodies", () => {
   assert.ok(validateState({ holdings: [{ id: "h", ticker: "a b", shares: 1 }] }));
   assert.equal(validateState({ holdings: [{ id: "h", ticker: "BRK.B", shares: 1 }] }), null);
   assert.equal(validateState({ holdings: [{ id: "h", ticker: "^GSPC", shares: 1 }] }), null);
+  // optional uninvested cash on an investment account must be a finite number if present
+  assert.ok(
+    validateState({ accounts: [{ id: "a", name: "Brk", type: "brokerage", cash: "lots" }] }),
+  );
+  assert.equal(
+    validateState({ accounts: [{ id: "a", name: "Brk", type: "brokerage", cash: 250 }] }),
+    null,
+  );
   // a garbage date would persist and skew month/streak/forecast math
   assert.ok(
     validateState({ transactions: [{ id: "x", type: "income", amount: 5, date: "not-a-date" }] }),
@@ -56,6 +64,26 @@ test("putState round-trips and bumps rev", () => {
   const rev0 = s.rev;
   const s2 = putState({ ...s });
   assert.equal(s2.rev, rev0 + 1);
+});
+
+test("snapshot source tag round-trips (manual vs holdings-auto)", () => {
+  const s = putState({
+    accounts: [{ id: "brk", name: "Brokerage", type: "brokerage" }],
+    snapshots: [
+      { id: "m1", accountId: "brk", date: "2026-06-01T00:00:00Z", balance: 100 }, // manual (no source)
+      {
+        id: "h1",
+        accountId: "brk",
+        date: "2026-06-02T00:00:00Z",
+        balance: 2500,
+        source: "holdings",
+      },
+    ],
+    transactions: [],
+  });
+  const byId = Object.fromEntries(s.snapshots.map((x) => [x.id, x]));
+  assert.equal(byId.m1.source ?? null, null); // manual stays untagged
+  assert.equal(byId.h1.source, "holdings"); // auto-valued tag survives the round-trip
 });
 
 test("addTransaction appends one row and bumps rev", () => {

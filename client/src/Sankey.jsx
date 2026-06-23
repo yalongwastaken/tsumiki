@@ -60,7 +60,7 @@ export default function SankeyFlow({ transactions = [], fallbackIncome = 0 }) {
   const hasFlow = items.length > 0;
   if (!income || income <= 0 || !hasFlow) {
     return (
-      <div className="text-center py-8 text-slate-400 text-sm">
+      <div className="text-center py-8 text-slate-500 text-sm">
         Log income, spending, or a contribution to see this month's flow.
       </div>
     );

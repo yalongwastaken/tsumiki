@@ -64,10 +64,10 @@ export default function Projection({ start, settings = {}, onChange, derivedInve
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex items-baseline justify-between mb-1">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
           Projected net worth
         </div>
-        <div className="text-xs text-slate-400">
+        <div className="text-xs text-slate-500">
           in {years} {years === 1 ? "year" : "years"}
         </div>
       </div>

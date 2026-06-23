@@ -41,9 +41,9 @@ function Card({ title, onGo, span, children }) {
       className={`bg-white rounded-xl border border-slate-200 p-4 ${span ? "lg:col-span-2" : ""}`}
     >
       <div className="flex items-center justify-between mb-3">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{title}</div>
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</div>
         {onGo && (
-          <button onClick={onGo} className="text-xs text-slate-400 hover:text-brand-600">
+          <button onClick={onGo} className="text-xs text-slate-500 hover:text-brand-600">
             open ›
           </button>
         )}
@@ -207,7 +207,7 @@ export default function Home({
       {!setupComplete && (
         <div className="bg-white rounded-xl border border-slate-200 p-4 lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Get set up ({doneCount}/{checklist.length})
             </div>
             <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -223,7 +223,7 @@ export default function Home({
                 key={i}
                 onClick={() => !c.done && onGo?.(c.tab)}
                 disabled={c.done}
-                className={`w-full flex items-center gap-2 text-sm text-left ${c.done ? "text-slate-400" : "text-slate-700 hover:text-brand-600"}`}
+                className={`w-full flex items-center gap-2 text-sm text-left ${c.done ? "text-slate-500" : "text-slate-700 hover:text-brand-600"}`}
               >
                 <span
                   className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${c.done ? "bg-emerald-500 text-white" : "border border-slate-300"}`}
@@ -231,7 +231,7 @@ export default function Home({
                   {c.done && <Check size={11} />}
                 </span>
                 <span className={`flex-1 ${c.done ? "line-through" : ""}`}>{c.label}</span>
-                {!c.done && <ArrowRight size={14} className="text-slate-300" />}
+                {!c.done && <ArrowRight size={14} className="text-slate-400" />}
               </button>
             ))}
           </div>
@@ -262,11 +262,11 @@ export default function Home({
             {greeting()}, {profile.name}.
           </div>
         )}
-        <div className="text-xs text-slate-400 tracking-widest uppercase font-medium">
+        <div className="text-xs text-slate-500 tracking-widest uppercase font-medium">
           {snapshots.length ? "Net worth" : "Contributed"}
         </div>
         <div className="text-4xl font-mono font-bold text-slate-900 tabular-nums">{fmt(nw)}</div>
-        <div className="text-xs text-slate-400 mt-1">
+        <div className="text-xs text-slate-500 mt-1">
           {investedTotal > 0
             ? `${fmt(investedTotal)} contributed by you`
             : "log a balance in Setup for real net worth"}
@@ -323,7 +323,7 @@ export default function Home({
           </div>
         )}
         {plan?.steps?.length > 0 && (
-          <div className="text-xs text-slate-400 mt-2">
+          <div className="text-xs text-slate-500 mt-2">
             Next move:{" "}
             {plan.steps.find((s) => s.key !== "essentials")?.label || plan.steps[0].label}
           </div>
@@ -338,11 +338,11 @@ export default function Home({
       {/* game summary */}
       <Card title="Your progress" onGo={() => onGo?.("goals")}>
         <div className="flex items-center gap-3 mb-2">
-          <Flame size={28} className={adh.current > 0 ? "text-orange-500" : "text-slate-300"} />
+          <Flame size={28} className={adh.current > 0 ? "text-orange-500" : "text-slate-400"} />
           <div>
             <div className="text-2xl font-mono font-bold text-slate-900">
               {adh.current}
-              <span className="text-sm font-sans font-normal text-slate-400"> day streak</span>
+              <span className="text-sm font-sans font-normal text-slate-500"> day streak</span>
             </div>
             <div className="text-xs text-slate-500 inline-flex items-center gap-1">
               {adh.loggedToday ? (
@@ -387,12 +387,12 @@ export default function Home({
                 ) : t.dir === "down" ? (
                   <TrendingDown size={14} className="text-emerald-500" />
                 ) : (
-                  <span className="text-slate-300 text-xs">flat</span>
+                  <span className="text-slate-400 text-xs">flat</span>
                 )}
                 <span className="font-mono text-slate-800 w-16 text-right">{fmt(t.now)}</span>
                 {t.avg > 0 && (
                   <span
-                    className={`text-xs w-12 text-right ${t.dir === "up" ? "text-rose-400" : t.dir === "down" ? "text-emerald-500" : "text-slate-400"}`}
+                    className={`text-xs w-12 text-right ${t.dir === "up" ? "text-rose-400" : t.dir === "down" ? "text-emerald-500" : "text-slate-500"}`}
                   >
                     {t.delta > 0 ? "+" : ""}
                     {Math.round(t.delta * 100)}%
@@ -401,7 +401,7 @@ export default function Home({
               </div>
             ))}
           </div>
-          <div className="text-xs text-slate-400 mt-2">
+          <div className="text-xs text-slate-500 mt-2">
             vs your prior-month average per category
           </div>
         </Card>
@@ -417,7 +417,7 @@ export default function Home({
                   <span className="text-slate-600 truncate">{c.cat}</span>
                   <span className="font-mono text-xs text-slate-500">
                     {fmt(c.amount)}
-                    <span className="text-slate-300">
+                    <span className="text-slate-400">
                       {" "}
                       · {Math.round((c.amount / spendThisMonth) * 100)}%
                     </span>
@@ -432,7 +432,7 @@ export default function Home({
               </div>
             ))}
           </div>
-          <div className="text-xs text-slate-400 mt-2">{fmt(spendThisMonth)} spent this month</div>
+          <div className="text-xs text-slate-500 mt-2">{fmt(spendThisMonth)} spent this month</div>
         </Card>
       )}
 
@@ -446,7 +446,7 @@ export default function Home({
                   <span className="text-slate-600">{b.cat}</span>
                   <span className="font-mono text-xs text-slate-500">
                     {fmt(b.spent)}
-                    <span className="text-slate-300"> / {fmt(b.budget)}</span>
+                    <span className="text-slate-400"> / {fmt(b.budget)}</span>
                   </span>
                 </div>
                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -455,7 +455,7 @@ export default function Home({
                     style={{ width: `${Math.min(100, b.pct * 100)}%` }}
                   />
                 </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
+                <div className="text-[11px] text-slate-500 mt-0.5">
                   {b.over
                     ? `${fmt(-b.remaining)} over`
                     : b.perDayLeft > 0
@@ -478,7 +478,7 @@ export default function Home({
             >
               {fmt(forecast.min)}
             </span>
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-slate-500">
               lowest checking, ~{fmtDate(forecast.minDate)}
             </span>
           </div>
@@ -492,7 +492,7 @@ export default function Home({
               Stays above your {fmt(forecast.floor)} floor for the next 45 days.
             </div>
           )}
-          <div className="text-xs text-slate-400 mt-1">
+          <div className="text-xs text-slate-500 mt-1">
             From your bills, paydays, and typical daily spending.
           </div>
         </Card>
@@ -534,7 +534,7 @@ export default function Home({
               </a>
             ))}
           </div>
-          <div className="text-xs text-slate-400 mt-2">
+          <div className="text-xs text-slate-500 mt-2">
             Headlines only · general info, not advice.
           </div>
         </Card>

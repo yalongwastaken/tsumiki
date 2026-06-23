@@ -32,6 +32,49 @@ export function portfolioRows(holdings = [], prices = {}) {
   });
 }
 
+/**
+ * Total market value of holdings grouped by their linked account id. Only holdings
+ * with an `accountId` and a known price contribute. Used to keep a linked account's
+ * balance in sync with the securities held in it after a price sync.
+ * @returns {Object} map of accountId → market value
+ */
+export function holdingsValueByAccount(holdings = [], prices = {}) {
+  const out = {};
+  for (const h of holdings) {
+    if (!h.accountId) {
+      continue;
+    }
+    const q = prices[String(h.ticker || "").toUpperCase()];
+    const price = q && typeof q.price === "number" ? q.price : null;
+    const value = price != null ? price * h.shares : null;
+    if (value == null || !Number.isFinite(value)) {
+      continue;
+    }
+    out[h.accountId] = (out[h.accountId] || 0) + value;
+  }
+  return out;
+}
+
+/** Account types that hold securities (their balance is derived from holdings + cash). */
+export const INVESTMENT_TYPES = new Set(["brokerage", "ira", "roth", "401k"]);
+
+/** Holding tax tag implied by the account type it lives in. */
+export const TAX_TAG_FOR_TYPE = { brokerage: "taxable", ira: "ira", roth: "roth", "401k": "401k" };
+
+/**
+ * Derived balance of an investment account: market value of its linked holdings
+ * (from the latest synced prices) plus any uninvested cash. Returns null for a
+ * non-investment account (those keep a manually-entered balance).
+ * @returns {number|null}
+ */
+export function investmentAccountValue(account = {}, holdings = [], prices = {}) {
+  if (!INVESTMENT_TYPES.has(account.type)) {
+    return null;
+  }
+  const market = holdingsValueByAccount(holdings, prices)[account.id] || 0;
+  return market + (Number(account.cash) || 0);
+}
+
 /** Account types that are tax-advantaged (retirement) vs a taxable brokerage. */
 export const RETIREMENT_ACCOUNTS = new Set(["401k", "ira", "roth"]);
 

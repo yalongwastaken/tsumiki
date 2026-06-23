@@ -121,7 +121,7 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
   if (!holdings.length) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
           Portfolio
         </div>
         <div className="text-sm text-slate-500">
@@ -150,10 +150,10 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex items-baseline justify-between mb-2">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
           Portfolio
         </div>
-        <button onClick={onGoSetup} className="text-xs text-slate-400 hover:text-brand-600">
+        <button onClick={onGoSetup} className="text-xs text-slate-500 hover:text-brand-600">
           edit ›
         </button>
       </div>
@@ -174,7 +174,7 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
         </div>
       )}
       {totals.priced && retire > 0 && (
-        <div className="text-xs text-slate-400 mb-3">
+        <div className="text-xs text-slate-500 mb-3">
           {fmt(retire)} in retirement (401k/IRA) · {fmt(taxable)} taxable
         </div>
       )}
@@ -185,7 +185,7 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
 
       {prices?.history?.length >= 2 && (
         <div className="mb-3">
-          <div className="text-xs text-slate-400 mb-1">Value over time</div>
+          <div className="text-xs text-slate-500 mb-1">Value over time</div>
           <AreaChart
             data={prices.history}
             xKey="date"
@@ -210,7 +210,7 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
                   </span>
                 )}
               </div>
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-slate-500">
                 {r.shares} sh{r.price != null ? ` · ${fmt(r.price)}` : ""}
               </div>
             </div>
@@ -242,7 +242,7 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
       )}
 
       <div className="flex items-center justify-between gap-2 mt-3">
-        <div className="text-xs text-slate-400">
+        <div className="text-xs text-slate-500">
           {synced ? `Prices synced ${synced}.` : "Manual holdings."} Health notes are general info,
           not advice.
         </div>

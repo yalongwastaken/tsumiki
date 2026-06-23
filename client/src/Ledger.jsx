@@ -122,7 +122,7 @@ export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
       )}
 
       {rows.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 text-sm">
+        <div className="text-center py-12 text-slate-500 text-sm">
           {transactions.length === 0 ? (
             <>
               Nothing logged yet. Tap <span className="font-semibold text-brand-600">+</span> to
@@ -149,8 +149,8 @@ export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-slate-700 truncate">{meta(t)}</div>
-                  {t.note && <div className="text-xs text-slate-400 truncate">{t.note}</div>}
-                  <div className="text-xs text-slate-300">
+                  {t.note && <div className="text-xs text-slate-500 truncate">{t.note}</div>}
+                  <div className="text-xs text-slate-400">
                     {new Date(t.date).toLocaleDateString()}
                   </div>
                 </div>
@@ -168,7 +168,7 @@ export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
                   <button
                     onClick={() => onDelete(t.id)}
                     aria-label="Delete"
-                    className="-m-1 flex h-9 w-9 items-center justify-center text-slate-300 hover:text-rose-400"
+                    className="-m-1 flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-400"
                   >
                     <X size={15} />
                   </button>

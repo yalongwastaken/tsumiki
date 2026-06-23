@@ -72,7 +72,7 @@ export default function BillsSection({ data, onSave }) {
               <div key={i} className="flex items-center gap-2 text-sm">
                 <span className="text-slate-700 flex-1 truncate">
                   {d.label}{" "}
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-500">
                     · {fmt(d.amount)} · {d.months} months
                   </span>
                 </span>
@@ -94,7 +94,7 @@ export default function BillsSection({ data, onSave }) {
               <div className="text-sm text-slate-700">
                 {b.name}
                 {b.dayOfMonth ? (
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-500">
                     {" "}
                     · due {b.dayOfMonth}
                     {ordinal(b.dayOfMonth)}
@@ -105,7 +105,7 @@ export default function BillsSection({ data, onSave }) {
                 <span className="text-xs font-mono text-slate-500">{fmt(b.amount)}</span>
                 <button
                   onClick={() => removeBill(b.id)}
-                  className="-m-1 flex h-9 w-9 items-center justify-center text-slate-300 hover:text-rose-400"
+                  className="-m-1 flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-400"
                   aria-label="Remove"
                 >
                   <X size={14} />
@@ -146,7 +146,7 @@ export default function BillsSection({ data, onSave }) {
           Add
         </button>
       </div>
-      <div className="text-xs text-slate-400 mt-2">
+      <div className="text-xs text-slate-500 mt-2">
         Reserved before the plan allocates. Not logged — you still log real spending.
       </div>
     </>

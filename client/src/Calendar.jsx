@@ -113,7 +113,7 @@ export default function Calendar({ transactions = [], profile = {} }) {
               setSel(null);
             }}
             aria-label="Previous month"
-            className="px-2 py-1 text-slate-400 hover:text-slate-700"
+            className="px-2 py-1 text-slate-500 hover:text-slate-700"
           >
             <ChevronLeft size={18} />
           </button>
@@ -124,7 +124,7 @@ export default function Calendar({ transactions = [], profile = {} }) {
               setSel(null);
             }}
             aria-label="Next month"
-            className="px-2 py-1 text-slate-400 hover:text-slate-700"
+            className="px-2 py-1 text-slate-500 hover:text-slate-700"
           >
             <ChevronRight size={18} />
           </button>
@@ -133,7 +133,7 @@ export default function Calendar({ transactions = [], profile = {} }) {
         <div className="grid mb-1" style={{ gridTemplateColumns: "1.2rem repeat(7, 1fr)", gap: 2 }}>
           <div />
           {DOW.map((d, i) => (
-            <div key={i} className="text-center text-xs text-slate-300">
+            <div key={i} className="text-center text-xs text-slate-400">
               {d}
             </div>
           ))}
@@ -205,7 +205,7 @@ export default function Calendar({ transactions = [], profile = {} }) {
           </div>
         ))}
 
-        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-xs text-slate-400">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-xs text-slate-500">
           <span>
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />
             income
@@ -237,13 +237,13 @@ export default function Calendar({ transactions = [], profile = {} }) {
 
       {sel != null && (
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
             {base.toLocaleDateString(undefined, { month: "long" })} {sel}
           </div>
           {selPaydays.map((name, i) => (
             <div key={`pay-${i}`} className="flex justify-between py-1.5 text-sm">
               <span className="text-emerald-600">Payday · {name}</span>
-              <span className="text-xs text-slate-400">expected</span>
+              <span className="text-xs text-slate-500">expected</span>
             </div>
           ))}
           {selBills.length > 0 &&
@@ -280,7 +280,7 @@ export default function Calendar({ transactions = [], profile = {} }) {
                 ))
             : selBills.length === 0 &&
               selPaydays.length === 0 && (
-                <div className="text-sm text-slate-400">Nothing logged this day.</div>
+                <div className="text-sm text-slate-500">Nothing logged this day.</div>
               )}
         </div>
       )}

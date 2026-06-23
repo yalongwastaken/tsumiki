@@ -166,7 +166,7 @@ export default function CsvImport({ onImport, existing = [] }) {
           Nothing imported — all {skipped} row(s) already exist (duplicates skipped).
         </div>
       )}
-      <div className="text-xs text-slate-400">
+      <div className="text-xs text-slate-500">
         Stays on your device. Expenses import as spending, deposits as income — tweak categories in
         Activity.
       </div>

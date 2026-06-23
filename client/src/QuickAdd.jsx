@@ -156,7 +156,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
 
         {/* amount — first thing focused */}
         <div className="relative mb-4">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-slate-300">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-slate-400">
             $
           </span>
           <input
@@ -213,7 +213,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
           </div>
         )}
         {type === "income" && sources.length === 0 && (
-          <div className="text-xs text-slate-400 mb-4">
+          <div className="text-xs text-slate-500 mb-4">
             Tip: add income sources in Setup to tag where this came from.
           </div>
         )}
@@ -230,7 +230,7 @@ export default function QuickAdd({ open, onClose, onLog, cats, sources = [], tra
         {/* recents to repeat */}
         {recents.length > 0 && (
           <div className="mb-4">
-            <div className="text-xs text-slate-400 mb-1.5">Repeat recent</div>
+            <div className="text-xs text-slate-500 mb-1.5">Repeat recent</div>
             <div className="flex flex-wrap gap-2">
               {recents.map((t) => (
                 <button

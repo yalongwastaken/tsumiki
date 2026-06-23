@@ -108,9 +108,9 @@ export default function IncomeSection({ data, onSave }) {
               <div>
                 <div className="text-sm text-slate-700">
                   {s.name}{" "}
-                  <span className="text-xs text-slate-400">· {s.type.replace("_", " ")}</span>
+                  <span className="text-xs text-slate-500">· {s.type.replace("_", " ")}</span>
                 </div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-500">
                   {s.basis ? `${srcDetail(s)} → ` : ""}~{fmt(s.typicalMonthly || 0)}/mo
                   {s.taxable === false && <span className="text-emerald-600"> · non-taxable</span>}
                 </div>
@@ -118,14 +118,14 @@ export default function IncomeSection({ data, onSave }) {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => editSource(s)}
-                  className="text-slate-300 hover:text-brand-600"
+                  className="text-slate-400 hover:text-brand-600"
                   aria-label="Edit"
                 >
                   <Pencil size={13} />
                 </button>
                 <button
                   onClick={() => removeSource(s.id)}
-                  className="text-slate-300 hover:text-rose-400"
+                  className="text-slate-400 hover:text-rose-400"
                   aria-label="Remove"
                 >
                   <X size={14} />
@@ -180,7 +180,7 @@ export default function IncomeSection({ data, onSave }) {
             className={field}
           />
         ) : (
-          <div className="flex items-center text-xs text-slate-400">≈ {fmt(toMonthly(src))}/mo</div>
+          <div className="flex items-center text-xs text-slate-500">≈ {fmt(toMonthly(src))}/mo</div>
         )}
       </div>
       {incomeSchedule && !src.payday && (
@@ -213,7 +213,7 @@ export default function IncomeSection({ data, onSave }) {
             </option>
           ))}
         </select>
-        <span className="text-xs text-slate-400">— sets per-paycheck amounts on your plan</span>
+        <span className="text-xs text-slate-500">— sets per-paycheck amounts on your plan</span>
       </div>
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xs text-slate-500">Next payday</span>
@@ -223,7 +223,7 @@ export default function IncomeSection({ data, onSave }) {
           onChange={(e) => setSrc({ ...src, payday: e.target.value })}
           className={field}
         />
-        <span className="text-xs text-slate-400">— optional, shows dated reminders</span>
+        <span className="text-xs text-slate-500">— optional, shows dated reminders</span>
       </div>
       <label className="flex items-center gap-2 mb-3 text-xs text-slate-600 cursor-pointer">
         <input
@@ -236,7 +236,7 @@ export default function IncomeSection({ data, onSave }) {
       </label>
       <div className="flex items-center justify-between gap-2">
         {src.basis === "hourly" && (
-          <span className="text-xs text-slate-400">≈ {fmt(toMonthly(src))}/mo</span>
+          <span className="text-xs text-slate-500">≈ {fmt(toMonthly(src))}/mo</span>
         )}
         <button
           onClick={addSource}
