@@ -56,7 +56,11 @@ export default function Login({ secure = true, onSuccess }) {
                 autoComplete="current-password"
                 className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700"
               />
-              {error && <div className="mt-2 text-xs text-rose-600">{error}</div>}
+              {error && (
+                <div role="alert" className="mt-2 text-xs text-rose-600">
+                  {error}
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={busy || !password}

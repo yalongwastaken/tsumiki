@@ -21,6 +21,12 @@ export default function AppLock() {
 
   const reset = () => setForm({ current: "", password: "", confirm: "" });
   async function save(clearing) {
+    if (
+      clearing &&
+      !window.confirm("Remove the app lock? Anyone on your network could then open Tsumiki.")
+    ) {
+      return;
+    }
     setBusy(true);
     setErr("");
     setMsg("");
@@ -41,11 +47,7 @@ export default function AppLock() {
       setMsg(clearing ? "App lock removed." : "Password saved — this device is trusted.");
       refresh();
     } catch (e) {
-      setErr(
-        e.status === 401
-          ? "Wrong current password."
-          : e.message?.replace(/^.*→ \d+: /, "") || "Couldn't save.",
-      );
+      setErr(e.status === 401 ? "Wrong current password." : e.error || "Couldn't save.");
     }
     setBusy(false);
   }
@@ -118,7 +120,7 @@ export default function AppLock() {
               <button
                 onClick={() => save(true)}
                 disabled={busy || !form.current}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-40"
+                className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-40"
               >
                 Remove
               </button>
@@ -128,14 +130,17 @@ export default function AppLock() {
       )}
 
       {(msg || err) && (
-        <div className={`mt-2 text-xs ${err ? "text-rose-600" : "text-emerald-600"}`}>
+        <div
+          role={err ? "alert" : "status"}
+          className={`mt-2 text-xs ${err ? "text-rose-600" : "text-emerald-600"}`}
+        >
           {err || msg}
         </div>
       )}
       {locked && (
         <button
           onClick={logout}
-          className="mt-3 text-xs font-medium text-slate-500 hover:text-brand-600"
+          className="mt-2 -mx-1 px-1 py-2 text-xs font-medium text-slate-500 hover:text-brand-600"
         >
           Log out this device
         </button>

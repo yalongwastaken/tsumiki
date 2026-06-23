@@ -22,6 +22,7 @@ import { authGate, authStatus, authLogin, authLogout, authSet } from "./auth.js"
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.disable("x-powered-by"); // don't advertise the framework
+app.set("case sensitive routing", true); // so /API/state can't reach the /api/state handler
 app.use(express.json({ limit: "5mb" }));
 
 // CSRF / DNS-rebinding guard: a browser sends Origin on cross-site writes. If a

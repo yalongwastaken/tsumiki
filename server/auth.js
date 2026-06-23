@@ -77,13 +77,22 @@ function readCookie(req, name) {
 }
 const hostname = (req) => (req.headers?.host || "").split(":")[0];
 const isLocalhost = (req) => ["localhost", "127.0.0.1", "::1"].includes(hostname(req));
-/** Served over https (directly or via a TLS-terminating proxy like Tailscale serve),
- * or to localhost (the box itself / dev). */
+/** Served over a connection we trust to be private: direct TLS (`req.secure`),
+ * localhost (the box itself / dev), or — only when TSUMIKI_TRUST_PROXY is set — an
+ * `x-forwarded-proto: https` from a TLS-terminating proxy like `tailscale serve`.
+ * The header is NOT trusted by default, so a plain-LAN client can't spoof it to set
+ * or use a password over sniffable http. */
 export function isSecureReq(req) {
-  const proto = String(req.headers?.["x-forwarded-proto"] || "")
-    .split(",")[0]
-    .trim();
-  return !!req.secure || proto === "https" || isLocalhost(req);
+  if (req.secure || isLocalhost(req)) {
+    return true;
+  }
+  if (process.env.TSUMIKI_TRUST_PROXY) {
+    const proto = String(req.headers?.["x-forwarded-proto"] || "")
+      .split(",")[0]
+      .trim();
+    return proto === "https";
+  }
+  return false;
 }
 function setSessionCookie(req, res, token) {
   const attrs = [
@@ -118,10 +127,14 @@ export function authGate(req, res, next) {
   if (!getAuth()) {
     return next();
   }
-  if (req.path === "/api/health" || req.path.startsWith("/api/auth/")) {
+  // match case-INsensitively: Express routes are case-insensitive by default, so a
+  // case-sensitive gate compare (e.g. /API/state) would slip past while still hitting
+  // the lowercase route handler — a full bypass. Normalize before matching.
+  const path = req.path.toLowerCase();
+  if (path === "/api/health" || path.startsWith("/api/auth/")) {
     return next();
   }
-  if (!req.path.startsWith("/api/")) {
+  if (!path.startsWith("/api/")) {
     return next();
   }
   if (isAuthed(req)) {

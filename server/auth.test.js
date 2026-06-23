@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 process.env.TSUMIKI_DB = `/tmp/tsumiki-auth-${process.pid}-${Date.now()}.db`;
+process.env.TSUMIKI_TRUST_PROXY = "1"; // trust x-forwarded-proto (simulates Tailscale serve)
 
 const auth = await import("./auth.js");
 const { _internals: I } = auth;
@@ -65,6 +66,39 @@ test("isSecureReq: https / localhost yes, plain LAN no", () => {
   assert.equal(auth.isSecureReq(req({ headers: { host: "localhost:4000" } })), true);
   assert.equal(auth.isSecureReq(req({ headers: { host: "127.0.0.1:4000" } })), true);
   assert.equal(auth.isSecureReq(req({ headers: { host: "192.168.1.5:4000" } })), false);
+});
+
+test("x-forwarded-proto is NOT trusted unless TSUMIKI_TRUST_PROXY is set", () => {
+  delete process.env.TSUMIKI_TRUST_PROXY;
+  try {
+    // a plain-LAN client can't spoof the header to look secure
+    assert.equal(
+      auth.isSecureReq(req({ headers: { "x-forwarded-proto": "https", host: "192.168.1.5" } })),
+      false,
+    );
+    // localhost is still secure regardless of the flag
+    assert.equal(auth.isSecureReq(req({ headers: { host: "localhost" } })), true);
+  } finally {
+    process.env.TSUMIKI_TRUST_PROXY = "1";
+  }
+});
+
+test("gate matches case-insensitively (no /API/state bypass)", () => {
+  // enable a lock, then hit an upper-cased API path with no cookie → must still 401
+  const set = mockRes();
+  auth.authSet(req({ headers: SECURE, body: { password: "gate-case-test" } }), set);
+  assert.equal(auth.authEnabled(), true);
+  for (const p of ["/API/state", "/Api/export", "/api/STATE", "/aPi/reset"]) {
+    next.called = false;
+    const res = mockRes();
+    auth.authGate(req({ path: p }), res, next);
+    assert.equal(res.statusCode, 401, `${p} should be gated`);
+    assert.equal(next.called, false, `${p} should not pass through`);
+  }
+  // clean up so later tests start unlocked
+  const clr = mockRes();
+  auth.authSet(req({ headers: SECURE, body: { current: "gate-case-test", password: "" } }), clr);
+  assert.equal(auth.authEnabled(), false);
 });
 
 test("disabled by default: open, status reports it, gate passes", () => {

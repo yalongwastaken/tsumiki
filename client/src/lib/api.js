@@ -29,6 +29,12 @@ async function call(method, path, body) {
     }
     const err = new Error(`${method} ${path} → ${res.status}: ${text}`);
     err.status = res.status;
+    // expose the server's `{error}` message so callers can show a clean sentence
+    try {
+      err.error = JSON.parse(text)?.error;
+    } catch {
+      /* non-JSON body */
+    }
     throw err;
   }
   return res.json();
