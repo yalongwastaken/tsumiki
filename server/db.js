@@ -162,6 +162,19 @@ export function setSymbolPriceHistory(hist) {
   setMeta("symbolPriceHistory", hist);
 }
 
+/** App-lock config { salt, hash, secret } or null when no password is set. Stored
+ * outside the keys resetAll() clears, so a data reset doesn't unlock the app. */
+export function getAuth() {
+  return getMeta("auth", null);
+}
+export function setAuth(obj) {
+  if (obj == null) {
+    db.prepare("DELETE FROM meta WHERE key = 'auth'").run();
+  } else {
+    setMeta("auth", obj);
+  }
+}
+
 /** Append (or replace same-day) a portfolio-value point, capped to the last N days. */
 export function appendPortfolioPoint(value, date = new Date().toISOString()) {
   if (typeof value !== "number" || !isFinite(value)) {

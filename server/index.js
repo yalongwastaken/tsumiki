@@ -17,6 +17,7 @@ import { migrateLegacy } from "./migrate.js";
 import { buildPlan, typicalIncome } from "./engine.js";
 import { getNews, scheduleNews } from "./news.js";
 import { getPrices, refreshPrices, schedulePrices } from "./prices.js";
+import { authGate, authStatus, authLogin, authLogout, authSet } from "./auth.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -48,6 +49,16 @@ app.use((req, res, next) => {
 
 // wrap an async route so a rejected promise becomes a clean 500, not a hang
 const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+// optional app lock: when a password is set, gate /api/* (except auth + health) on a
+// valid 7-day session. No-op until the user enables it. See auth.js.
+app.use(authGate);
+
+// ── auth (always reachable so the login screen works while locked) ──────────────
+app.get("/api/auth/status", authStatus);
+app.post("/api/auth/login", authLogin);
+app.post("/api/auth/logout", authLogout);
+app.post("/api/auth/set", authSet);
 
 // ── API ───────────────────────────────────────────────────────────────────────
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
