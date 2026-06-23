@@ -9,6 +9,7 @@ import {
   typicalIncome as coreTypicalIncome,
   avgMonthlyIncome,
   avgMonthlySpend,
+  monthOf,
 } from "../client/src/lib/finance.js";
 
 const DEFAULT_HIGH_APR = 10; // % — at/above this, debt is "high interest"
@@ -94,8 +95,11 @@ export function typicalIncome(state) {
  */
 export function buildPlan(state, incomeArg, opts = {}) {
   const { accounts = [], snapshots = [], debts = [], profile = {}, transactions = [] } = state;
-  const income = Math.max(0, Math.round(Number(incomeArg) || 0));
-  const ym = new Date().toISOString().slice(0, 7);
+  const n = Number(incomeArg);
+  const income = Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
+  // local month, matching the client's thisMonth() so a "this month" override the
+  // user set in their local calendar isn't missed around the UTC/local boundary
+  const ym = monthOf(new Date());
   // strategy precedence: explicit preview (opts) → this-month override → main
   const mo = profile.monthOverride;
   const overrideStrategy = mo && mo.ym === ym && STRATEGY_SPLIT[mo.strategy] ? mo.strategy : null;
