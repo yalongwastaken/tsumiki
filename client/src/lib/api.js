@@ -3,6 +3,13 @@
 // same origin as the server in prod; proxied to :4000 in dev
 const BASE = import.meta.env.VITE_API ?? "";
 
+// app-lock hook: when the server returns 401 ("locked"), notify the app so it can
+// show the login screen instead of surfacing a generic error.
+let onLocked = null;
+export const setOnLocked = (fn) => {
+  onLocked = fn;
+};
+
 /**
  * Make a JSON request and parse the response.
  * @throws {Error} with a `.status` field on non-2xx responses
@@ -12,9 +19,14 @@ async function call(method, path, body) {
     method,
     headers: body ? { "content-type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
+    credentials: "same-origin", // send the session cookie
   });
   if (!res.ok) {
     const text = await res.text();
+    // a locked app rejects everything but /api/auth/* with 401 — surface it to the UI
+    if (res.status === 401 && !path.startsWith("/api/auth/")) {
+      onLocked?.();
+    }
     const err = new Error(`${method} ${path} → ${res.status}: ${text}`);
     err.status = res.status;
     throw err;
@@ -46,3 +58,9 @@ export const migrateLegacy = (legacy) => call("POST", "/api/migrate", legacy);
 export const resetAll = () => call("POST", "/api/reset");
 export const importData = (state) => call("POST", "/api/import", state);
 export const exportUrl = () => (BASE || "") + "/api/export";
+
+// ── app lock (auth) ─────────────────────────────────────────────────────────────
+export const authStatus = () => call("GET", "/api/auth/status");
+export const authLogin = (password) => call("POST", "/api/auth/login", { password });
+export const authLogout = () => call("POST", "/api/auth/logout");
+export const authSetPassword = (body) => call("POST", "/api/auth/set", body);

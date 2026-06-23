@@ -8,6 +8,8 @@ import {
   resetAll,
   getPrices,
   refreshPrices,
+  authStatus,
+  setOnLocked,
 } from "./lib/api.js";
 import { fmt } from "./lib/format.js";
 import { typicalIncome } from "./lib/income.js";
@@ -29,6 +31,7 @@ import Plan from "./Plan.jsx";
 import QuickAdd from "./QuickAdd.jsx";
 import Activity from "./Activity.jsx";
 import Onboarding from "./Onboarding.jsx";
+import Login from "./Login.jsx";
 import Home from "./Home.jsx";
 import NetWorthCard from "./NetWorthCard.jsx";
 import {
@@ -185,30 +188,55 @@ export default function App() {
   }, []);
   const [derivedInvest, setDerivedInvest] = useState(null); // monthly investable per the plan
   const [prices, setPrices] = useState(null); // opt-in synced stock prices (null until fetched)
+  const [locked, setLocked] = useState(false); // app lock engaged + this device unauthed
+  const [authSecure, setAuthSecure] = useState(true); // served over a secure origin?
   const revRef = useRef(0); // last server rev (optimistic concurrency)
   const saveChain = useRef(Promise.resolve()); // serialize writes so rapid saves can't self-conflict
 
+  // load the full model + plan + prices (called after boot and after a successful unlock)
+  async function loadData() {
+    try {
+      const fresh = await getState();
+      revRef.current = fresh.rev ?? 0;
+      setData({ ...EMPTY, ...fresh });
+      if (!fresh.settings?.onboarded) {
+        setShowOnboard(true);
+      } // first run
+      try {
+        setDerivedInvest((await getPlan()).investable);
+      } catch (_) {}
+      getPrices()
+        .then(setPrices)
+        .catch(() => {});
+    } catch (e) {
+      setError(String(e.message || e));
+    }
+    setLoading(false);
+  }
+
   useEffect(() => {
+    setOnLocked(() => setLocked(true)); // any later 401 flips to the login screen
     (async () => {
       try {
-        const fresh = await getState();
-        revRef.current = fresh.rev ?? 0;
-        setData({ ...EMPTY, ...fresh });
-        if (!fresh.settings?.onboarded) {
-          setShowOnboard(true);
-        } // first run
-        try {
-          setDerivedInvest((await getPlan()).investable);
-        } catch (_) {}
-        getPrices()
-          .then(setPrices)
-          .catch(() => {});
-      } catch (e) {
-        setError(String(e.message || e));
+        const st = await authStatus();
+        setAuthSecure(st.secure);
+        if (st.enabled && !st.authed) {
+          setLocked(true);
+          setLoading(false);
+          return; // hold at the login screen; don't fetch gated data yet
+        }
+      } catch (_) {
+        // status should always answer; if it doesn't, fall through and try loading
       }
-      setLoading(false);
+      await loadData();
     })();
   }, []);
+
+  function onUnlock() {
+    setLocked(false);
+    setLoading(true);
+    loadData();
+  }
 
   // auto-value investment accounts: write/refresh today's snapshot for each
   // brokerage/IRA/Roth/401k account = its holdings' market value (from synced prices)
@@ -558,6 +586,9 @@ export default function App() {
     });
   }
 
+  if (locked) {
+    return <Login secure={authSecure} onSuccess={onUnlock} />;
+  }
   if (loading) {
     return (
       <div className="flex items-center justify-center h-40 text-slate-500 text-sm">
