@@ -138,8 +138,8 @@ export default function BudgetsSection({ data, onSave }) {
           <Money
             value={budgetForm.amount}
             onChange={(v) => setBudgetForm({ ...budgetForm, amount: v })}
-            placeholder="cap"
-            ariaLabel="Budget cap"
+            placeholder="/mo cap"
+            ariaLabel="Monthly budget cap"
           />
         </div>
         <button

@@ -219,7 +219,8 @@ export default function QuickAdd({
                 <button
                   key={g.id}
                   onClick={() => setGoalId(goalId === g.id ? null : g.id)}
-                  className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${goalId === g.id ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+                  title={g.label}
+                  className={`max-w-[12rem] truncate px-3 py-2 text-sm rounded-full border transition-colors ${goalId === g.id ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
                 >
                   {g.label}
                 </button>

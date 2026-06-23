@@ -4,8 +4,8 @@ import { monthOf } from "./finance.js";
 /** Month key like "2026-06" for a date ("" for an unparseable date). */
 export const monthKey = monthOf;
 
-/** Current month key. */
-export const thisMonth = () => new Date().toISOString().slice(0, 7);
+/** Current month key (LOCAL, to match monthKey/monthOf bucketing). */
+export const thisMonth = () => monthOf(new Date());
 
 /**
  * Most recent snapshot per account.

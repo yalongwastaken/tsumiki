@@ -848,7 +848,7 @@ export default function App() {
         onLog={logTx}
         cats={allCategories(transactions)}
         sources={incomeSources}
-        goals={profile?.moneyTargets || []}
+        goals={(profile?.moneyTargets || []).filter((g) => g.metric === "earmarked")}
         transactions={transactions}
       />
       <Onboarding

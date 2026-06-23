@@ -129,6 +129,11 @@ export default function MoneyTargets({
           ))}
         </select>
       </div>
+      {form.metric === "earmarked" && (
+        <div className="mb-2 text-xs text-slate-500">
+          Funded by tagging contributions “toward this goal” in the + Add sheet.
+        </div>
+      )}
       <div className="mb-2 flex items-center gap-2">
         <span className="text-xs text-slate-500">By (optional)</span>
         <input
