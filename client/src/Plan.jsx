@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { getPlan } from "./lib/api.js";
 import { fmt } from "./lib/format.js";
 import { typicalIncome } from "./lib/income.js";
-import { nonTaxableMonthly } from "./lib/finance.js";
+import { nonTaxableMonthly, taxableShare } from "./lib/finance.js";
 import { BUCKETS, bucketOf } from "./lib/buckets.js";
 import { thisMonth, monthKey, sumLatestByType, monthTotals } from "./lib/selectors.js";
 import { estimateTax, nextQuarterlyDue } from "./lib/tax.js";
@@ -52,9 +52,11 @@ export default function Plan({
   const spouseAge = profile.spouseBirthYear ? yr - profile.spouseBirthYear : null;
   // self-employed income has no withholding → estimated payments + SE-tax handling
   const selfEmployed = (profile.incomeSources || []).some((s) => s.type === "self_employed");
-  // income flagged non-taxable is excluded from the tax base but still planned for
+  // income flagged non-taxable is excluded from the tax base but still planned for.
+  // Scale by the taxable SHARE (not a fixed subtraction) so it's correct whether
+  // `typical` is the typed source total or a learned rolling average.
   const nonTaxable = nonTaxableMonthly(profile);
-  const taxableAnnual = Math.max(0, (typical || 0) - nonTaxable) * 12;
+  const taxableAnnual = Math.max(0, (typical || 0) * taxableShare(profile)) * 12;
   const tax = useMemo(
     () =>
       estimateTax({

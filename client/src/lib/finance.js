@@ -32,7 +32,10 @@ export function typicalIncome({ profile = {}, transactions = [] } = {}) {
   const typed = sources.length
     ? sources.reduce((s, x) => s + (x.typicalMonthly || 0), 0)
     : profile.typicalIncome || 0;
-  const ym = new Date().toISOString().slice(0, 7);
+  // use the LOCAL current month for the cutoff so it matches monthOf's local
+  // bucketing (a UTC slice would, for a few hours after UTC rolls over, count the
+  // user's still-current local month as "prior" and average in an incomplete month)
+  const ym = monthOf(new Date());
   const byMonth = {};
   for (const t of transactions) {
     if (t.type === "income") {
@@ -60,6 +63,25 @@ export function nonTaxableMonthly(profile = {}) {
   return (profile.incomeSources || [])
     .filter((s) => s.taxable === false)
     .reduce((sum, s) => sum + (s.typicalMonthly || 0), 0);
+}
+
+/**
+ * Fraction of declared income that is taxable (0–1). Use this to scale ANY income
+ * figure (typed total OR a learned rolling average) into its taxable portion, rather
+ * than subtracting a fixed non-taxable dollar amount — subtraction double-counts when
+ * the income figure is learned from logged deposits that may already exclude the
+ * non-taxable source. Returns 1 when no sources are declared (assume all taxable).
+ * @param {{incomeSources?:Array}} profile
+ * @returns {number}
+ */
+export function taxableShare(profile = {}) {
+  const sources = profile.incomeSources || [];
+  const total = sources.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
+  if (total <= 0) {
+    return 1;
+  }
+  const nonTax = nonTaxableMonthly(profile);
+  return Math.max(0, Math.min(1, (total - nonTax) / total));
 }
 
 /** Average logged income per month across ALL months with income (incl. the current). */

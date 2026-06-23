@@ -1,7 +1,7 @@
 // finance.test.mjs — shared income/spend core (client + server).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { nonTaxableMonthly, monthOf } from "../src/lib/finance.js";
+import { nonTaxableMonthly, taxableShare, monthOf } from "../src/lib/finance.js";
 
 test("nonTaxableMonthly sums only sources flagged non-taxable", () => {
   const profile = {
@@ -18,6 +18,29 @@ test("nonTaxableMonthly sums only sources flagged non-taxable", () => {
 test("nonTaxableMonthly is 0 with no sources / all taxable", () => {
   assert.equal(nonTaxableMonthly({}), 0);
   assert.equal(nonTaxableMonthly({ incomeSources: [{ id: "x", typicalMonthly: 4000 }] }), 0);
+});
+
+test("taxableShare = taxable fraction of declared income (scales any income figure)", () => {
+  // 5000 taxable + 1000 non-taxable → 5/6 taxable
+  const p = {
+    incomeSources: [
+      { id: "a", typicalMonthly: 5000, taxable: true },
+      { id: "b", typicalMonthly: 1000, taxable: false },
+    ],
+  };
+  assert.ok(Math.abs(taxableShare(p) - 5 / 6) < 1e-9);
+  // applying the share to a LEARNED $5000/mo avg gives ~4166/mo taxable (not 4000 —
+  // the old fixed subtraction double-counted)
+  assert.equal(Math.round(5000 * taxableShare(p)), 4167);
+});
+
+test("taxableShare is 1 with no sources, 0 when all income is non-taxable", () => {
+  assert.equal(taxableShare({}), 1);
+  assert.equal(taxableShare({ incomeSources: [{ id: "x", typicalMonthly: 4000 }] }), 1);
+  assert.equal(
+    taxableShare({ incomeSources: [{ id: "x", typicalMonthly: 4000, taxable: false }] }),
+    0,
+  );
 });
 
 test("monthOf is safe on bad dates", () => {
