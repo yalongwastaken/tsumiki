@@ -1,7 +1,12 @@
 // budgets.test.mjs — envelope category budgets.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { budgetStatus, budgetAlert, categoryAverages } from "../src/lib/budgets.js";
+import {
+  budgetStatus,
+  budgetAlert,
+  categoryAverages,
+  rolloverBalance,
+} from "../src/lib/budgets.js";
 
 const ym = "2026-06";
 const tx = [
@@ -55,6 +60,58 @@ test("budgetStatus adds per-day-left + last-month context", () => {
   assert.equal(dining.lastMonth, 999); // May Dining
   // over-budget → no per-day allowance
   assert.equal(budgetStatus(tx, { Dining: 300 }, ym, today)[0].perDayLeft, 0);
+});
+
+test("rollover: unused budget carries forward, overspend carries back", () => {
+  // Dining cap 400. Apr spent 300 (+100), May spent 500 (−100) → net carry 0 into Jun
+  const hist = [
+    { type: "spending", amount: 300, cat: "Dining", date: "2026-04-10" },
+    { type: "spending", amount: 500, cat: "Dining", date: "2026-05-10" },
+    { type: "spending", amount: 100, cat: "Dining", date: "2026-06-10" },
+  ];
+  const byMonth = { "2026-04": 300, "2026-05": 500 };
+  assert.equal(rolloverBalance(byMonth, 400, "2026-06"), 0); // +100 −100
+
+  const rows = budgetStatus(hist, { Dining: 400 }, "2026-06", new Date(2026, 5, 21), {
+    Dining: { rollover: true },
+  });
+  const d = rows[0];
+  assert.equal(d.carry, 0);
+  assert.equal(d.budget, 400); // cap + carry
+  assert.equal(d.spent, 100);
+  assert.equal(d.remaining, 300);
+
+  // with only Apr's +100 surplus before May, May's effective cap is 500
+  const r2 = rolloverBalance({ "2026-04": 300 }, 400, "2026-05");
+  assert.equal(r2, 100);
+});
+
+test("rollover off (default) ignores prior months", () => {
+  const hist = [
+    { type: "spending", amount: 300, cat: "Dining", date: "2026-04-10" },
+    { type: "spending", amount: 100, cat: "Dining", date: "2026-06-10" },
+  ];
+  const rows = budgetStatus(hist, { Dining: 400 }, "2026-06", new Date(2026, 5, 21));
+  assert.equal(rows[0].budget, 400);
+  assert.equal(rows[0].carry, 0);
+  assert.equal(rows[0].rollover, false);
+});
+
+test("annual period tracks the calendar year's spend vs a yearly cap", () => {
+  const hist = [
+    { type: "spending", amount: 800, cat: "Travel", date: "2026-02-10" },
+    { type: "spending", amount: 700, cat: "Travel", date: "2026-06-10" },
+    { type: "spending", amount: 500, cat: "Travel", date: "2025-12-10" }, // prior year, excluded
+  ];
+  const rows = budgetStatus(hist, { Travel: 3000 }, "2026-06", new Date(2026, 5, 21), {
+    Travel: { period: "annual" },
+  });
+  const t = rows[0];
+  assert.equal(t.period, "annual");
+  assert.equal(t.spent, 1500); // 800 + 700 this year
+  assert.equal(t.budget, 3000);
+  assert.equal(t.remaining, 1500);
+  assert.equal(t.daysLeft, 194); // Jun 21 → Dec 31 inclusive
 });
 
 test("categoryAverages = mean monthly spend over complete prior months", () => {
