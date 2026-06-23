@@ -20,6 +20,7 @@ import {
 } from "./lib/selectors.js";
 import { computeAdherence, computeDailyStreak } from "./lib/streak.js";
 import { holdingsValueByAccount, INVESTMENT_TYPES } from "./lib/portfolio.js";
+import { computeReminders } from "./lib/reminders.js";
 import { allCategories } from "./lib/categories.js";
 import { uid } from "./lib/uid.js";
 import Setup from "./Setup.jsx";
@@ -369,6 +370,8 @@ export default function App() {
     [transactions, freezes],
   );
   const streakNow = dailyStreak.current;
+  // time-based alerts (paydays, bills, buffer, est. taxes, streak) for the Home card
+  const reminders = useMemo(() => computeReminders(data), [data]);
   const emergencyTarget = profile?.emergencyTarget || 0;
   const moneyTargets = profile?.moneyTargets; // stable ref (don't `|| []` here — see deps)
   const milestoneList = useMemo(
@@ -665,6 +668,7 @@ export default function App() {
                 investedTotal={investedTotal}
                 milestoneList={milestoneList}
                 freezes={freezes}
+                reminders={reminders}
                 onGo={setTab}
               />
             )}

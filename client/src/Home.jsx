@@ -9,7 +9,7 @@ import { nextPaydays } from "./lib/paydays.js";
 import { cashflowForecast, spendingTrends, coachNudges } from "./lib/insights.js";
 import { budgetStatus, budgetAlert } from "./lib/budgets.js";
 import { learnFeed } from "./lib/learn.js";
-import { Flame, Check, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
+import { Flame, Check, TrendingUp, TrendingDown, ArrowRight, Bell, X } from "lucide-react";
 import SankeyFlow from "./Sankey.jsx";
 import Calendar from "./Calendar.jsx";
 import MilestoneIcon from "./MilestoneIcon.jsx";
@@ -19,6 +19,11 @@ const greeting = () => {
 };
 const fmtDate = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
+const REMINDER_TONE = {
+  urgent: "bg-rose-50 text-rose-700",
+  warn: "bg-amber-50 text-amber-700",
+  info: "bg-brand-50 text-brand-700",
+};
 const TONE = {
   slate: ["bg-slate-100", "text-slate-500", "text-slate-900"],
   emerald: ["bg-emerald-50", "text-emerald-700", "text-emerald-700"],
@@ -65,8 +70,11 @@ export default function Home({
   investedTotal = 0,
   milestoneList = [],
   freezes = 2,
+  reminders = [],
   onGo,
 }) {
+  const [dismissed, setDismissed] = useState(() => new Set());
+  const activeReminders = reminders.filter((r) => !dismissed.has(r.id));
   const ym = thisMonth();
   const {
     income: incomeThisMonth,
@@ -272,6 +280,35 @@ export default function Home({
             : "log a balance in Setup for real net worth"}
         </div>
       </div>
+
+      {/* reminders — time-based alerts (paydays, bills, buffer, est. taxes, streak) */}
+      {activeReminders.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 lg:col-span-2">
+          <div className="flex items-center gap-1.5 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <Bell size={13} /> Reminders
+          </div>
+          <div className="space-y-2">
+            {activeReminders.map((r) => (
+              <div
+                key={r.id}
+                className={`flex items-start gap-2 rounded-lg p-2.5 ${REMINDER_TONE[r.severity] || REMINDER_TONE.info}`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{r.title}</div>
+                  {r.detail && <div className="text-xs opacity-80">{r.detail}</div>}
+                </div>
+                <button
+                  onClick={() => setDismissed((s) => new Set(s).add(r.id))}
+                  aria-label={`Dismiss: ${r.title}`}
+                  className="-m-1 flex h-7 w-7 flex-shrink-0 items-center justify-center opacity-60 hover:opacity-100"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* key numbers */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:col-span-2">
