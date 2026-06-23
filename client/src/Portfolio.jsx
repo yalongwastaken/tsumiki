@@ -90,7 +90,7 @@ function AllocationDonut({ segs, total }) {
 const REC_TONE = {
   warn: "bg-amber-50 text-amber-800",
   good: "bg-emerald-50 text-emerald-700",
-  info: "bg-brand-50 text-brand-700",
+  info: "bg-brand-50 text-brand-800",
 };
 const pct = (x) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(1)}%`;
 const ago = (ts) => {

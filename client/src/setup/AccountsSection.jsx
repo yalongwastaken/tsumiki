@@ -11,7 +11,7 @@ const ACCOUNT_TYPES = ["checking", "savings", "brokerage", "ira", "roth", "401k"
 const TYPE_LABEL = { "401k": "401(k)", ira: "IRA", roth: "Roth IRA" };
 const typeLabel = (t) => TYPE_LABEL[t] || t;
 const isInvestment = (t) => INVESTMENT_TYPES.has(t);
-const iconBtn = "-m-1 flex h-9 w-9 items-center justify-center"; // ≥36px tap target
+const iconBtn = "-m-1.5 flex h-11 w-11 items-center justify-center"; // 44px tap target (WCAG 2.5.5)
 
 /** Accounts editor body (rendered inside the accordion Section). */
 export default function AccountsSection({ data, onSave, prices = null }) {

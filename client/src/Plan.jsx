@@ -431,7 +431,7 @@ export default function Plan({
                   <span className="font-medium text-slate-700">{label}</span>
                   <span className="font-mono text-slate-600">
                     {fmt(act)}
-                    <span className="text-slate-400"> / {fmt(tgt)}</span>
+                    <span className="text-slate-500"> / {fmt(tgt)}</span>
                   </span>
                 </div>
                 <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -485,7 +485,7 @@ export default function Plan({
             <span className="text-sm text-slate-600">Balance vs. floor</span>
             <span className="font-mono text-sm text-slate-700">
               {fmt(checkingBalance)}
-              <span className="text-slate-400"> / {fmt(floor)} min</span>
+              <span className="text-slate-500"> / {fmt(floor)} min</span>
             </span>
           </div>
           {checkingBalance < floor ? (
