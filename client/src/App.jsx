@@ -370,8 +370,13 @@ export default function App() {
     [transactions, freezes],
   );
   const streakNow = dailyStreak.current;
-  // time-based alerts (paydays, bills, buffer, est. taxes, streak) for the Home card
-  const reminders = useMemo(() => computeReminders(data), [data]);
+  // time-based alerts (paydays, bills, buffer, est. taxes, streak) for the Home card.
+  // Depend on the slices it reads (not the whole `data` ref, which churns on every
+  // save) and reuse the streak we already computed.
+  const reminders = useMemo(
+    () => computeReminders(data, new Date(), { dailyStreak }),
+    [profile, accounts, snapshots, transactions, settings, dailyStreak], // eslint-disable-line
+  );
   const emergencyTarget = profile?.emergencyTarget || 0;
   const moneyTargets = profile?.moneyTargets; // stable ref (don't `|| []` here — see deps)
   const milestoneList = useMemo(
@@ -668,6 +673,7 @@ export default function App() {
                 investedTotal={investedTotal}
                 milestoneList={milestoneList}
                 freezes={freezes}
+                dailyStreak={dailyStreak}
                 reminders={reminders}
                 onGo={setTab}
               />

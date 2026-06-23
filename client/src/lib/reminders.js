@@ -117,9 +117,11 @@ export function computeReminders(state = {}, today = new Date(), opts = {}) {
     }
   }
 
-  // daily streak about to lapse (nothing logged today, with a run going)
-  const freezes = settings.streakFreezes ?? 2;
-  const streak = computeDailyStreak(transactions, freezes, +today);
+  // daily streak about to lapse (nothing logged today, with a run going). Reuse a
+  // precomputed streak when the caller has one (App already derives it) to avoid a
+  // third full-ledger walk; fall back to computing it for standalone callers/tests.
+  const streak =
+    opts.dailyStreak || computeDailyStreak(transactions, settings.streakFreezes ?? 2, +today);
   if (!streak.loggedToday && streak.current > 0) {
     out.push({
       id: "streak-risk",

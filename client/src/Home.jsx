@@ -22,7 +22,7 @@ const fmtDate = (d) => d.toLocaleDateString(undefined, { month: "short", day: "n
 const REMINDER_TONE = {
   urgent: "bg-rose-50 text-rose-700",
   warn: "bg-amber-50 text-amber-700",
-  info: "bg-brand-50 text-brand-700",
+  info: "bg-brand-50 text-brand-800", // brand-800 clears AA on brand-50; 700 was borderline
 };
 const TONE = {
   slate: ["bg-slate-100", "text-slate-500", "text-slate-900"],
@@ -70,6 +70,7 @@ export default function Home({
   investedTotal = 0,
   milestoneList = [],
   freezes = 2,
+  dailyStreak = null,
   reminders = [],
   onGo,
 }) {
@@ -105,7 +106,11 @@ export default function Home({
   }, []);
   const leftToAllocate = incomeThisMonth - contribThisMonth - spendThisMonth;
 
-  const adh = useMemo(() => computeDailyStreak(transactions, freezes), [transactions, freezes]);
+  // reuse the streak App already computed; fall back to deriving it if rendered standalone
+  const adh = useMemo(
+    () => dailyStreak || computeDailyStreak(transactions, freezes),
+    [dailyStreak, transactions, freezes],
+  );
   const next = nextMilestone(milestoneList);
   const nw = snapshots.length ? realNetWorth : investedTotal;
 
@@ -206,7 +211,7 @@ export default function Home({
   const TREND_TONE = {
     warn: "bg-amber-50 text-amber-800",
     good: "bg-emerald-50 text-emerald-700",
-    info: "bg-brand-50 text-brand-700",
+    info: "bg-brand-50 text-brand-800",
   };
 
   return (
@@ -295,12 +300,12 @@ export default function Home({
               >
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium">{r.title}</div>
-                  {r.detail && <div className="text-xs opacity-80">{r.detail}</div>}
+                  {r.detail && <div className="text-xs text-slate-600">{r.detail}</div>}
                 </div>
                 <button
                   onClick={() => setDismissed((s) => new Set(s).add(r.id))}
                   aria-label={`Dismiss: ${r.title}`}
-                  className="-m-1 flex h-7 w-7 flex-shrink-0 items-center justify-center opacity-60 hover:opacity-100"
+                  className="-m-1.5 flex h-10 w-10 flex-shrink-0 items-center justify-center opacity-70 hover:opacity-100"
                 >
                   <X size={14} />
                 </button>
@@ -420,16 +425,16 @@ export default function Home({
               <div key={t.cat} className="flex items-center gap-2 text-sm">
                 <span className="text-slate-600 flex-1 truncate">{t.cat}</span>
                 {t.dir === "up" ? (
-                  <TrendingUp size={14} className="text-rose-400" />
+                  <TrendingUp size={14} className="text-rose-500" />
                 ) : t.dir === "down" ? (
-                  <TrendingDown size={14} className="text-emerald-500" />
+                  <TrendingDown size={14} className="text-emerald-600" />
                 ) : (
-                  <span className="text-slate-400 text-xs">flat</span>
+                  <span className="text-slate-500 text-xs">flat</span>
                 )}
                 <span className="font-mono text-slate-800 w-16 text-right">{fmt(t.now)}</span>
                 {t.avg > 0 && (
                   <span
-                    className={`text-xs w-12 text-right ${t.dir === "up" ? "text-rose-400" : t.dir === "down" ? "text-emerald-500" : "text-slate-500"}`}
+                    className={`text-xs w-12 text-right ${t.dir === "up" ? "text-rose-500" : t.dir === "down" ? "text-emerald-600" : "text-slate-500"}`}
                   >
                     {t.delta > 0 ? "+" : ""}
                     {Math.round(t.delta * 100)}%
@@ -454,7 +459,7 @@ export default function Home({
                   <span className="text-slate-600 truncate">{c.cat}</span>
                   <span className="font-mono text-xs text-slate-500">
                     {fmt(c.amount)}
-                    <span className="text-slate-400">
+                    <span className="text-slate-500">
                       {" "}
                       · {Math.round((c.amount / spendThisMonth) * 100)}%
                     </span>
@@ -483,7 +488,7 @@ export default function Home({
                   <span className="text-slate-600">{b.cat}</span>
                   <span className="font-mono text-xs text-slate-500">
                     {fmt(b.spent)}
-                    <span className="text-slate-400"> / {fmt(b.budget)}</span>
+                    <span className="text-slate-500"> / {fmt(b.budget)}</span>
                   </span>
                 </div>
                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
