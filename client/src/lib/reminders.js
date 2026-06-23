@@ -4,7 +4,7 @@
 // both the in-app alerts and (opt-in) server-scheduled push.
 import { nextPaydays } from "./paydays.js";
 import { nextQuarterlyDue } from "./tax.js";
-import { computeDailyStreak } from "./streak.js";
+import { computeDailyStreak, dayKey } from "./streak.js";
 import { sumLatestByType } from "./selectors.js";
 import { fmt } from "./format.js";
 
@@ -46,47 +46,49 @@ export function computeReminders(state = {}, today = new Date(), opts = {}) {
   const taxHorizon = opts.taxHorizonDays ?? 14;
   const out = [];
 
-  // upcoming paydays (one per income source that has a date + cadence)
-  for (const s of profile.incomeSources || []) {
+  // upcoming paydays (one per income source that has a date + cadence). Index in the
+  // id keeps it unique even if two sources somehow share an id.
+  (profile.incomeSources || []).forEach((s, i) => {
     const next = nextPaydays(s.payday, s.cadence, 1, today)[0];
     if (!next) {
-      continue;
+      return;
     }
     const d = daysBetween(next, today);
     if (d >= 0 && d <= horizon) {
       out.push({
-        id: `payday-${s.id}-${next.toISOString().slice(0, 10)}`,
+        id: `payday-${i}-${s.id}-${dayKey(next)}`,
         kind: "payday",
         severity: "info",
         title: d === 0 ? `${s.name} payday today` : `${s.name} payday in ${d} day${plural(d)}`,
         detail: "Time to move money toward your plan.",
-        date: next.toISOString().slice(0, 10),
+        date: dayKey(next),
       });
     }
-  }
+  });
 
   // bills due soon (only bills with a day-of-month set)
-  for (const b of profile.bills || []) {
+  (profile.bills || []).forEach((b, i) => {
     if (!b.dayOfMonth) {
-      continue;
+      return;
     }
     const next = nextDayOfMonth(b.dayOfMonth, today);
     const d = daysBetween(next, today);
     if (d >= 0 && d <= horizon) {
       out.push({
-        id: `bill-${b.id}-${next.toISOString().slice(0, 10)}`,
+        id: `bill-${i}-${b.id}-${dayKey(next)}`,
         kind: "bill",
         severity: d <= 2 ? "warn" : "info",
         title: d === 0 ? `${b.name} due today` : `${b.name} due in ${d} day${plural(d)}`,
         detail: `${b.amount ? `${fmt(b.amount)} · ` : ""}${shortDate(next)}`,
-        date: next.toISOString().slice(0, 10),
+        date: dayKey(next),
       });
     }
-  }
+  });
 
-  // checking below its buffer floor
+  // checking below its buffer floor (only once at least one checking account exists,
+  // so someone who simply hasn't added a checking account doesn't get a false alarm)
   const floor = Number(profile.checkingFloor) || 0;
-  if (floor > 0) {
+  if (floor > 0 && accounts.some((a) => a.type === "checking")) {
     const checking = sumLatestByType(accounts, snapshots, ["checking"]);
     if (checking < floor) {
       out.push({
@@ -105,12 +107,12 @@ export function computeReminders(state = {}, today = new Date(), opts = {}) {
     const d = daysBetween(due, today);
     if (d >= 0 && d <= taxHorizon) {
       out.push({
-        id: `tax-${due.toISOString().slice(0, 10)}`,
+        id: `tax-${dayKey(due)}`,
         kind: "tax",
         severity: d <= 7 ? "warn" : "info",
         title: d === 0 ? "Estimated taxes due today" : `Estimated taxes due ${shortDate(due)}`,
         detail: "Self-employed income isn't withheld — set aside your quarterly payment.",
-        date: due.toISOString().slice(0, 10),
+        date: dayKey(due),
       });
     }
   }

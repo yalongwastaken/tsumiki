@@ -83,6 +83,38 @@ test("per-kind preferences turn a reminder off (settings.reminders[kind] === fal
   assert.ok(k.buffer);
 });
 
+test("dates are local YYYY-MM-DD (no UTC day shift) and ids are unique", () => {
+  const rs = computeReminders(baseState, TODAY);
+  const bill = rs.find((r) => r.kind === "bill");
+  assert.equal(bill.date, "2026-06-15"); // local calendar day, stable in every TZ
+  assert.equal(new Set(rs.map((r) => r.id)).size, rs.length); // all ids distinct
+});
+
+test("two bills sharing an id still produce distinct reminder ids", () => {
+  const dup = {
+    ...baseState,
+    profile: {
+      ...baseState.profile,
+      bills: [
+        { id: "x", name: "A", amount: 10, dayOfMonth: 15 },
+        { id: "x", name: "B", amount: 20, dayOfMonth: 15 },
+      ],
+    },
+  };
+  const bills = computeReminders(dup, TODAY).filter((r) => r.kind === "bill");
+  assert.equal(bills.length, 2);
+  assert.notEqual(bills[0].id, bills[1].id);
+});
+
+test("buffer reminder is suppressed when there is no checking account", () => {
+  const noChk = {
+    ...baseState,
+    accounts: [{ id: "sav", name: "Savings", type: "savings" }],
+    snapshots: [{ id: "s", accountId: "sav", date: iso(2026, 5, 1), balance: 50 }],
+  };
+  assert.equal(byKind(computeReminders(noChk, TODAY)).buffer, undefined);
+});
+
 test("empty state yields no reminders and never throws", () => {
   assert.deepEqual(computeReminders({}, TODAY), []);
   assert.deepEqual(computeReminders(undefined, TODAY), []);
