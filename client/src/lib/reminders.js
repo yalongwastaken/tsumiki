@@ -128,9 +128,13 @@ export function computeReminders(state = {}, today = new Date(), opts = {}) {
     });
   }
 
-  // most urgent first, then soonest dated
+  // honor per-kind preferences (settings.reminders[kind] === false turns one off;
+  // anything not explicitly disabled stays on), then sort urgent → soonest dated.
+  const prefs = settings.reminders || {};
   const rank = { urgent: 0, warn: 1, info: 2 };
-  return out.sort(
-    (a, b) => rank[a.severity] - rank[b.severity] || (a.date || "").localeCompare(b.date || ""),
-  );
+  return out
+    .filter((r) => prefs[r.kind] !== false)
+    .sort(
+      (a, b) => rank[a.severity] - rank[b.severity] || (a.date || "").localeCompare(b.date || ""),
+    );
 }

@@ -208,6 +208,44 @@ export default function Setup({
             </div>
           </div>
 
+          {/* Reminders — which time-based alerts show on Home */}
+          <div className={card}>
+            <div className={label + " mb-3"}>Reminders</div>
+            <div className="space-y-2.5">
+              {[
+                ["payday", "Upcoming paydays"],
+                ["bill", "Bills due soon"],
+                ["buffer", "Low checking buffer"],
+                ["tax", "Estimated-tax deadlines"],
+                ["streak", "Streak about to lapse"],
+              ].map(([k, l]) => (
+                <label
+                  key={k}
+                  className="flex cursor-pointer items-center justify-between gap-2 text-sm text-slate-700"
+                >
+                  {l}
+                  <input
+                    type="checkbox"
+                    checked={settings.reminders?.[k] ?? true}
+                    onChange={(e) =>
+                      onSave({
+                        ...data,
+                        settings: {
+                          ...settings,
+                          reminders: { ...(settings.reminders || {}), [k]: e.target.checked },
+                        },
+                      })
+                    }
+                    className="h-4 w-4 rounded border-slate-300 text-brand-600"
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="mt-2 text-xs text-slate-500">
+              Shown on Home; turned-off ones are hidden.
+            </div>
+          </div>
+
           {/* Category budgets (envelope caps) */}
           <BudgetsSection data={data} onSave={onSave} />
 

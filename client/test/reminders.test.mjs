@@ -72,6 +72,17 @@ test("no streak reminder once today is logged", () => {
   assert.equal(byKind(computeReminders(logged, TODAY)).streak, undefined);
 });
 
+test("per-kind preferences turn a reminder off (settings.reminders[kind] === false)", () => {
+  const muted = {
+    ...baseState,
+    settings: { ...baseState.settings, reminders: { bill: false } },
+  };
+  const k = byKind(computeReminders(muted, TODAY));
+  assert.equal(k.bill, undefined); // bills muted
+  assert.ok(k.payday); // others still on
+  assert.ok(k.buffer);
+});
+
 test("empty state yields no reminders and never throws", () => {
   assert.deepEqual(computeReminders({}, TODAY), []);
   assert.deepEqual(computeReminders(undefined, TODAY), []);
