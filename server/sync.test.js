@@ -121,3 +121,38 @@ test("FINNHUB FALLBACK: keyless feed empty + key set → source 'finnhub'", asyn
   assert.equal(out.prices.AAPL.price, 222.22);
   delete process.env.TSUMIKI_FINNHUB_KEY;
 });
+
+test("MERGE: a partial first feed is completed by a second feed (not masked)", async () => {
+  db.putState({
+    holdings: [
+      { id: "h1", ticker: "AAPL", shares: 1 },
+      { id: "h2", ticker: "MSFT", shares: 1 },
+    ],
+  });
+  delete process.env.TSUMIKI_FINNHUB_KEY;
+  // feed A only knows AAPL; feed B only knows MSFT — together they're complete
+  setFeed(`${base}/a?s={SYMBOLS}, ${base}/b?s={SYMBOLS}`);
+  feedResponder = (req) =>
+    req.url.startsWith("/a")
+      ? { status: 200, body: stooqCsv([{ s: "AAPL", d: "2026-06-24", c: 230 }]) }
+      : { status: 200, body: stooqCsv([{ s: "MSFT", d: "2026-06-24", c: 430 }]) };
+  await prices.refreshPrices();
+  const out = await prices.getPrices();
+  assert.equal(out.lastSync.status, "ok"); // both filled despite each feed being partial
+  assert.deepEqual(out.lastSync.missing, []);
+  assert.equal(out.lastSync.source, "feed,feed-2"); // both providers contributed
+  assert.equal(out.prices.AAPL.price, 230);
+  assert.equal(out.prices.MSFT.price, 430);
+});
+
+test("ERROR vs EMPTY: Finnhub unreachable while feed is empty → 'error'", async () => {
+  db.putState({ holdings: [{ id: "h1", ticker: "AAPL", shares: 1 }] });
+  setFeed(`${base}/empty?s={SYMBOLS}`); // reachable, returns no rows
+  feedResponder = () => ({ status: 200, body: "Symbol,Date,Close\n" });
+  process.env.TSUMIKI_FINNHUB_KEY = "k";
+  process.env.TSUMIKI_FINNHUB_URL = "http://127.0.0.1:1/finnhub"; // nothing listens → throws
+  await prices.refreshPrices();
+  const out = await prices.getPrices();
+  assert.equal(out.lastSync.status, "error"); // not "empty": a provider genuinely failed
+  delete process.env.TSUMIKI_FINNHUB_KEY;
+});

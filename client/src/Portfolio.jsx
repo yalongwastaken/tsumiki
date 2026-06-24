@@ -101,20 +101,34 @@ const ago = (ts) => {
   return h < 1 ? "just now" : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
 };
 
-// a human note when the last sync didn't fully succeed (null when it's fine / off)
-function syncProblem(ls) {
+// a human note when the last sync didn't fully succeed (null when it's fine / off).
+// Returns {text, tone} so an error can be announced more assertively than a partial.
+// Exported for unit testing.
+export function syncProblem(ls) {
   if (!ls || ls.status === "ok" || ls.status === "idle" || ls.status === "disabled") {
     return null;
   }
   if (ls.status === "error") {
-    return "Last price sync couldn't reach the feed — showing the last saved prices.";
+    return {
+      text: "Last price sync couldn't reach the feed — showing the last saved prices.",
+      tone: "error",
+    };
   }
   if (ls.status === "empty") {
-    return "Last price sync returned no data — showing the last saved prices.";
+    return {
+      text: "Last price sync returned no data — showing the last saved prices.",
+      tone: "error",
+    };
   }
   if (ls.status === "partial") {
     const m = ls.missing || [];
-    return `No fresh price for ${m.join(", ")} — showing the last saved value${m.length > 1 ? "s" : ""}.`;
+    // cap the list so a portfolio with many un-priced tickers can't produce a runaway sentence
+    const shown = m.slice(0, 4).join(", ");
+    const extra = m.length > 4 ? ` +${m.length - 4} more` : "";
+    return {
+      text: `No fresh price for ${shown}${extra} — showing the last saved value${m.length > 1 ? "s" : ""}.`,
+      tone: "warn",
+    };
   }
   return null;
 }
@@ -189,7 +203,9 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
         </div>
       ) : (
         <div className="text-sm text-slate-500 mb-1">
-          Prices sync nightly when enabled on the server (off by default).
+          {prices?.enabled
+            ? "Prices are enabled but haven't synced yet — tap Sync now."
+            : "Prices sync nightly when enabled on the server (off by default)."}
         </div>
       )}
       {totals.priced && retire > 0 && (
@@ -261,15 +277,26 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
       )}
 
       {problem && (
-        <div className="mt-3 rounded-lg p-2.5 text-sm bg-amber-50 text-amber-800" role="status">
-          {problem}
+        <div
+          className="mt-3 rounded-lg p-2.5 text-sm bg-amber-50 text-amber-800 break-words"
+          role={problem.tone === "error" ? "alert" : "status"}
+        >
+          {problem.text}
         </div>
       )}
 
       <div className="flex items-center justify-between gap-2 mt-3">
         <div className="text-xs text-slate-500">
-          {synced ? `Prices synced ${synced}.` : "Manual holdings."} Health notes are general info,
-          not advice.
+          {/* when the latest sync failed, don't claim a fresh "synced Xh ago"; clarify the
+              shown prices are the last good ones */}
+          {problem
+            ? synced
+              ? `Showing prices from last good sync (${synced}).`
+              : "Showing manual holdings."
+            : synced
+              ? `Prices synced ${synced}.`
+              : "Manual holdings."}{" "}
+          Health notes are general info, not advice.
         </div>
         {prices?.enabled && onSync && (
           <button

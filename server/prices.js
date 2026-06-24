@@ -20,6 +20,7 @@ import {
 import { fetchTextCapped } from "./http.js";
 
 const TTL = 20 * 60 * 60 * 1000; // refetch at most ~daily
+const RETRY_FLOOR = 5 * 60 * 1000; // after a failed sync, wait this long before a lazy retry
 const HIST_MAX = 40;
 const DEFAULT_STOOQ = "https://stooq.com/q/l/?s={SYMBOLS}&f=sd2ohlcv&h&e=csv";
 
@@ -135,6 +136,7 @@ async function fetchFinnhub(symbols) {
   const base = finnhubUrl();
   const key = finnhubKey();
   const rows = [];
+  let errors = 0;
   for (const s of symbols) {
     try {
       const u = `${base}?symbol=${encodeURIComponent(s)}&token=${encodeURIComponent(key)}`;
@@ -144,8 +146,13 @@ async function fetchFinnhub(symbols) {
         rows.push(row);
       }
     } catch {
-      /* skip this symbol; other providers/symbols still count */
+      errors++; // skip this symbol, but remember a real failure occurred
     }
+  }
+  // if every request errored and nothing came back, surface it so the loop records
+  // status:"error" (unreachable) rather than "empty" (reached, no data).
+  if (!rows.length && errors) {
+    throw new Error("finnhub: all requests failed");
   }
   return rows;
 }
@@ -169,8 +176,22 @@ function recordHistory(history, symbol, date, price) {
       h.shift();
     }
   }
-  // week-over-week change: compare to ~5 trading days ago when we have it
-  const prior = h.length > 5 ? h[h.length - 6].price : null;
+  // week-over-week change: find the latest entry at least ~5 calendar days before this
+  // one (robust to sparse/partial history, unlike a fixed "6 entries back" index). Falls
+  // back to a fixed offset only when dates are unparseable (a dateless custom feed).
+  const cur = Date.parse(date);
+  let prior = null;
+  if (Number.isFinite(cur)) {
+    for (let i = h.length - 2; i >= 0; i--) {
+      const t = Date.parse(h[i].date);
+      if (Number.isFinite(t) && cur - t >= 5 * 864e5) {
+        prior = h[i].price;
+        break;
+      }
+    }
+  } else if (h.length > 5) {
+    prior = h[h.length - 6].price;
+  }
   return prior && prior > 0 ? (price - prior) / prior : null;
 }
 
@@ -199,22 +220,32 @@ async function doRefresh() {
     lastSync = { status: "ok", at: Date.now(), source: null, missing: [] };
     return cache;
   }
-  // try each provider in order; first one to return any rows wins
-  let rows = [];
-  let source = null;
+  // try providers in order, each asked only for the symbols still missing, merging
+  // their results. This way a provider that prices *some* symbols doesn't mask a
+  // later provider that could fill the rest; we stop as soon as everything is covered.
+  const collected = {}; // SYMBOL → {symbol, close, date}
+  const sources = [];
   let anyError = false;
   for (const p of providers()) {
+    const need = symbols.filter((s) => !(s in collected));
+    if (!need.length) {
+      break;
+    }
     try {
-      const got = await p.fetch(symbols);
-      if (got && got.length) {
-        rows = got;
-        source = p.name;
-        break;
+      const got = (await p.fetch(need)) || [];
+      const fresh = got.filter((r) => need.includes(r.symbol) && !(r.symbol in collected));
+      if (fresh.length) {
+        for (const r of fresh) {
+          collected[r.symbol] = r;
+        }
+        sources.push(p.name);
       }
     } catch {
       anyError = true;
     }
   }
+  const rows = Object.values(collected);
+  const source = sources.length ? sources.join(",") : null;
 
   if (rows.length) {
     const prices = { ...cache.prices };
@@ -248,9 +279,13 @@ async function doRefresh() {
   return cache;
 }
 
-/** Cached prices, refreshing lazily when stale. */
+/** Cached prices, refreshing lazily when stale (but not on every read during an outage). */
 export async function getPrices() {
-  if (enabled() && Date.now() - cache.fetchedAt > TTL) {
+  const fresh = cache.fetchedAt && Date.now() - cache.fetchedAt <= TTL;
+  // when the last attempt failed, back off so a down feed doesn't make every read slow;
+  // a manual "Sync now" (refreshPrices) bypasses this floor.
+  const recentlyTried = lastSync.at && Date.now() - lastSync.at < RETRY_FLOOR;
+  if (enabled() && !fresh && !recentlyTried) {
     await refreshPrices();
   }
   return {

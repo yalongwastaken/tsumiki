@@ -10,7 +10,7 @@ import NetWorthCard from "../../src/NetWorthCard.jsx";
 import AreaChart from "../../src/Chart.jsx";
 import MoneyTargets from "../../src/MoneyTargets.jsx";
 import QuickAdd from "../../src/QuickAdd.jsx";
-import Portfolio from "../../src/Portfolio.jsx";
+import Portfolio, { syncProblem } from "../../src/Portfolio.jsx";
 
 const html = (el) => renderToStaticMarkup(el);
 
@@ -59,4 +59,72 @@ test("QuickAdd (closed) renders nothing", () => {
 test("Portfolio empty state prompts to add holdings", () => {
   const out = html(h(Portfolio, { holdings: [], prices: null }));
   assert.match(out, /Track individual stocks/);
+});
+
+test("syncProblem: clean statuses + missing payloads return null", () => {
+  for (const status of ["ok", "idle", "disabled"]) {
+    assert.equal(syncProblem({ status, missing: [] }), null);
+  }
+  assert.equal(syncProblem(null), null); // older payload with no lastSync
+  assert.equal(syncProblem(undefined), null);
+  assert.equal(syncProblem({ status: "weird-future-status" }), null); // fail safe
+});
+
+test("syncProblem: error/empty are assertive (alert tone), partial is a warning", () => {
+  assert.equal(syncProblem({ status: "error" }).tone, "error");
+  assert.equal(syncProblem({ status: "empty" }).tone, "error");
+  assert.equal(syncProblem({ status: "partial", missing: ["MSFT"] }).tone, "warn");
+});
+
+test("syncProblem: partial names the missing tickers, caps a long list, pluralizes", () => {
+  const one = syncProblem({ status: "partial", missing: ["MSFT"] });
+  assert.match(one.text, /No fresh price for MSFT/);
+  assert.match(one.text, /last saved value\./); // singular
+
+  const many = syncProblem({
+    status: "partial",
+    missing: ["A", "B", "C", "D", "E", "F"],
+  });
+  assert.match(many.text, /A, B, C, D \+2 more/); // capped at 4 + "+N more"
+  assert.match(many.text, /last saved values\./); // plural
+
+  // tolerates an undefined missing array without throwing
+  assert.doesNotThrow(() => syncProblem({ status: "partial" }));
+});
+
+test("Portfolio shows a failure note + 'last good sync' wording, not a fresh-sync claim", () => {
+  const out = html(
+    h(Portfolio, {
+      holdings: [{ id: "h1", ticker: "AAPL", shares: 10, account: "taxable" }],
+      prices: {
+        enabled: true,
+        prices: { AAPL: { price: 100, date: "2026-06-20", changePct: null } },
+        fetchedAt: Date.now() - 2 * 3.6e6, // 2h-old last-good data
+        history: [],
+        lastSync: { status: "error", at: Date.now(), source: null, missing: ["AAPL"] },
+      },
+    }),
+  );
+  assert.match(out, /couldn&#x27;t reach the feed/); // the amber note
+  assert.match(out, /role="alert"/); // error is announced assertively
+  assert.match(out, /last good sync/); // footer doesn't claim a fresh sync
+  assert.doesNotMatch(out, /Prices synced 2h ago/); // ...the contradictory wording is gone
+});
+
+test("Portfolio idle (enabled, never synced) invites a first sync rather than 'off'", () => {
+  const out = html(
+    h(Portfolio, {
+      holdings: [{ id: "h1", ticker: "AAPL", shares: 10, account: "taxable" }],
+      prices: {
+        enabled: true,
+        prices: {},
+        fetchedAt: null,
+        history: [],
+        lastSync: { status: "idle", at: 0, source: null, missing: [] },
+      },
+      onSync() {},
+    }),
+  );
+  assert.match(out, /haven&#x27;t synced yet/);
+  assert.doesNotMatch(out, /off by default/);
 });

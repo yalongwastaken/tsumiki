@@ -13,8 +13,10 @@ export async function fetchTextCapped(url, { timeoutMs = 8000, maxBytes = 5_000_
   }
   const reader = res.body?.getReader?.();
   if (!reader) {
-    const t = await res.text(); // no stream API — fall back, still cap after read
-    return t.length > maxBytes ? null : t;
+    // no stream API (e.g. a test stub) — the body is already buffered, so this caps only
+    // what we *return*, not memory. Measure real UTF-8 bytes, not UTF-16 code units.
+    const t = await res.text();
+    return Buffer.byteLength(t, "utf8") > maxBytes ? null : t;
   }
   const chunks = [];
   let total = 0;
