@@ -1,7 +1,7 @@
 // prices.test.js — Stooq CSV parsing (the only non-trivial pure part of prices.js).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseStooqCsv } from "./prices.js";
+import { parseStooqCsv, parseFinnhubQuote } from "./prices.js";
 
 test("parses closes and strips the exchange suffix", () => {
   const csv = [
@@ -82,4 +82,30 @@ test("honors quoted fields (commas inside quotes don't shift columns)", () => {
   assert.equal(rows.length, 1);
   assert.equal(rows[0].symbol, "AAPL");
   assert.equal(rows[0].close, 200);
+});
+
+// ── Finnhub quote JSON (the API-key fallback provider) ──────────────────────────
+
+test("parseFinnhubQuote reads the current price and derives the date from the ts", () => {
+  const row = parseFinnhubQuote("aapl", { c: 201.5, t: 1750636800 }); // 2025-06-23 UTC
+  assert.equal(row.symbol, "AAPL"); // uppercased
+  assert.equal(row.close, 201.5);
+  assert.equal(row.date, "2025-06-23");
+});
+
+test("parseFinnhubQuote accepts a JSON string too", () => {
+  const row = parseFinnhubQuote("MSFT", '{"c":410,"t":1750636800}');
+  assert.equal(row.close, 410);
+});
+
+test("parseFinnhubQuote returns null for a zero/absent/garbage price", () => {
+  assert.equal(parseFinnhubQuote("X", { c: 0 }), null); // Finnhub's "unknown symbol" sentinel
+  assert.equal(parseFinnhubQuote("X", { c: -1 }), null);
+  assert.equal(parseFinnhubQuote("X", {}), null);
+  assert.equal(parseFinnhubQuote("X", "not json"), null);
+});
+
+test("parseFinnhubQuote falls back to today's date when the ts is missing", () => {
+  const row = parseFinnhubQuote("AAPL", { c: 100 });
+  assert.match(row.date, /^\d{4}-\d{2}-\d{2}$/);
 });
