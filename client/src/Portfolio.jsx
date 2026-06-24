@@ -101,6 +101,24 @@ const ago = (ts) => {
   return h < 1 ? "just now" : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
 };
 
+// a human note when the last sync didn't fully succeed (null when it's fine / off)
+function syncProblem(ls) {
+  if (!ls || ls.status === "ok" || ls.status === "idle" || ls.status === "disabled") {
+    return null;
+  }
+  if (ls.status === "error") {
+    return "Last price sync couldn't reach the feed — showing the last saved prices.";
+  }
+  if (ls.status === "empty") {
+    return "Last price sync returned no data — showing the last saved prices.";
+  }
+  if (ls.status === "partial") {
+    const m = ls.missing || [];
+    return `No fresh price for ${m.join(", ")} — showing the last saved value${m.length > 1 ? "s" : ""}.`;
+  }
+  return null;
+}
+
 /** Holdings table + allocation donut + total/gain + recommendations. `prices` is the
  * optional synced-price payload ({enabled, prices, fetchedAt}); `onSync` forces a refresh. */
 export default function Portfolio({ holdings = [], prices = null, onGoSetup, onSync }) {
@@ -139,6 +157,7 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
   const totals = portfolioTotals(rows);
   const recs = portfolioInsights(rows, totals);
   const synced = ago(prices?.fetchedAt);
+  const problem = syncProblem(prices?.lastSync);
   const retire = retirementValue(rows);
   const taxable = totals.value - retire;
   // allocation donut: one slice per priced holding, biggest first (≥2 to be useful)
@@ -238,6 +257,12 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
               {r.text}
             </div>
           ))}
+        </div>
+      )}
+
+      {problem && (
+        <div className="mt-3 rounded-lg p-2.5 text-sm bg-amber-50 text-amber-800" role="status">
+          {problem}
         </div>
       )}
 
