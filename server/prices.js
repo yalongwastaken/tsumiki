@@ -177,8 +177,9 @@ function recordHistory(history, symbol, date, price) {
     }
   }
   // week-over-week change: find the latest entry at least ~5 calendar days before this
-  // one (robust to sparse/partial history, unlike a fixed "6 entries back" index). Falls
-  // back to a fixed offset only when dates are unparseable (a dateless custom feed).
+  // one (robust to sparse/partial history, unlike a fixed "6 entries back" index). The
+  // fixed-offset fallback only helps a feed whose dates are distinct but unparseable; a
+  // truly date-less feed (empty dates) can't distinguish days, so change stays null.
   const cur = Date.parse(date);
   let prior = null;
   if (Number.isFinite(cur)) {

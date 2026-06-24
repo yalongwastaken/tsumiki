@@ -1,6 +1,6 @@
 # Tsumiki — personal money coach
 
-**v1.5.0** · self-hosted · single-user · no cloud, no AI in the product
+**v2.0.0** · self-hosted · single-user · no cloud, no AI in the product
 
 A self-hosted money **coach**, not just a tracker. Given the money you have, it tells
 you where it should go — essentials, debt, a checking buffer, savings, retirement, and
@@ -77,7 +77,9 @@ Open `http://<mini-pc-ip>:4000`. Configuration via environment variables:
 | `TSUMIKI_DB`          | `server/data/tsumiki.db` | SQLite database file path                                                                                                        |
 | `TSUMIKI_NEWS_FEED`   | _(unset → off)_          | optional public RSS/Atom URL for money headlines                                                                                 |
 | `TSUMIKI_PRICES`      | _(unset → off)_          | set to `1` to sync prices for your stock holdings                                                                                |
-| `TSUMIKI_PRICE_URL`   | _(Stooq CSV)_            | optional override of the price feed URL (`{SYMBOLS}` placeholder)                                                                |
+| `TSUMIKI_PRICE_URL`   | _(Stooq CSV)_            | price feed URL(s) (`{SYMBOLS}` placeholder); comma-separate to list fallback feeds tried in order                                |
+| `TSUMIKI_FINNHUB_KEY` | _(unset → off)_          | optional Finnhub API key; when set, Finnhub is tried as a fallback for any symbols the keyless feed(s) couldn't price            |
+| `TSUMIKI_FINNHUB_URL` | _(Finnhub quote API)_    | override the Finnhub quote endpoint (only sends a ticker + your key)                                                             |
 | `TSUMIKI_TRUST_PROXY` | _(unset → off)_          | set to `1` only when behind a TLS-terminating proxy (Tailscale serve / nginx) so `x-forwarded-proto` is trusted for the app lock |
 
 The money-news card and price sync are both **off by default** — the server makes
@@ -85,8 +87,13 @@ no outbound calls unless you opt in. With `TSUMIKI_NEWS_FEED` set it fetches tha
 feed nightly and serves headlines only. With `TSUMIKI_PRICES=1` it fetches daily
 closing prices **for only the tickers you hold** (symbols aren't personal) from a
 keyless public source, caches them, and falls back to the last good prices when
-offline. Both are general info, never personalized, and nothing about you leaves
-the device.
+offline. You can list several feeds in `TSUMIKI_PRICE_URL` (comma-separated) and
+they're tried in order; if you also set `TSUMIKI_FINNHUB_KEY`, Finnhub is tried as a
+last fallback (only your ticker symbols and your own key are sent to it). The
+Portfolio card shows the outcome of the last sync — synced, partial (which tickers
+had no data), nothing returned, or unreachable — so a stale feed is never silently
+passed off as fresh. Everything stays general info, never personalized, and nothing
+about you leaves the device.
 
 ## App lock (optional password)
 
@@ -163,7 +170,7 @@ Run `make help` for the full list: `install`, `dev`, `server`, `client`, `build`
 ## Releases
 
 See [`CHANGELOG.md`](./CHANGELOG.md). Releases follow [SemVer](https://semver.org);
-the current release is **v1.5.0**.
+the current release is **v2.0.0**.
 
 ## License
 

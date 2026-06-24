@@ -4,6 +4,49 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] — 2026-06-23
+
+This release makes the opt-in price sync **reliable and honest**: it no longer fails
+silently. There are no breaking changes to your data or API; the major bump marks the
+milestone of price sync being production-trustworthy (and follows a full end-to-end
+smoke test).
+
+### Added
+
+- **Provider fallback chain.** `TSUMIKI_PRICE_URL` now accepts a comma-separated list of
+  feed URLs, tried in order. Each provider is asked only for the symbols still missing
+  and results are **merged**, so a feed that prices only some of your holdings is
+  completed by the next one instead of masking it.
+- **Optional Finnhub fallback.** Set `TSUMIKI_FINNHUB_KEY` (and optionally
+  `TSUMIKI_FINNHUB_URL`) to add a keyed JSON quote provider, tried after the keyless
+  feed(s). Only your ticker symbols and your own key are sent to Finnhub — no holdings,
+  share counts, or other data ever leave the device. Still fully off by default.
+- **Last-sync outcome.** Every refresh records its result — `ok`, `partial` (with the
+  list of tickers that had no data), `empty` (feed reached but returned nothing),
+  `error` (feed unreachable), `idle`, or `disabled` — surfaced on `/api/prices`.
+- **Sync state in the Portfolio card.** Instead of silently showing stale values, the
+  card now shows when the last sync couldn't reach the feed, returned nothing, or only
+  priced some holdings (naming the missing tickers), and clarifies that the displayed
+  numbers are from the last good sync.
+
+### Fixed
+
+- A total Finnhub failure is now reported as `error` (unreachable), not `empty`.
+- Week-over-week change picks the latest history point at least ~5 calendar days back
+  rather than a fixed "6 entries ago" index, so sparse or partial history no longer
+  skews the percentage.
+- After a failed sync, lazy reads back off for 5 minutes (a manual "Sync now" still
+  forces an attempt) so a down feed doesn't make every page load slow.
+- The outbound size cap's no-stream fallback measures real UTF-8 bytes.
+
+### Internal
+
+- `parseFinnhubQuote` is pure and unit-tested; real localhost-socket integration tests
+  (`sync.test.js`) cover ok / partial / empty / unreachable / multi-URL fallback /
+  keyed fallback / merge-completes-partial. `syncProblem` is exported and tested.
+  Suite: 80 server + 138 client tests (across UTC, US/Pacific, Tokyo, UTC+14) + 11
+  component tests.
+
 ## [1.5.0] — 2026-06-23
 
 ### Added
@@ -238,6 +281,7 @@ own devices.
   for date-sensitive code) plus server-rendered component tests; Prettier + ESLint
   enforced.
 
+[2.0.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v2.0.0
 [1.5.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.5.0
 [1.4.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.4.0
 [1.3.0]: https://github.com/yalongwastaken/tsumiki/releases/tag/v1.3.0
