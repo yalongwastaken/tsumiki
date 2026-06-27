@@ -4,11 +4,13 @@ import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { fmt } from "./lib/format.js";
 import AreaChart from "./Chart.jsx";
+import StocksSankey from "./StocksSankey.jsx";
 import {
   portfolioRows,
   portfolioTotals,
   portfolioInsights,
   retirementValue,
+  portfolioFlow,
 } from "./lib/portfolio.js";
 
 const ACCT_LABEL = { taxable: "Taxable", "401k": "401(k)", ira: "IRA", roth: "Roth IRA" };
@@ -172,6 +174,9 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
   const recs = portfolioInsights(rows, totals);
   const synced = ago(prices?.fetchedAt);
   const problem = syncProblem(prices?.lastSync);
+  // show the stocks Sankey only when there are ≥2 priced holdings to separate
+  const flow = portfolioFlow(rows);
+  const showSankey = flow.total > 0 && flow.buckets.reduce((s, b) => s + b.holdings.length, 0) >= 2;
   const retire = retirementValue(rows);
   const taxable = totals.value - retire;
   // allocation donut: one slice per priced holding, biggest first (≥2 to be useful)
@@ -216,6 +221,13 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
 
       {allocSegs.length >= 2 && (
         <AllocationDonut segs={allocSegs} total={allocSegs.reduce((a, s) => a + s.amount, 0)} />
+      )}
+
+      {showSankey && (
+        <div className="mb-3">
+          <div className="text-xs text-slate-500 mb-1">Where your stocks sit</div>
+          <StocksSankey rows={rows} />
+        </div>
       )}
 
       {prices?.history?.length >= 2 && (

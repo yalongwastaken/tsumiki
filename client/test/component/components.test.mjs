@@ -11,6 +11,7 @@ import AreaChart from "../../src/Chart.jsx";
 import MoneyTargets from "../../src/MoneyTargets.jsx";
 import QuickAdd from "../../src/QuickAdd.jsx";
 import Portfolio, { syncProblem } from "../../src/Portfolio.jsx";
+import StocksSankey from "../../src/StocksSankey.jsx";
 
 const html = (el) => renderToStaticMarkup(el);
 
@@ -59,6 +60,32 @@ test("QuickAdd (closed) renders nothing", () => {
 test("Portfolio empty state prompts to add holdings", () => {
   const out = html(h(Portfolio, { holdings: [], prices: null }));
   assert.match(out, /Track individual stocks/);
+});
+
+test("StocksSankey renders total, account buckets, and ticker labels", () => {
+  const rows = [
+    { id: "1", ticker: "AAPL", account: "taxable", value: 2000 },
+    { id: "2", ticker: "VTI", account: "taxable", value: 1000 },
+    { id: "3", ticker: "VOO", account: "roth", value: 2500 },
+  ];
+  const out = html(h(StocksSankey, { rows }));
+  assert.match(out, /<svg/);
+  assert.match(out, /role="img"/);
+  assert.match(out, /Portfolio/); // total node label
+  assert.match(out, /Taxable/); // bucket label
+  assert.match(out, /Roth/);
+  assert.match(out, /AAPL/); // a ticker
+  assert.match(out, /VOO/);
+  // aria-label summarizes the separation
+  assert.match(out, /separated into/);
+});
+
+test("StocksSankey renders nothing with fewer than two priced holdings", () => {
+  assert.equal(html(h(StocksSankey, { rows: [] })), "");
+  assert.equal(
+    html(h(StocksSankey, { rows: [{ id: "1", ticker: "AAPL", account: "taxable", value: 2000 }] })),
+    "",
+  );
 });
 
 test("syncProblem: clean statuses + missing payloads return null", () => {

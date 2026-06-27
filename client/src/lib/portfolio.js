@@ -157,3 +157,53 @@ export function portfolioInsights(rows = [], totals = {}) {
 
   return out.slice(0, 3);
 }
+
+/** Display order + colors for the account-type (tax) buckets in the stocks flow. */
+export const ACCOUNT_META = [
+  { key: "taxable", label: "Taxable", color: "#378ADD" },
+  { key: "401k", label: "401(k)", color: "#1D9E75" },
+  { key: "ira", label: "IRA", color: "#E0A356" },
+  { key: "roth", label: "Roth", color: "#A78BFA" },
+];
+
+/**
+ * Build the stocks-flow structure for a Sankey: the portfolio total separated into
+ * account-type buckets, each split into its individual tickers. Only priced holdings
+ * (value > 0) contribute; duplicate tickers within a bucket are merged; buckets and
+ * their holdings are ordered by value, descending. Pure.
+ * @returns {{total:number, buckets:Array<{key,label,color,value,holdings:Array<{ticker,value}>}>}}
+ */
+export function portfolioFlow(rows = []) {
+  const priced = rows.filter((r) => r.value != null && r.value > 0);
+  const total = priced.reduce((s, r) => s + r.value, 0);
+  // bucket key → { ticker → summed value } (merges multiple lots of the same ticker)
+  const byKey = {};
+  for (const r of priced) {
+    const key = r.account || "taxable";
+    const b = (byKey[key] = byKey[key] || {});
+    b[r.ticker] = (b[r.ticker] || 0) + r.value;
+  }
+  // keep the known buckets in display order, then any unexpected keys after
+  const order = [...ACCOUNT_META.map((m) => m.key), ...Object.keys(byKey)];
+  const seen = new Set();
+  const buckets = [];
+  for (const key of order) {
+    if (seen.has(key) || !byKey[key]) {
+      continue;
+    }
+    seen.add(key);
+    const meta = ACCOUNT_META.find((m) => m.key === key);
+    const holdings = Object.entries(byKey[key])
+      .map(([ticker, value]) => ({ ticker, value }))
+      .sort((a, b) => b.value - a.value);
+    buckets.push({
+      key,
+      label: meta ? meta.label : key,
+      color: meta ? meta.color : "#64748B",
+      value: holdings.reduce((s, h) => s + h.value, 0),
+      holdings,
+    });
+  }
+  buckets.sort((a, b) => b.value - a.value);
+  return { total, buckets };
+}

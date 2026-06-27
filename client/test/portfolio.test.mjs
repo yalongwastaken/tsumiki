@@ -8,6 +8,7 @@ import {
   retirementValue,
   holdingsValueByAccount,
   investmentAccountValue,
+  portfolioFlow,
 } from "../src/lib/portfolio.js";
 
 const holdings = [
@@ -169,4 +170,66 @@ test("evergreen single-stock nudge when no concentration/movers", () => {
   );
   const recs = portfolioInsights(rows, portfolioTotals(rows));
   assert.ok(recs.some((r) => r.id === "single-stock"));
+});
+
+// ── portfolioFlow (the stocks-Sankey structure) ─────────────────────────────────
+
+test("portfolioFlow separates the total into account buckets, then tickers", () => {
+  const rows = portfolioRows(
+    [
+      { id: "1", ticker: "AAPL", shares: 10, account: "taxable" }, // 2000
+      { id: "2", ticker: "VTI", shares: 4, account: "taxable" }, // 1000
+      { id: "3", ticker: "VOO", shares: 5, account: "roth" }, // 2500
+    ],
+    { AAPL: { price: 200 }, VTI: { price: 250 }, VOO: { price: 500 } },
+  );
+  const flow = portfolioFlow(rows);
+  assert.equal(flow.total, 5500);
+  // buckets ordered by value desc: taxable (3000) before roth (2500)
+  assert.deepEqual(
+    flow.buckets.map((b) => [b.key, b.value]),
+    [
+      ["taxable", 3000],
+      ["roth", 2500],
+    ],
+  );
+  // bucket sums equal the total
+  assert.equal(
+    flow.buckets.reduce((s, b) => s + b.value, 0),
+    flow.total,
+  );
+  // holdings within a bucket ordered by value desc and labelled
+  assert.equal(flow.buckets[0].label, "Taxable");
+  assert.deepEqual(
+    flow.buckets[0].holdings.map((h) => h.ticker),
+    ["AAPL", "VTI"],
+  );
+});
+
+test("portfolioFlow merges duplicate tickers (two lots) within a bucket", () => {
+  const rows = portfolioRows(
+    [
+      { id: "1", ticker: "AAPL", shares: 10, account: "taxable" }, // 2000
+      { id: "2", ticker: "AAPL", shares: 5, account: "taxable" }, // 1000
+    ],
+    { AAPL: { price: 200 } },
+  );
+  const flow = portfolioFlow(rows);
+  assert.equal(flow.buckets.length, 1);
+  assert.equal(flow.buckets[0].holdings.length, 1); // merged
+  assert.equal(flow.buckets[0].holdings[0].value, 3000);
+});
+
+test("portfolioFlow excludes unpriced holdings and handles an empty portfolio", () => {
+  const rows = portfolioRows(
+    [
+      { id: "1", ticker: "AAPL", shares: 10, account: "taxable" },
+      { id: "2", ticker: "NOPRICE", shares: 5, account: "roth" },
+    ],
+    { AAPL: { price: 200 } },
+  );
+  const flow = portfolioFlow(rows);
+  assert.equal(flow.total, 2000);
+  assert.equal(flow.buckets.length, 1); // roth dropped (unpriced)
+  assert.deepEqual(portfolioFlow([]), { total: 0, buckets: [] });
 });
