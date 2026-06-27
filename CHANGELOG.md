@@ -28,6 +28,11 @@ smoke test).
   card now shows when the last sync couldn't reach the feed, returned nothing, or only
   priced some holdings (naming the missing tickers), and clarifies that the displayed
   numbers are from the last good sync.
+- **Stocks Sankey ("Where your stocks sit").** A new diagram in the Portfolio card
+  separates the portfolio total into account-type buckets (Taxable / 401(k) / IRA / Roth)
+  and then into individual tickers, with value-weighted ribbons colored by bucket — so you
+  can see at a glance where your stocks are held. Driven by a pure, tested `portfolioFlow`
+  helper; it appears once you have at least two priced holdings.
 
 ### Fixed
 
@@ -43,9 +48,9 @@ smoke test).
 
 - `parseFinnhubQuote` is pure and unit-tested; real localhost-socket integration tests
   (`sync.test.js`) cover ok / partial / empty / unreachable / multi-URL fallback /
-  keyed fallback / merge-completes-partial. `syncProblem` is exported and tested.
-  Suite: 80 server + 138 client tests (across UTC, US/Pacific, Tokyo, UTC+14) + 11
-  component tests.
+  keyed fallback / merge-completes-partial. `syncProblem` and `portfolioFlow` are exported
+  and tested. Suite: 80 server and 141 client tests (across UTC, US/Pacific, Tokyo,
+  UTC+14) plus 13 component tests.
 
 ## [1.5.0] — 2026-06-23
 
