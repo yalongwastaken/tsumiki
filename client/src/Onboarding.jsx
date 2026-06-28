@@ -117,9 +117,9 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
         {steps[step] === "welcome" && (
           <div>
             <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true" className="mb-2">
-              <rect x="6" y="40" width="18" height="18" rx="3" fill="#C9C0FB" />
-              <rect x="23" y="26" width="18" height="18" rx="3" fill="#9B8AFA" />
-              <rect x="40" y="12" width="18" height="18" rx="3" fill="#7C6FE8" />
+              <rect x="6" y="37" width="18" height="18" rx="3" fill="#C9C0FB" />
+              <rect x="23" y="23" width="18" height="18" rx="3" fill="#9B8AFA" />
+              <rect x="40" y="9" width="18" height="18" rx="3" fill="#7C6FE8" />
             </svg>
             <div className="text-xl font-bold text-slate-900 mb-1">Welcome to Tsumiki</div>
             <div className="text-sm text-slate-500 mb-4">

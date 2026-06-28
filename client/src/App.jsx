@@ -628,9 +628,9 @@ export default function App() {
             aria-hidden="true"
             className="flex-shrink-0"
           >
-            <rect x="6" y="40" width="18" height="18" rx="3" fill="#C9C0FB" />
-            <rect x="23" y="26" width="18" height="18" rx="3" fill="#9B8AFA" />
-            <rect x="40" y="12" width="18" height="18" rx="3" fill="#7C6FE8" />
+            <rect x="6" y="37" width="18" height="18" rx="3" fill="#C9C0FB" />
+            <rect x="23" y="23" width="18" height="18" rx="3" fill="#9B8AFA" />
+            <rect x="40" y="9" width="18" height="18" rx="3" fill="#7C6FE8" />
           </svg>
           <span className={`font-bold text-slate-800 ${collapsed ? "md:hidden" : ""}`}>
             Tsumiki
