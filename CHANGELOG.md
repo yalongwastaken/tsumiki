@@ -56,6 +56,14 @@ smoke test).
   forces an attempt) so a down feed doesn't make every page load slow.
 - The outbound size cap's no-stream fallback measures real UTF-8 bytes.
 
+### Security
+
+- App-lock logins are now throttled (lockout after repeated wrong passwords, cleared on
+  a correct login or a password change) and the password minimum is 8 characters.
+- Added `make backup-enc` (AES-256 via gpg) for encrypted backups, and a `SECURITY.md`
+  documenting the threat model, protections, residual risks (no at-rest encryption by
+  default; app lock off by default; no built-in TLS), and hardening steps.
+
 ### Internal
 
 - `parseFinnhubQuote` is pure and unit-tested; real localhost-socket integration tests
