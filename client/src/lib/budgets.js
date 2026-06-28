@@ -171,7 +171,9 @@ export function budgetAlert(rows = []) {
  * @returns {Object} map of category → suggested cap
  */
 export function categoryAverages(transactions = [], months = 3, today = new Date()) {
-  const cutoff = new Date(today.getFullYear(), today.getMonth() - months, 1);
+  // compare by local month key (not a UTC `new Date(bareDate)`), so a bare-date txn on a
+  // month boundary buckets the same in every timezone
+  const cutoffYm = monthKey(new Date(today.getFullYear(), today.getMonth() - months, 1));
   const ym = monthKey(today);
   const byCat = {};
   const monthsSeen = {};
@@ -179,9 +181,8 @@ export function categoryAverages(transactions = [], months = 3, today = new Date
     if (t.type !== "spending" || !(t.amount > 0)) {
       continue;
     }
-    const d = new Date(t.date);
     const m = monthKey(t.date);
-    if (d < cutoff || m === ym) {
+    if (m < cutoffYm || m === ym) {
       continue; // only complete prior months within the window
     }
     const c = t.cat || "Other";

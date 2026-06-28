@@ -38,8 +38,9 @@ Tailscale/TLS**, and **encrypt the DB file and its backups**.
   (invalidating other devices). Setting or entering the password is only allowed over a
   **secure origin** (HTTPS / Tailscale / `localhost`), so a credential never crosses
   sniffable plain-LAN http. Login attempts are **throttled** (lockout after repeated
-  wrong guesses). The auth gate protects all `/api/*` routes (the password survives a
-  data reset).
+  wrong guesses). The auth gate protects all `/api/*` routes except the health check and
+  the auth endpoints (which must work while locked, and expose nothing sensitive); the
+  password survives a data reset.
 - **Web hardening.** Same-origin (CSRF / DNS-rebinding) guard on all mutating requests,
   a request body-size cap, full input validation on every write, a ticker-charset guard
   (tickers are interpolated into the price URL), feed links restricted to `http(s)`, the
@@ -73,6 +74,10 @@ Tailscale/TLS**, and **encrypt the DB file and its backups**.
    (LUKS / FileVault) and use `make backup-enc` (AES-256 via gpg) for any backup that
    might leave the machine.
 4. **Restrict the port** to your own devices with a Tailscale ACL or host firewall.
+
+> Backup passphrase tip: avoid putting `TSUMIKI_BACKUP_PASSPHRASE` literally in a
+> crontab (it's stored in plaintext and briefly visible in the process list). Prefer an
+> `EnvironmentFile`/secrets file readable only by your user, or a wrapper script.
 
 ## Reporting
 

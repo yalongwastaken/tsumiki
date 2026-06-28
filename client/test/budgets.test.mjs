@@ -123,3 +123,14 @@ test("categoryAverages = mean monthly spend over complete prior months", () => {
   const avg = categoryAverages(hist, 3, new Date(2026, 5, 21));
   assert.equal(avg.Dining, 150); // (100 + 200) / 2 complete months
 });
+
+test("categoryAverages buckets a month-boundary bare date the same in every timezone", () => {
+  // a spend on the 1st of the oldest in-window month must count (it failed in US/Pacific
+  // when compared via a UTC `new Date(bareDate)` against a local cutoff)
+  const hist = [
+    { type: "spending", amount: 300, cat: "Dining", date: "2026-03-01" },
+    { type: "spending", amount: 300, cat: "Dining", date: "2026-04-01" },
+  ];
+  const avg = categoryAverages(hist, 3, new Date(2026, 5, 21));
+  assert.equal(avg.Dining, 300); // both months counted → (300 + 300) / 2
+});

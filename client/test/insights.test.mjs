@@ -102,6 +102,14 @@ test("coachNudges tolerates dipsBelow with a null dipDate", () => {
 test("avgDailySpend handles a zero window without NaN", () => {
   assert.equal(avgDailySpend([{ type: "spending", amount: 100, date: "2026-06-10" }], 0, TODAY), 0);
 });
+test("avgDailySpend counts a window-edge bare date the same in every timezone", () => {
+  // local "today" so the 60-day window is unambiguous across zones; the spend lands
+  // exactly on the cutoff day and must be included everywhere (it dropped out in
+  // US/Pacific when the bare date was parsed as UTC midnight vs a local cutoff)
+  const localToday = new Date(2026, 5, 21); // Jun 21, local
+  const tx = [{ type: "spending", amount: 60, date: "2026-04-22" }]; // exactly 60 days before
+  assert.equal(avgDailySpend(tx, 60, localToday), 1); // 60 / 60, included
+});
 
 test("cashflowForecast: a big balance with low spend never dips", () => {
   const state = {

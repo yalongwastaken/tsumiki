@@ -1,4 +1,5 @@
 // milestones.js — pure achievement computation for the motivation/game layer.
+import { monthOf } from "./finance.js";
 
 const NW_TIERS = [10000, 25000, 50000, 100000, 250000, 500000, 1000000];
 const CONTRIB_TIERS = [1000, 5000, 10000, 25000, 50000];
@@ -33,9 +34,11 @@ function ledgerStats(transactions = []) {
     if (t.type === "contribution" && (t.bucket === "invest" || t.bucket === "retirement")) {
       invested = true;
     }
-    const d = new Date(t.date);
-    if (!isNaN(d.getTime())) {
-      months.add(`${d.getFullYear()}-${d.getMonth()}`);
+    // local month key (matches monthOf bucketing) so a bare-date txn counts in the same
+    // month regardless of timezone
+    const m = monthOf(t.date);
+    if (m) {
+      months.add(m);
     }
   }
   return { logs, noSpend, invested, months: months.size };

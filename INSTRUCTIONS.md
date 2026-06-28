@@ -191,7 +191,15 @@ server is live — it deletes the built app.)
 The whole database is one file, so a copy is a complete backup:
 
 ```bash
-make backup       # writes backups/tsumiki-YYYY-MM-DD.db
+make backup       # writes backups/tsumiki-YYYY-MM-DD.db  (PLAINTEXT)
+```
+
+That copy is **unencrypted** — fine on an encrypted disk, but if a backup ever leaves
+the machine, make an encrypted one instead (AES-256, needs `gpg`):
+
+```bash
+TSUMIKI_BACKUP_PASSPHRASE='a-strong-passphrase' make backup-enc
+# → backups/tsumiki-YYYY-MM-DD.db.gpg
 ```
 
 Automate it nightly with cron on the mini PC (`crontab -e`):
@@ -200,7 +208,8 @@ Automate it nightly with cron on the mini PC (`crontab -e`):
 0 2 * * *  cd /home/youruser/tsumiki && make backup
 ```
 
-To restore, stop the server and copy a backup file over `server/data/tsumiki.db`.
+To restore: stop the server, then copy a backup over `server/data/tsumiki.db` (for an
+encrypted one, `gpg -d -o server/data/tsumiki.db backups/tsumiki-YYYY-MM-DD.db.gpg`).
 
 **Starting over:** to wipe everything and reset to a clean slate, go to
 **Settings → Danger zone → Delete all my data** (export first if you might want it
@@ -209,14 +218,45 @@ setup wizard.
 
 ---
 
-## 8. Quick reference
+## 8. Keep it secure
 
-| I want to…               | Command                                     |
-| ------------------------ | ------------------------------------------- |
-| Install dependencies     | `make install`                              |
-| Develop with hot-reload  | `make dev` (backend :4000 + frontend :5173) |
-| Build + run for real     | `make start`                                |
-| Just rebuild the web app | `make build`                                |
-| Run the tests            | `make test` / `make test-smoke`             |
-| Back up the database     | `make backup`                               |
-| See all commands         | `make help`                                 |
+Your finances live in one file on your mini PC. Tsumiki is privacy-respecting by design
+— no telemetry, and the news/price features are off unless you turn them on — but a few
+operational choices are what actually keep your data safe. In order of importance:
+
+1. **Turn on the app lock.** In **Settings → App lock**, set a strong password (do it
+   over `http://localhost:4000` on the mini PC itself, or over your Tailscale address —
+   it won't let you set one over a plain `http://<lan-ip>` connection). **It's off by
+   default, which means an unlocked instance has no password at all** — anyone who can
+   reach the server can see everything.
+2. **Only reach it over Tailscale** (Section 3), never a plain `http://<lan-ip>:4000`
+   address. Tailscale encrypts the connection; plain LAN http does not. Behind a TLS
+   reverse proxy instead? Set `TSUMIKI_TRUST_PROXY=1`.
+3. **Encrypt your backups** with `make backup-enc` (Section 7) before any of them leave
+   the machine, and keep `server/data/` on an encrypted disk — the database file itself
+   is not encrypted.
+4. **Limit who can reach it** with a Tailscale ACL (or host firewall) so only your own
+   devices can hit the port.
+
+Two things to know: **"Blur money"** (the eye icon) only hides amounts on screen — it's
+for shoulder-surfing, not access control. And the app does **no encryption itself** — it
+relies on Tailscale/your disk for that.
+
+For the full threat model and the reasoning behind all of this, see
+[`SECURITY.md`](./SECURITY.md).
+
+---
+
+## 9. Quick reference
+
+| I want to…               | Command                                        |
+| ------------------------ | ---------------------------------------------- |
+| Install dependencies     | `make install`                                 |
+| Develop with hot-reload  | `make dev` (backend :4000 + frontend :5173)    |
+| Build + run for real     | `make start`                                   |
+| Just rebuild the web app | `make build`                                   |
+| Run the tests            | `make test` / `make test-smoke`                |
+| Back up the database     | `make backup`                                  |
+| Encrypted backup         | `TSUMIKI_BACKUP_PASSPHRASE=… make backup-enc`  |
+| Lock the app / privacy   | Settings → App lock · eye icon to blur amounts |
+| See all commands         | `make help`                                    |

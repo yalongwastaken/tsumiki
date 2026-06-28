@@ -10,6 +10,17 @@ const startOfDay = (d) => {
   x.setHours(0, 0, 0, 0);
   return x;
 };
+// parse a bare YYYY-MM-DD as a LOCAL calendar day (not UTC midnight); pass other
+// values through to Date so a full ISO timestamp keeps its instant
+const parseLocalDay = (s) => {
+  if (typeof s === "string") {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (m) {
+      return new Date(+m[1], +m[2] - 1, +m[3]);
+    }
+  }
+  return new Date(s);
+};
 // local calendar-day key (not UTC) so payday/bill buckets match the displayed day
 const localKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
@@ -21,7 +32,11 @@ export function avgDailySpend(transactions = [], days = 60, today = new Date()) 
   const cutoff = startOfDay(today).getTime() - days * DAY;
   let total = 0;
   for (const t of transactions) {
-    if (t.type === "spending" && t.amount > 0 && new Date(t.date).getTime() >= cutoff) {
+    if (
+      t.type === "spending" &&
+      t.amount > 0 &&
+      startOfDay(parseLocalDay(t.date)).getTime() >= cutoff
+    ) {
       total += t.amount;
     }
   }
