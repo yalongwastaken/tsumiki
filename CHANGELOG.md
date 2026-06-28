@@ -55,6 +55,9 @@ smoke test).
 - After a failed sync, lazy reads back off for 5 minutes (a manual "Sync now" still
   forces an attempt) so a down feed doesn't make every page load slow.
 - The outbound size cap's no-stream fallback measures real UTF-8 bytes.
+- `categoryAverages`, `avgDailySpend`, and the milestones "months tracked" count now
+  bucket bare dates by the local calendar (matching `monthOf`), so a transaction on a
+  month/window boundary no longer counts differently across timezones.
 
 ### Security
 
