@@ -1,5 +1,6 @@
 // Projection.jsx — interactive compound-growth projection.
 import { useState, useMemo } from "react";
+import Money from "./Money.jsx";
 import AreaChart from "./Chart.jsx";
 import { fmt } from "./lib/format.js";
 
@@ -72,8 +73,12 @@ export default function Projection({ start, settings = {}, onChange, derivedInve
         </div>
       </div>
       <div className="flex items-baseline gap-2 mb-3">
-        <div className="text-3xl font-mono font-bold text-emerald-600">{fmt(end.value)}</div>
-        <div className="text-xs text-emerald-500">+{fmt(gains)} growth</div>
+        <div className="text-3xl font-mono font-bold text-emerald-600">
+          <Money n={end.value} />
+        </div>
+        <div className="text-xs text-emerald-500">
+          +<Money n={gains} /> growth
+        </div>
       </div>
       <AreaChart data={data} xKey="year" yKey="value" color="#10B981" />
       <div className="space-y-4 mt-4">

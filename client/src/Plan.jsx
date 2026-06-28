@@ -1,8 +1,8 @@
 // Plan.jsx — the living monthly plan: targets vs actuals, recurring transfers, chart.
 import { useState, useEffect, useMemo } from "react";
+import Money from "./Money.jsx";
 import { Check } from "lucide-react";
 import { getPlan } from "./lib/api.js";
-import { fmt } from "./lib/format.js";
 import { typicalIncome } from "./lib/income.js";
 import { nonTaxableMonthly, taxableShare } from "./lib/finance.js";
 import { BUCKETS, bucketOf } from "./lib/buckets.js";
@@ -205,10 +205,18 @@ export default function Plan({
         </div>
         <div className="flex items-baseline gap-2 mb-3">
           <div className="text-3xl font-mono font-bold text-slate-900">
-            {incomeThisMonth > 0 ? fmt(incomeThisMonth) : "—"}
+            {incomeThisMonth > 0 ? <Money n={incomeThisMonth} /> : "—"}
           </div>
           <div className="text-xs text-slate-500">
-            earned this month{typical ? ` · ~${fmt(typical)} typical` : ""}
+            earned this month
+            {typical ? (
+              <>
+                {" · ~"}
+                <Money n={typical} /> typical
+              </>
+            ) : (
+              ""
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -234,7 +242,7 @@ export default function Plan({
         </div>
         {plan?.essentials > 0 && (
           <div className="text-xs text-slate-500 mt-2">
-            {fmt(plan.essentials)} reserved for essentials{" "}
+            <Money n={plan.essentials} /> reserved for essentials{" "}
             {plan.essentialsSource === "bills" ? "(your bills)" : "(est. from spending)"} — the rest
             is allocated below.
           </div>
@@ -283,15 +291,23 @@ export default function Plan({
           <span className="text-xs text-emerald-800 flex-1">
             {plan.windfall.applied ? (
               <>
-                Windfall mode on — the extra <b>{fmt(plan.windfall.amount)}</b> above your ~
-                {fmt(plan.windfall.typical)} typical is going aggressive (finish savings, then
-                invest).
+                Windfall mode on — the extra{" "}
+                <b>
+                  <Money n={plan.windfall.amount} />
+                </b>{" "}
+                above your ~
+                <Money n={plan.windfall.typical} /> typical is going aggressive (finish savings,
+                then invest).
               </>
             ) : (
               <>
-                Looks like a <b>{fmt(plan.windfall.amount)}</b> windfall above your ~
-                {fmt(plan.windfall.typical)} typical. Split the extra aggressively toward savings +
-                investing?
+                Looks like a{" "}
+                <b>
+                  <Money n={plan.windfall.amount} />
+                </b>{" "}
+                windfall above your ~
+                <Money n={plan.windfall.typical} /> typical. Split the extra aggressively toward
+                savings + investing?
               </>
             )}
           </span>
@@ -323,7 +339,7 @@ export default function Plan({
           </div>
           <div className="flex items-baseline gap-2 mb-2">
             <div className="text-2xl font-mono font-bold text-slate-900">
-              {fmt(tax.takeHomeMonthly)}
+              <Money n={tax.takeHomeMonthly} />
               <span className="text-xs font-sans font-normal text-slate-500"> /mo take-home</span>
             </div>
             <div className="text-xs text-slate-500">
@@ -332,15 +348,25 @@ export default function Plan({
             </div>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-            <span>Federal {fmt(tax.federal)}</span>
-            <span>FICA {fmt(tax.fica)}</span>
-            <span>State {tax.stateNoTax ? "none" : fmt(tax.state)}</span>
-            <span className="text-slate-500">on ~{fmt(tax.gross)}/yr</span>
+            <span>
+              Federal <Money n={tax.federal} />
+            </span>
+            <span>
+              FICA <Money n={tax.fica} />
+            </span>
+            <span>State {tax.stateNoTax ? "none" : <Money n={tax.state} />}</span>
+            <span className="text-slate-500">
+              on ~<Money n={tax.gross} />
+              /yr
+            </span>
           </div>
           {quarterlyDue && tax.total > 0 && (
             <div className="mt-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800">
               Self-employed: no tax is withheld, so set aside ~
-              <b>{fmt(Math.round(tax.total / 4))}</b> each quarter. Next estimated payment due{" "}
+              <b>
+                <Money n={Math.round(tax.total / 4)} />
+              </b>{" "}
+              each quarter. Next estimated payment due{" "}
               <b>
                 {quarterlyDue.toLocaleDateString(undefined, {
                   month: "short",
@@ -353,7 +379,8 @@ export default function Plan({
           )}
           {nonTaxable > 0 && (
             <div className="text-xs text-slate-500 mt-2">
-              Excludes ~{fmt(nonTaxable)}/mo of income you marked non-taxable.
+              Excludes ~<Money n={nonTaxable} />
+              /mo of income you marked non-taxable.
             </div>
           )}
           <div className="text-xs text-slate-500 mt-2">
@@ -378,8 +405,9 @@ export default function Plan({
                 {monthYear(payoff.base.payoffDate)}
               </div>
               <div className="text-xs text-slate-500">
-                at your {fmt(payoff.base.monthlyPayment)}/mo minimums ·{" "}
-                {fmtMonths(payoff.base.months)} · {fmt(payoff.base.totalInterest)} interest
+                at your <Money n={payoff.base.monthlyPayment} />
+                /mo minimums · {fmtMonths(payoff.base.months)} ·{" "}
+                <Money n={payoff.base.totalInterest} /> interest
               </div>
             </div>
           ) : (
@@ -390,11 +418,17 @@ export default function Plan({
           )}
           {payoff.boosted?.debtFree && payoff.base.debtFree && (
             <div className="rounded-lg bg-emerald-50 p-2.5 text-sm text-emerald-800">
-              With the plan&apos;s extra <b>{fmt(planDebtExtra)}/mo</b>: debt-free{" "}
-              <b>{monthYear(payoff.boosted.payoffDate)}</b> (
+              With the plan&apos;s extra{" "}
+              <b>
+                <Money n={planDebtExtra} />
+                /mo
+              </b>
+              : debt-free <b>{monthYear(payoff.boosted.payoffDate)}</b> (
               {fmtMonths(Math.max(0, payoff.base.months - payoff.boosted.months))} sooner), saving{" "}
-              <b>{fmt(Math.max(0, payoff.base.totalInterest - payoff.boosted.totalInterest))}</b> in
-              interest.
+              <b>
+                <Money n={Math.max(0, payoff.base.totalInterest - payoff.boosted.totalInterest)} />
+              </b>{" "}
+              in interest.
             </div>
           )}
           {payoff.base.order.length > 1 && (
@@ -432,8 +466,11 @@ export default function Plan({
                 <div className="flex items-baseline justify-between text-sm mb-1">
                   <span className="font-medium text-slate-700">{label}</span>
                   <span className="font-mono text-slate-600">
-                    {fmt(act)}
-                    <span className="text-slate-500"> / {fmt(tgt)}</span>
+                    <Money n={act} />
+                    <span className="text-slate-500">
+                      {" "}
+                      / <Money n={tgt} />
+                    </span>
                   </span>
                 </div>
                 <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -444,7 +481,7 @@ export default function Plan({
                 </div>
                 {tgt > 0 && !done && (
                   <div className="text-xs text-slate-500 mt-1">
-                    {fmt(tgt - act)} to go this month
+                    <Money n={tgt - act} /> to go this month
                   </div>
                 )}
                 {done && (
@@ -472,7 +509,7 @@ export default function Plan({
           <div
             className={`text-2xl font-mono font-bold ${leftToAllocate >= 0 ? "text-slate-900" : "text-rose-500"}`}
           >
-            {fmt(leftToAllocate)}
+            <Money n={leftToAllocate} />
           </div>
         </div>
       </div>
@@ -486,13 +523,16 @@ export default function Plan({
           <div className="flex items-baseline justify-between mb-1">
             <span className="text-sm text-slate-600">Balance vs. floor</span>
             <span className="font-mono text-sm text-slate-700">
-              {fmt(checkingBalance)}
-              <span className="text-slate-500"> / {fmt(floor)} min</span>
+              <Money n={checkingBalance} />
+              <span className="text-slate-500">
+                {" "}
+                / <Money n={floor} /> min
+              </span>
             </span>
           </div>
           {checkingBalance < floor ? (
             <div className="text-sm text-rose-500 font-medium">
-              Below your floor by {fmt(floor - checkingBalance)}.
+              Below your floor by <Money n={floor - checkingBalance} />.
             </div>
           ) : dailySpend > 0 && isFinite(daysToFloor) ? (
             <div

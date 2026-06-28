@@ -2,8 +2,8 @@
 // allocates). Self-contained: owns its form state, commits via onSave, and offers
 // to add charges that look recurring in the ledger.
 import { useState } from "react";
+import Cash from "../Money.jsx";
 import { X } from "lucide-react";
-import { fmt } from "../lib/format.js";
 import { detectRecurring } from "../lib/insights.js";
 import { uid, field, Money } from "./ui.jsx";
 
@@ -73,7 +73,7 @@ export default function BillsSection({ data, onSave }) {
                 <span className="text-slate-700 flex-1 truncate">
                   {d.label}{" "}
                   <span className="text-xs text-slate-500">
-                    · {fmt(d.amount)} · {d.months} months
+                    · <Cash n={d.amount} /> · {d.months} months
                   </span>
                 </span>
                 <button
@@ -102,7 +102,9 @@ export default function BillsSection({ data, onSave }) {
                 ) : null}
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs font-mono text-slate-500">{fmt(b.amount)}</span>
+                <span className="text-xs font-mono text-slate-500">
+                  <Cash n={b.amount} />
+                </span>
                 <button
                   onClick={() => removeBill(b.id)}
                   className="-m-1 flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-400"

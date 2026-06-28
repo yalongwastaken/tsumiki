@@ -1,7 +1,7 @@
 // Activity.jsx — history view with two modes: calendar or list.
 import { useState } from "react";
+import Money from "./Money.jsx";
 import { CalendarDays, List, Plus } from "lucide-react";
-import { fmt } from "./lib/format.js";
 import { pendingPaychecks } from "./lib/recurring.js";
 import Calendar from "./Calendar.jsx";
 import Ledger from "./Ledger.jsx";
@@ -22,7 +22,7 @@ export default function Activity({ transactions, profile, sources, onDelete, onL
           <Plus size={16} className="flex-shrink-0" />
           <span className="flex-1">
             Log {pending.length} expected paycheck{pending.length === 1 ? "" : "s"} this month (
-            {fmt(pendingTotal)})
+            <Money n={pendingTotal} />)
           </span>
         </button>
       )}

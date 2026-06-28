@@ -12,6 +12,7 @@ import MoneyTargets from "../../src/MoneyTargets.jsx";
 import QuickAdd from "../../src/QuickAdd.jsx";
 import Portfolio, { syncProblem } from "../../src/Portfolio.jsx";
 import StocksSankey from "../../src/StocksSankey.jsx";
+import Money from "../../src/Money.jsx";
 
 const html = (el) => renderToStaticMarkup(el);
 
@@ -78,6 +79,25 @@ test("StocksSankey renders total, account buckets, and ticker labels", () => {
   assert.match(out, /VOO/);
   // aria-label summarizes the separation
   assert.match(out, /separated into/);
+});
+
+test("Money renders a blurrable .money span with the formatted amount", () => {
+  const out = html(h(Money, { n: 1234 }));
+  assert.match(out, /class="money"/); // the class CSS blurs in privacy mode
+  assert.match(out, /\$1,234/);
+  // compact form + an extra class merge
+  const k = html(h(Money, { n: 1500, k: true, className: "font-mono" }));
+  assert.match(k, /class="money font-mono"/);
+  assert.match(k, /\$1\.5k/);
+});
+
+test("StocksSankey amount labels carry the .money class (blurrable)", () => {
+  const rows = [
+    { id: "1", ticker: "AAPL", account: "taxable", value: 2000 },
+    { id: "2", ticker: "VOO", account: "roth", value: 2500 },
+  ];
+  const out = html(h(StocksSankey, { rows }));
+  assert.match(out, /class="money"/); // total + ticker value <text> are blurrable
 });
 
 test("StocksSankey renders nothing with fewer than two priced holdings", () => {

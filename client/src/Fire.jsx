@@ -1,5 +1,6 @@
 // Fire.jsx — FIRE / Coast-FI readout (pure math, no chart deps).
 import { PartyPopper } from "lucide-react";
+import Money from "./Money.jsx";
 import { fmt } from "./lib/format.js";
 
 // fire number = 25× annual expenses (the 4% rule)
@@ -66,10 +67,15 @@ export default function Fire({
         <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
           Financial independence
         </div>
-        <div className="text-xs text-slate-500">25× {fmt(annualExpenses)}/yr</div>
+        <div className="text-xs text-slate-500">
+          25× <Money n={annualExpenses} />
+          /yr
+        </div>
       </div>
       <div className="flex items-baseline gap-2 mb-3">
-        <div className="text-3xl font-mono font-bold text-brand-600">{fmt(fireNumber)}</div>
+        <div className="text-3xl font-mono font-bold text-brand-600">
+          <Money n={fireNumber} />
+        </div>
         <div className="text-xs text-slate-500">your FIRE number</div>
       </div>
 
@@ -80,7 +86,7 @@ export default function Fire({
         />
       </div>
       <div className="text-xs text-slate-500 mb-4">
-        {pct.toFixed(1)}% there ({fmt(nw)})
+        {pct.toFixed(1)}% there (<Money n={nw} />)
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -88,7 +94,8 @@ export default function Fire({
           <div className="text-xs text-slate-500">At your pace</div>
           <div className="text-lg font-mono font-bold text-slate-800">{yr(atPace)}</div>
           <div className="text-xs text-slate-500">
-            {whenYear(atPace)} · {fmt(monthlyInvest)}/mo invested
+            {whenYear(atPace)} · <Money n={monthlyInvest} />
+            /mo invested
           </div>
         </div>
         <div className="rounded-lg bg-slate-50 p-3">

@@ -5,9 +5,6 @@ import { fmt } from "./lib/format.js";
 import { portfolioFlow } from "./lib/portfolio.js";
 
 const clip = (s) => (s.length > 14 ? s.slice(0, 13) + "…" : s);
-// compact money for in-chart node labels: $12.4k / $940
-const short = (n) =>
-  n >= 1000 ? `$${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `$${Math.round(n)}`;
 
 // a cubic-bezier ribbon from a left edge (x1, ly..ly+lh) to a right edge (x2, ry..ry+rh)
 function ribbon(x1, x2, ly, lh, ry, rh) {
@@ -145,6 +142,7 @@ export default function StocksSankey({ rows = [] }) {
         fontSize="15"
         fill="var(--text)"
         fontWeight="bold"
+        className="money"
       >
         {fmt(total)}
       </text>
@@ -164,7 +162,7 @@ export default function StocksSankey({ rows = [] }) {
           fontWeight="600"
           fill={b.color}
         >
-          {b.label} {short(b.value)}
+          {b.label}
         </text>
       ))}
 
@@ -200,6 +198,7 @@ export default function StocksSankey({ rows = [] }) {
               dominantBaseline="central"
               fontSize="12"
               fill="var(--muted)"
+              className="money"
             >
               {fmt(t.value)}
             </text>

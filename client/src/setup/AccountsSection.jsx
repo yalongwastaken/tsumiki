@@ -2,8 +2,8 @@
 // other) keep a manually-entered balance; investment accounts (brokerage/IRA/Roth/401k)
 // hold their shares inline and auto-value from synced prices + optional uninvested cash.
 import { useState, useMemo } from "react";
+import Cash from "../Money.jsx";
 import { X, Pencil, ChevronDown } from "lucide-react";
-import { fmt } from "../lib/format.js";
 import { INVESTMENT_TYPES, TAX_TAG_FOR_TYPE, holdingsValueByAccount } from "../lib/portfolio.js";
 import { uid, field, Money } from "./ui.jsx";
 
@@ -194,13 +194,20 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                     </div>
                     {val != null ? (
                       <div className="text-xs text-slate-500">
-                        {fmt(val)}
+                        <Cash n={val} />
                         {inv && (
                           <span>
                             {" "}
                             · {accHoldings.length}{" "}
                             {accHoldings.length === 1 ? "holding" : "holdings"}
-                            {Number(a.cash) ? ` + ${fmt(a.cash)} cash` : ""}
+                            {Number(a.cash) ? (
+                              <>
+                                {" + "}
+                                <Cash n={a.cash} /> cash
+                              </>
+                            ) : (
+                              ""
+                            )}
                           </span>
                         )}
                       </div>
@@ -284,7 +291,13 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                               <span className="text-slate-700">
                                 {h.ticker}{" "}
                                 <span className="text-xs text-slate-500">
-                                  · {h.shares} sh{mv != null ? ` · ${fmt(mv)}` : ""}
+                                  · {h.shares} sh
+                                  {mv != null && (
+                                    <>
+                                      {" · "}
+                                      <Cash n={mv} />
+                                    </>
+                                  )}
                                 </span>
                               </span>
                               <button

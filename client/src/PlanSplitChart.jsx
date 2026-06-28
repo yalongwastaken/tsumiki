@@ -1,5 +1,6 @@
 // PlanSplitChart.jsx — donut of the paycheck split + alternative strategy bars.
 import { fmt } from "./lib/format.js";
+import Money from "./Money.jsx";
 
 // deliberately not a sankey — a different shape so the two don't get confused
 const GROUPS = [
@@ -93,6 +94,7 @@ export default function PlanSplitChart({ plan, strategy, saved, onSetStrategy })
             fontSize="14"
             fontWeight="600"
             fill="var(--text)"
+            className="money"
           >
             {fmt(total)}
           </text>
@@ -108,7 +110,7 @@ export default function PlanSplitChart({ plan, strategy, saved, onSetStrategy })
               <span className="font-mono text-slate-500">
                 {Math.round((s.amount / total) * 100)}%
               </span>
-              <span className="font-mono text-slate-700 w-16 text-right">{fmt(s.amount)}</span>
+              <Money n={s.amount} className="font-mono text-slate-700 w-16 text-right" />
             </div>
           ))}
         </div>

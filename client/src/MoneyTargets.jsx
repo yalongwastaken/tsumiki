@@ -1,5 +1,6 @@
 // MoneyTargets.jsx — manage user-defined "save $X" goals with optional deadlines.
 import { useState } from "react";
+import Money from "./Money.jsx";
 import { X } from "lucide-react";
 import { fmt } from "./lib/format.js";
 import { goalProgress } from "./lib/goals.js";
@@ -66,8 +67,11 @@ export default function MoneyTargets({
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-mono text-slate-500">
-                      {fmt(cur)}
-                      <span className="text-slate-500"> / {fmt(t.amount)}</span>
+                      <Money n={cur} />
+                      <span className="text-slate-500">
+                        {" "}
+                        / <Money n={t.amount} />
+                      </span>
                     </span>
                     <button
                       onClick={() => onChange(targets.filter((x) => x.id !== t.id))}
@@ -89,18 +93,21 @@ export default function MoneyTargets({
                     <span className="text-emerald-600">Reached 🎉</span>
                   ) : p.overdue ? (
                     <span className="text-rose-500">
-                      Target date passed — {fmt(p.remaining)} to go.
+                      Target date passed — <Money n={p.remaining} /> to go.
                     </span>
                   ) : p.requiredMonthly ? (
                     <span className={p.onTrack ? "text-emerald-600" : "text-slate-500"}>
-                      Save {fmt(p.requiredMonthly)}/mo to hit it in {p.monthsLeft} mo.
+                      Save <Money n={p.requiredMonthly} />
+                      /mo to hit it in {p.monthsLeft} mo.
                       {p.onTrack === true && " On track 🎉"}
                       {p.onTrack === false &&
                         monthlyPace > 0 &&
                         ` You're saving ~${fmt(monthlyPace)}/mo — ${fmt(p.behindBy)}/mo short.`}
                     </span>
                   ) : (
-                    <span className="text-slate-500">{fmt(p.remaining)} to go.</span>
+                    <span className="text-slate-500">
+                      <Money n={p.remaining} /> to go.
+                    </span>
                   )}
                 </div>
               </div>

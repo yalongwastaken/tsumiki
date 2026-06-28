@@ -1,5 +1,6 @@
 // Home.jsx — landing screen: the valuable stuff at a glance, tap-through to detail.
 import { useState, useEffect, useMemo } from "react";
+import Money from "./Money.jsx";
 import { fmt } from "./lib/format.js";
 import { getPlan, getNews } from "./lib/api.js";
 import { thisMonth, monthKey, annualSpend, sumLatestByType, monthTotals } from "./lib/selectors.js";
@@ -285,11 +286,17 @@ export default function Home({
         <div className="text-xs text-slate-500 tracking-widest uppercase font-medium">
           {snapshots.length ? "Net worth" : "Contributed"}
         </div>
-        <div className="text-4xl font-mono font-bold text-slate-900 tabular-nums">{fmt(nw)}</div>
+        <div className="text-4xl font-mono font-bold text-slate-900 tabular-nums">
+          <Money n={nw} />
+        </div>
         <div className="text-xs text-slate-500 mt-1">
-          {investedTotal > 0
-            ? `${fmt(investedTotal)} contributed by you`
-            : "log a balance in Setup for real net worth"}
+          {investedTotal > 0 ? (
+            <>
+              <Money n={investedTotal} /> contributed by you
+            </>
+          ) : (
+            "log a balance in Setup for real net worth"
+          )}
         </div>
       </div>
 
@@ -324,10 +331,10 @@ export default function Home({
 
       {/* key numbers */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:col-span-2">
-        <Stat label="Income / mo" value={income > 0 ? fmt(income) : "—"} tone="emerald" />
+        <Stat label="Income / mo" value={income > 0 ? <Money n={income} /> : "—"} tone="emerald" />
         <Stat
           label="Spent this month"
-          value={spendThisMonth > 0 ? fmt(spendThisMonth) : "—"}
+          value={spendThisMonth > 0 ? <Money n={spendThisMonth} /> : "—"}
           tone="amber"
         />
         <Stat
@@ -350,7 +357,7 @@ export default function Home({
         <div className="flex items-baseline justify-between mb-2">
           <span className="text-sm text-slate-600">Earned this month</span>
           <span className="font-mono text-slate-800">
-            {incomeThisMonth > 0 ? fmt(incomeThisMonth) : "—"}
+            {incomeThisMonth > 0 ? <Money n={incomeThisMonth} /> : "—"}
           </span>
         </div>
         <div className="flex items-baseline justify-between">
@@ -358,7 +365,7 @@ export default function Home({
           <span
             className={`font-mono font-semibold ${leftToAllocate >= 0 ? "text-slate-900" : "text-rose-500"}`}
           >
-            {fmt(leftToAllocate)}
+            <Money n={leftToAllocate} />
           </span>
         </div>
         {runwayMonths != null && savingsBal > 0 && (
@@ -411,7 +418,7 @@ export default function Home({
                 Next: <MilestoneIcon name={next.icon} size={12} /> {next.label}
               </span>
               <span className="font-mono">
-                {fmt(next.cur)} / {fmt(next.target)}
+                <Money n={next.cur} /> / <Money n={next.target} />
               </span>
             </div>
             <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -438,7 +445,9 @@ export default function Home({
                 ) : (
                   <span className="text-slate-500 text-xs">flat</span>
                 )}
-                <span className="font-mono text-slate-800 w-16 text-right">{fmt(t.now)}</span>
+                <span className="font-mono text-slate-800 w-16 text-right">
+                  <Money n={t.now} />
+                </span>
                 {t.avg > 0 && (
                   <span
                     className={`text-xs w-12 text-right ${t.dir === "up" ? "text-rose-500" : t.dir === "down" ? "text-emerald-600" : "text-slate-500"}`}
@@ -465,7 +474,7 @@ export default function Home({
                 <div className="flex items-baseline justify-between text-sm mb-1">
                   <span className="text-slate-600 truncate">{c.cat}</span>
                   <span className="font-mono text-xs text-slate-500">
-                    {fmt(c.amount)}
+                    <Money n={c.amount} />
                     <span className="text-slate-500">
                       {" "}
                       · {Math.round((c.amount / spendThisMonth) * 100)}%
@@ -481,7 +490,9 @@ export default function Home({
               </div>
             ))}
           </div>
-          <div className="text-xs text-slate-500 mt-2">{fmt(spendThisMonth)} spent this month</div>
+          <div className="text-xs text-slate-500 mt-2">
+            <Money n={spendThisMonth} /> spent this month
+          </div>
         </Card>
       )}
 
@@ -499,13 +510,16 @@ export default function Home({
                       <span className={b.carry > 0 ? "text-emerald-600" : "text-rose-500"}>
                         {" "}
                         · rollover {b.carry > 0 ? "+" : "−"}
-                        {fmt(Math.abs(b.carry))}
+                        <Money n={Math.abs(b.carry)} />
                       </span>
                     )}
                   </span>
                   <span className="font-mono text-xs text-slate-500">
-                    {fmt(b.spent)}
-                    <span className="text-slate-500"> / {fmt(b.budget)}</span>
+                    <Money n={b.spent} />
+                    <span className="text-slate-500">
+                      {" "}
+                      / <Money n={b.budget} />
+                    </span>
                   </span>
                 </div>
                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -515,12 +529,26 @@ export default function Home({
                   />
                 </div>
                 <div className="text-[11px] text-slate-500 mt-0.5">
-                  {b.over
-                    ? `${fmt(-b.remaining)} over`
-                    : b.perDayLeft > 0
-                      ? `${fmt(b.perDayLeft)}/day left`
-                      : `${fmt(b.remaining)} left`}
-                  {b.lastMonth > 0 && ` · ${fmt(b.lastMonth)} last month`}
+                  {b.over ? (
+                    <>
+                      <Money n={-b.remaining} /> over
+                    </>
+                  ) : b.perDayLeft > 0 ? (
+                    <>
+                      <Money n={b.perDayLeft} />
+                      /day left
+                    </>
+                  ) : (
+                    <>
+                      <Money n={b.remaining} /> left
+                    </>
+                  )}
+                  {b.lastMonth > 0 && (
+                    <>
+                      {" · "}
+                      <Money n={b.lastMonth} /> last month
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -535,7 +563,7 @@ export default function Home({
             <span
               className={`text-2xl font-mono font-bold ${forecast.dipsBelow ? "text-rose-500" : "text-slate-900"}`}
             >
-              {fmt(forecast.min)}
+              <Money n={forecast.min} />
             </span>
             <span className="text-xs text-slate-500">
               lowest checking, ~{fmtDate(forecast.minDate)}
@@ -543,12 +571,12 @@ export default function Home({
           </div>
           {forecast.dipsBelow ? (
             <div className="text-sm text-rose-500">
-              Dips below your {fmt(forecast.floor)} floor around {fmtDate(forecast.dipDate)} at your
-              usual pace.
+              Dips below your <Money n={forecast.floor} /> floor around {fmtDate(forecast.dipDate)}{" "}
+              at your usual pace.
             </div>
           ) : (
             <div className="text-sm text-emerald-600">
-              Stays above your {fmt(forecast.floor)} floor for the next 45 days.
+              Stays above your <Money n={forecast.floor} /> floor for the next 45 days.
             </div>
           )}
           <div className="text-xs text-slate-500 mt-1">

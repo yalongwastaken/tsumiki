@@ -1,7 +1,7 @@
 // Milestones.jsx — achievements panel (earned badges + next to chase).
 import { useState } from "react";
+import Money from "./Money.jsx";
 import { nextMilestone } from "./lib/milestones.js";
-import { fmt } from "./lib/format.js";
 import MilestoneIcon from "./MilestoneIcon.jsx";
 
 const COLLAPSED_COUNT = 10; // cap earned chips so a long-term user isn't buried
@@ -56,7 +56,7 @@ export default function Milestones({ list }) {
               Next: <MilestoneIcon name={next.icon} size={13} /> {next.label}
             </span>
             <span className="font-mono">
-              {fmt(next.cur)} / {fmt(next.target)}
+              <Money n={next.cur} /> / <Money n={next.target} />
             </span>
           </div>
           <div className="h-2 bg-slate-100 rounded-full overflow-hidden">

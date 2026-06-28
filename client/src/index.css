@@ -261,3 +261,27 @@ body {
 .dark .bg-white\/90 {
   background-color: rgba(30, 41, 59, 0.9) !important;
 }
+
+/* ── blur-money privacy mode ────────────────────────────────────────────────
+   When the root carries .blur-money, every currency amount (.money, added by the
+   <Money> component and to chart amount labels) is blurred so balances aren't
+   exposed on a glanced-at screen. Hovering or focusing one amount reveals just it.
+   Works on HTML spans and SVG <text>. */
+.blur-money .money {
+  filter: blur(7px);
+  transition: filter 0.12s ease;
+  cursor: default;
+  /* keep the blurred text unselectable so it can't be copied/revealed by dragging */
+  user-select: none;
+}
+.blur-money .money:hover,
+.blur-money .money:focus,
+.blur-money .money:focus-within {
+  filter: none;
+  user-select: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .blur-money .money {
+    transition: none;
+  }
+}

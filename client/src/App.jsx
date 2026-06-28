@@ -50,7 +50,10 @@ import {
   Check,
   PartyPopper,
   Plus,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+import Money from "./Money.jsx";
 import MilestoneIcon from "./MilestoneIcon.jsx";
 import Milestones from "./Milestones.jsx";
 import MoneyTargets from "./MoneyTargets.jsx";
@@ -600,8 +603,11 @@ export default function App() {
   const netWorthDisplay = snapshots.length ? realNetWorth : investedTotal;
   const sectionLabel = NAV.find((n) => n[0] === tab)?.[1] || "";
 
+  const blurMoney = !!settings?.blurMoney;
+  const toggleBlur = () => save({ ...data, settings: { ...settings, blurMoney: !blurMoney } });
+
   return (
-    <div className="min-h-screen bg-slate-50 md:flex">
+    <div className={`min-h-screen bg-slate-50 md:flex${blurMoney ? " blur-money" : ""}`}>
       {/* mobile overlay */}
       {menuOpen && (
         <div
@@ -694,15 +700,24 @@ export default function App() {
             <Menu size={22} />
           </button>
           <div className="font-semibold text-slate-800">{sectionLabel}</div>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2">
             {toast ? (
               <span className="anim-fade text-xs text-emerald-500">{toast}</span>
             ) : (
               <span className="text-sm font-mono font-bold text-slate-700">
-                {fmt(netWorthDisplay)}{" "}
+                <Money n={netWorthDisplay} />{" "}
                 <span className="text-xs font-sans font-normal text-slate-500">net worth</span>
               </span>
             )}
+            <button
+              onClick={toggleBlur}
+              aria-pressed={blurMoney}
+              aria-label={blurMoney ? "Show amounts" : "Hide amounts"}
+              title={blurMoney ? "Show amounts" : "Hide amounts"}
+              className="press flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            >
+              {blurMoney ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
         </header>
 
@@ -784,8 +799,8 @@ export default function App() {
                       Reality check
                     </div>
                     <div className="text-sm text-slate-600">
-                      You contributed {fmt(realityCheck.contribSince)}; net worth changed{" "}
-                      {fmt(realityCheck.deltaNW)}.
+                      You contributed <Money n={realityCheck.contribSince} />; net worth changed{" "}
+                      <Money n={realityCheck.deltaNW} />.
                     </div>
                     <div
                       className={`text-sm mt-1 font-medium ${realityCheck.gap >= 0 ? "text-emerald-600" : "text-rose-500"}`}

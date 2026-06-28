@@ -1,7 +1,7 @@
 // QuickAdd.jsx — fast-logging bottom sheet (amount first, ~3 taps, <15s).
 import { useState, useMemo, useRef, useEffect } from "react";
+import Money from "./Money.jsx";
 import { Ban } from "lucide-react";
-import { fmt } from "./lib/format.js";
 import { bucketLabel } from "./lib/buckets.js";
 import { useFocusTrap } from "./useFocusTrap.js";
 
@@ -275,7 +275,7 @@ export default function QuickAdd({
                   onClick={() => repeat(t)}
                   className="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200"
                 >
-                  {fmt(t.amount)} ·{" "}
+                  <Money n={t.amount} /> ·{" "}
                   {t.type === "spending"
                     ? t.cat
                     : t.type === "contribution"
@@ -300,7 +300,7 @@ export default function QuickAdd({
           disabled={!(parseFloat(amount) > 0)}
           className="press w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition-colors"
         >
-          Log {amount && parseFloat(amount) > 0 ? fmt(parseFloat(amount)) : ""}
+          Log {amount && parseFloat(amount) > 0 ? <Money n={parseFloat(amount)} /> : ""}
         </button>
       </div>
     </div>

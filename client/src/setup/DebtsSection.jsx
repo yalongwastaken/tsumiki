@@ -1,8 +1,8 @@
 // DebtsSection.jsx — debts the engine prioritizes (balance, APR, min payment).
 // Self-contained: owns its form state, commits via onSave.
 import { useState } from "react";
+import Cash from "../Money.jsx";
 import { X } from "lucide-react";
-import { fmt } from "../lib/format.js";
 import { uid, field, Money } from "./ui.jsx";
 
 /** Debts editor body (rendered inside the accordion Section). */
@@ -42,7 +42,8 @@ export default function DebtsSection({ data, onSave }) {
               <div>
                 <div className="text-sm text-slate-700">{d.name}</div>
                 <div className="text-xs text-slate-500">
-                  {fmt(d.balance)} · {d.apr}% APR · {fmt(d.minPayment)}/mo min
+                  <Cash n={d.balance} /> · {d.apr}% APR · <Cash n={d.minPayment} />
+                  /mo min
                 </div>
               </div>
               <button

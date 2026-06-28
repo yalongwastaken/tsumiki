@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useFocusTrap } from "./useFocusTrap.js";
 import { uid } from "./lib/uid.js";
-import { fmt } from "./lib/format.js";
+import Money from "./Money.jsx";
 const STRATEGIES = [
   ["short_term", "Safety first", "Kill debt & build a cash cushion before investing."],
   ["balanced", "Balanced", "Split between debt, safety, and investing."],
@@ -201,7 +201,9 @@ export default function Onboarding({ open, initial = {}, onComplete, onSkip }) {
                 />
                 <span className="text-xs text-slate-500">
                   hrs/week ≈{" "}
-                  {fmt(Math.round((Number(srcAmount || 0) * Number(srcHours || 0) * 52) / 12))}
+                  <Money
+                    n={Math.round((Number(srcAmount || 0) * Number(srcHours || 0) * 52) / 12)}
+                  />
                   /mo
                 </span>
               </div>

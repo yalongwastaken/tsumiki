@@ -1,7 +1,7 @@
 // ProfileSection.jsx — the profile/strategy/tax form. Self-contained: holds a local
 // draft committed with a Save button, with emergency/floor suggestions from spending.
 import { useState, useMemo } from "react";
-import { fmt } from "../lib/format.js";
+import Cash from "../Money.jsx";
 import { annualSpend } from "../lib/selectors.js";
 import { FILING_STATUSES } from "../lib/tax.js";
 import { card, label, field, Money } from "./ui.jsx";
@@ -206,7 +206,8 @@ export default function ProfileSection({ data, onSave }) {
             }
             className="text-xs text-brand-600 hover:text-brand-700"
           >
-            Use suggested from your spending ({fmt(suggestFloor)} / {fmt(suggestEmergency)})
+            Use suggested from your spending (<Cash n={suggestFloor} /> /{" "}
+            <Cash n={suggestEmergency} />)
           </button>
         )}
         <div>

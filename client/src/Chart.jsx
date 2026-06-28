@@ -68,11 +68,25 @@ export default function AreaChart({
       </defs>
       <path d={area} fill={`url(#${gid})`} />
       <path d={line} fill="none" stroke={color} strokeWidth="1.5" />
-      {/* y-axis: max (top) + min (bottom) */}
-      <text x={padL - 4} y={padT + 3} textAnchor="end" fontSize="9" fill="var(--muted)">
+      {/* y-axis: max (top) + min (bottom) — money, so blurrable in privacy mode */}
+      <text
+        x={padL - 4}
+        y={padT + 3}
+        textAnchor="end"
+        fontSize="9"
+        fill="var(--muted)"
+        className="money"
+      >
         {fmtK(maxY)}
       </text>
-      <text x={padL - 4} y={baseY} textAnchor="end" fontSize="9" fill="var(--muted)">
+      <text
+        x={padL - 4}
+        y={baseY}
+        textAnchor="end"
+        fontSize="9"
+        fill="var(--muted)"
+        className="money"
+      >
         {fmtK(minY)}
       </text>
       {/* x-axis: first + last */}

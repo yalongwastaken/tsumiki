@@ -5,6 +5,7 @@ import { RefreshCw } from "lucide-react";
 import { fmt } from "./lib/format.js";
 import AreaChart from "./Chart.jsx";
 import StocksSankey from "./StocksSankey.jsx";
+import Money from "./Money.jsx";
 import {
   portfolioRows,
   portfolioTotals,
@@ -66,6 +67,7 @@ function AllocationDonut({ segs, total }) {
           fontSize="14"
           fontWeight="600"
           fill="var(--text)"
+          className="money"
         >
           {fmt(total)}
         </text>
@@ -81,7 +83,7 @@ function AllocationDonut({ segs, total }) {
             <span className="font-mono text-slate-500">
               {Math.round((s.amount / total) * 100)}%
             </span>
-            <span className="font-mono text-slate-700 w-16 text-right">{fmt(s.amount)}</span>
+            <Money n={s.amount} className="font-mono text-slate-700 w-16 text-right" />
           </div>
         ))}
       </div>
@@ -198,11 +200,11 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
 
       {totals.priced ? (
         <div className="flex items-baseline gap-2 mb-3">
-          <div className="text-3xl font-mono font-bold text-slate-900">{fmt(totals.value)}</div>
+          <Money n={totals.value} className="text-3xl font-mono font-bold text-slate-900" />
           {totals.gain != null && (
             <div className={`text-xs ${totals.gain >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
               {totals.gain >= 0 ? "+" : ""}
-              {fmt(totals.gain)} {totals.gainPct != null ? `(${pct(totals.gainPct)})` : ""}
+              <Money n={totals.gain} /> {totals.gainPct != null ? `(${pct(totals.gainPct)})` : ""}
             </div>
           )}
         </div>
@@ -215,7 +217,7 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
       )}
       {totals.priced && retire > 0 && (
         <div className="text-xs text-slate-500 mb-3">
-          {fmt(retire)} in retirement (401k/IRA) · {fmt(taxable)} taxable
+          <Money n={retire} /> in retirement (401k/IRA) · <Money n={taxable} /> taxable
         </div>
       )}
 
@@ -258,12 +260,18 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
                 )}
               </div>
               <div className="text-xs text-slate-500">
-                {r.shares} sh{r.price != null ? ` · ${fmt(r.price)}` : ""}
+                {r.shares} sh
+                {r.price != null && (
+                  <>
+                    {" · "}
+                    <Money n={r.price} />
+                  </>
+                )}
               </div>
             </div>
             <div className="text-right">
               <div className="text-sm font-mono text-slate-800">
-                {r.value != null ? fmt(r.value) : "—"}
+                {r.value != null ? <Money n={r.value} /> : "—"}
               </div>
               {r.gainPct != null && (
                 <div className={`text-xs ${r.gain >= 0 ? "text-emerald-600" : "text-rose-500"}`}>

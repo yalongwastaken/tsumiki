@@ -133,6 +133,7 @@ export default function SankeyFlow({ transactions = [], fallbackIncome = 0 }) {
               dominantBaseline="central"
               fontSize="13"
               fill="var(--muted)"
+              className="money"
             >
               {fmt(r.amount)}/mo
             </text>
@@ -157,6 +158,7 @@ export default function SankeyFlow({ transactions = [], fallbackIncome = 0 }) {
         fontSize="15"
         fill="var(--text)"
         fontWeight="bold"
+        className="money"
       >
         {fmt(income)}
       </text>

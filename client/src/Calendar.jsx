@@ -1,5 +1,6 @@
 // Calendar.jsx — one-month grid: heatmap, activity dots, bills, weekly adherence.
 import { useState, useMemo } from "react";
+import Money from "./Money.jsx";
 import { Flame, ChevronLeft, ChevronRight } from "lucide-react";
 import { fmt } from "./lib/format.js";
 import { weekKey, objectiveForWeek } from "./lib/streak.js";
@@ -250,7 +251,9 @@ export default function Calendar({ transactions = [], profile = {} }) {
             selBills.map((b) => (
               <div key={b.id} className="flex justify-between py-1.5 text-sm">
                 <span className="text-amber-600">Bill due · {b.name}</span>
-                <span className="font-mono text-slate-500">{fmt(b.amount)}</span>
+                <span className="font-mono text-slate-500">
+                  <Money n={b.amount} />
+                </span>
               </div>
             ))}
           {selData?.items.length
@@ -274,7 +277,7 @@ export default function Calendar({ transactions = [], profile = {} }) {
                       className={`font-mono ${t.type === "spending" ? "text-slate-700" : t.type === "income" ? "text-emerald-600" : "text-brand-600"}`}
                     >
                       {t.type === "spending" ? "−" : "+"}
-                      {fmt(t.amount)}
+                      <Money n={t.amount} />
                     </span>
                   </div>
                 ))

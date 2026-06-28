@@ -1,8 +1,8 @@
 // Ledger.jsx — transaction list with type filter, text search, and bulk
 // recategorize (select multiple spending rows → set a new category).
 import { useState } from "react";
+import Money from "./Money.jsx";
 import { X, Check } from "lucide-react";
-import { fmt } from "./lib/format.js";
 import { bucketLabel } from "./lib/buckets.js";
 import { allCategories } from "./lib/categories.js";
 
@@ -162,7 +162,7 @@ export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
                   ) : (
                     <span className={`text-sm font-mono ${color(t)}`}>
                       {t.type === "spending" ? "−" : "+"}
-                      {fmt(t.amount)}
+                      <Money n={t.amount} />
                     </span>
                   )}
                   <button

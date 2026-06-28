@@ -1,6 +1,6 @@
 // Recurring.jsx — per-income recurring transfers, split by each source's cadence.
 import { useState } from "react";
-import { fmt } from "./lib/format.js";
+import Money from "./Money.jsx";
 import { nextPaydays } from "./lib/paydays.js";
 import { CADENCE, CADENCE_LABEL, isCadence } from "./lib/cadence.js";
 
@@ -138,7 +138,9 @@ export default function Recurring({ plan, profile = {}, accounts = [] }) {
                 </span>
                 <span className="text-slate-600 flex-1 truncate">{e.name}</span>
                 <span className="text-slate-500">move</span>
-                <span className="font-mono font-semibold text-slate-800">{fmt(e.move)}</span>
+                <span className="font-mono font-semibold text-slate-800">
+                  <Money n={e.move} />
+                </span>
               </div>
             ))}
           </div>
@@ -163,7 +165,7 @@ export default function Recurring({ plan, profile = {}, accounts = [] }) {
                   {perCheck ? CADENCE_LABEL[src.cadence] : "monthly"}
                   {next ? ` · next ${fmtDate(next)}` : ""} ·{" "}
                   <span className="font-mono text-slate-500">
-                    {fmt(paycheckIncome)}
+                    <Money n={paycheckIncome} />
                     {suffix}
                   </span>
                 </div>
@@ -182,7 +184,7 @@ export default function Recurring({ plan, profile = {}, accounts = [] }) {
                         <div className="text-xs text-slate-500 truncate">→ {routeFor(d.key)}</div>
                       </div>
                       <span className="text-sm font-mono font-semibold text-slate-900">
-                        {fmt(d.amt)}
+                        <Money n={d.amt} />
                         <span className="text-slate-400 text-xs">{suffix}</span>
                       </span>
                     </div>
@@ -194,7 +196,7 @@ export default function Recurring({ plan, profile = {}, accounts = [] }) {
                       Stays in checking · bills & spending
                     </div>
                     <span className="text-sm font-mono text-slate-500">
-                      {fmt(stays)}
+                      <Money n={stays} />
                       <span className="text-slate-400 text-xs">{suffix}</span>
                     </span>
                   </div>

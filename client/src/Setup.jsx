@@ -1,8 +1,8 @@
 // Setup.jsx — profile + accounts/debts the engine runs on (accounts vs settings section).
 import { useState, useMemo, useRef } from "react";
 import { ChevronDown } from "lucide-react";
-import { fmt } from "./lib/format.js";
 import { importData, exportUrl } from "./lib/api.js";
+import Money from "./Money.jsx";
 import { card, label } from "./setup/ui.jsx";
 import { INVESTMENT_TYPES, holdingsValueByAccount } from "./lib/portfolio.js";
 import IncomeSection from "./setup/IncomeSection.jsx";
@@ -145,7 +145,13 @@ export default function Setup({
           {/* Income sources */}
           <Section
             title="Income sources"
-            summary={`${incomeSources.length} ${incomeSources.length === 1 ? "source" : "sources"} · ${fmt(totalTypical)}/mo`}
+            summary={
+              <>
+                {incomeSources.length} {incomeSources.length === 1 ? "source" : "sources"} ·{" "}
+                <Money n={totalTypical} />
+                /mo
+              </>
+            }
             open={isOpen("income", incomeSources.length === 0)}
             onToggle={() => toggle("income", incomeSources.length === 0)}
           >
@@ -155,9 +161,17 @@ export default function Setup({
           {/* Accounts */}
           <Section
             title="Accounts"
-            summary={`${accounts.length} ${accounts.length === 1 ? "account" : "accounts"}${
-              accountsTotal != null ? ` · ${fmt(accountsTotal)}` : ""
-            }`}
+            summary={
+              <>
+                {accounts.length} {accounts.length === 1 ? "account" : "accounts"}
+                {accountsTotal != null && (
+                  <>
+                    {" · "}
+                    <Money n={accountsTotal} />
+                  </>
+                )}
+              </>
+            }
             open={isOpen("accounts", accounts.length === 0)}
             onToggle={() => toggle("accounts", accounts.length === 0)}
           >
@@ -167,7 +181,12 @@ export default function Setup({
           {/* Recurring bills (essentials) */}
           <Section
             title="Recurring bills"
-            summary={`${bills.length} ${bills.length === 1 ? "bill" : "bills"} · ${fmt(billsTotal)}/mo`}
+            summary={
+              <>
+                {bills.length} {bills.length === 1 ? "bill" : "bills"} · <Money n={billsTotal} />
+                /mo
+              </>
+            }
             open={isOpen("bills", bills.length === 0)}
             onToggle={() => toggle("bills", bills.length === 0)}
           >
@@ -177,9 +196,17 @@ export default function Setup({
           {/* Debts */}
           <Section
             title="Debts"
-            summary={`${debts.length} ${debts.length === 1 ? "debt" : "debts"}${
-              debtsTotal > 0 ? ` · ${fmt(debtsTotal)}` : ""
-            }`}
+            summary={
+              <>
+                {debts.length} {debts.length === 1 ? "debt" : "debts"}
+                {debtsTotal > 0 && (
+                  <>
+                    {" · "}
+                    <Money n={debtsTotal} />
+                  </>
+                )}
+              </>
+            }
             open={isOpen("debts", debts.length === 0)}
             onToggle={() => toggle("debts", debts.length === 0)}
           >
@@ -215,6 +242,26 @@ export default function Setup({
 
           {/* App lock (optional password) */}
           <AppLock />
+
+          {/* Privacy — blur money on screen */}
+          <div className={card}>
+            <div className={label + " mb-3"}>Privacy</div>
+            <label className="flex cursor-pointer items-center justify-between gap-2 text-sm text-slate-700">
+              Blur dollar amounts
+              <input
+                type="checkbox"
+                checked={!!settings.blurMoney}
+                onChange={(e) =>
+                  onSave({ ...data, settings: { ...settings, blurMoney: e.target.checked } })
+                }
+                className="h-4 w-4 rounded border-slate-300 text-brand-600"
+              />
+            </label>
+            <div className="mt-2 text-xs text-slate-500">
+              Hides every amount behind a blur so balances aren't exposed on a glanced-at screen.
+              Toggle anytime with the eye icon in the header; hover an amount to peek.
+            </div>
+          </div>
 
           {/* Reminders — which time-based alerts show on Home */}
           <div className={card}>

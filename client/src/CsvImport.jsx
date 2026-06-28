@@ -1,7 +1,7 @@
 // CsvImport.jsx — paste or upload a bank CSV, map the columns, preview, and import
 // as transactions. Uses the pure parser in csv.js; nothing leaves the device.
 import { useState, useMemo } from "react";
-import { fmt } from "./lib/format.js";
+import Money from "./Money.jsx";
 import { parseCsv, guessMapping, rowsToTransactions, dedupeAgainst } from "./lib/csv.js";
 import { uid } from "./lib/uid.js";
 
@@ -137,7 +137,7 @@ export default function CsvImport({ onImport, existing = [] }) {
                       className={`font-mono flex-shrink-0 ${t.type === "spending" ? "text-rose-500" : "text-emerald-600"}`}
                     >
                       {t.type === "spending" ? "−" : "+"}
-                      {fmt(t.amount)}
+                      <Money n={t.amount} />
                     </span>
                   </div>
                 ))}
