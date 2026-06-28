@@ -280,7 +280,7 @@ export function coachNudges(ctx = {}, limit = 3) {
       id: "unallocated",
       tone: "info",
       tab: "plan",
-      text: `You have about ${Math.round(leftToAllocate)} unassigned this month — give it a job before it drifts into spending.`,
+      text: `You have about $${Math.round(leftToAllocate).toLocaleString()} unassigned this month — give it a job before it drifts into spending.`,
     });
   }
   if (hasIncome && !hasPaydays) {
