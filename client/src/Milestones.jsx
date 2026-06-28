@@ -1,6 +1,6 @@
 // Milestones.jsx — achievements panel (earned badges + next to chase).
 import { useState } from "react";
-import Money from "./Money.jsx";
+import Money, { BlurAmounts } from "./Money.jsx";
 import { nextMilestone } from "./lib/milestones.js";
 import MilestoneIcon from "./MilestoneIcon.jsx";
 
@@ -31,7 +31,7 @@ export default function Milestones({ list }) {
               className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full bg-amber-50 border border-amber-200 text-amber-700"
             >
               <MilestoneIcon name={m.icon} size={13} />
-              {m.label}
+              <BlurAmounts text={m.label} />
             </span>
           ))}
           {(hidden > 0 || showAll) && (
@@ -53,7 +53,7 @@ export default function Milestones({ list }) {
         <div>
           <div className="flex items-baseline justify-between text-xs text-slate-500 mb-1">
             <span className="inline-flex items-center gap-1.5">
-              Next: <MilestoneIcon name={next.icon} size={13} /> {next.label}
+              Next: <MilestoneIcon name={next.icon} size={13} /> <BlurAmounts text={next.label} />
             </span>
             <span className="font-mono">
               <Money n={next.cur} /> / <Money n={next.target} />

@@ -12,3 +12,25 @@ import { fmt, fmtK } from "./lib/format.js";
 export default function Money({ n, k = false, className = "" }) {
   return <span className={className ? `money ${className}` : "money"}>{k ? fmtK(n) : fmt(n)}</span>;
 }
+
+// split on / test for a rendered currency token like $1,234 / $1,234.56 / $-80 / $1.2k
+const AMOUNT_SPLIT = /(\$-?[\d,]+(?:\.\d+)?k?)/g;
+const IS_AMOUNT = /^\$-?[\d,]+(?:\.\d+)?k?$/;
+
+/**
+ * Render a plain string while blurring any embedded currency amount in privacy mode.
+ * Used for amounts baked into label/advisory strings (milestones, goals, coaching
+ * nudges, reminders) that can't be wrapped at the source. No amount → returns the text.
+ */
+export function BlurAmounts({ text }) {
+  const s = String(text ?? "");
+  return s.split(AMOUNT_SPLIT).map((part, i) =>
+    IS_AMOUNT.test(part) ? (
+      <span key={i} className="money">
+        {part}
+      </span>
+    ) : (
+      part
+    ),
+  );
+}

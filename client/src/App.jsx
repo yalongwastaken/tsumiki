@@ -53,7 +53,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import Money from "./Money.jsx";
+import Money, { BlurAmounts } from "./Money.jsx";
 import MilestoneIcon from "./MilestoneIcon.jsx";
 import Milestones from "./Milestones.jsx";
 import MoneyTargets from "./MoneyTargets.jsx";
@@ -679,7 +679,7 @@ export default function App() {
             {celebrate.map((m, i) => (
               <span key={i} className="inline-flex items-center gap-1">
                 <MilestoneIcon name={m.icon} size={14} />
-                {m.label}
+                <BlurAmounts text={m.label} />
               </span>
             ))}
             <span className="opacity-70 font-normal">— tap to dismiss</span>
@@ -714,7 +714,7 @@ export default function App() {
               aria-pressed={blurMoney}
               aria-label={blurMoney ? "Show amounts" : "Hide amounts"}
               title={blurMoney ? "Show amounts" : "Hide amounts"}
-              className="press flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              className="press flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
             >
               {blurMoney ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -805,9 +805,13 @@ export default function App() {
                     <div
                       className={`text-sm mt-1 font-medium ${realityCheck.gap >= 0 ? "text-emerald-600" : "text-rose-500"}`}
                     >
-                      {realityCheck.gap >= 0
-                        ? `+${fmt(realityCheck.gap)} on top — markets working for you.`
-                        : `${fmt(realityCheck.gap)} — markets or unlogged spending took a bite.`}
+                      <BlurAmounts
+                        text={
+                          realityCheck.gap >= 0
+                            ? `+${fmt(realityCheck.gap)} on top — markets working for you.`
+                            : `${fmt(realityCheck.gap)} — markets or unlogged spending took a bite.`
+                        }
+                      />
                     </div>
                   </div>
                 )}

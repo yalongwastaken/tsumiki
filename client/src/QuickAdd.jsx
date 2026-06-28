@@ -1,6 +1,6 @@
 // QuickAdd.jsx — fast-logging bottom sheet (amount first, ~3 taps, <15s).
 import { useState, useMemo, useRef, useEffect } from "react";
-import Money from "./Money.jsx";
+import Money, { BlurAmounts } from "./Money.jsx";
 import { Ban } from "lucide-react";
 import { bucketLabel } from "./lib/buckets.js";
 import { useFocusTrap } from "./useFocusTrap.js";
@@ -229,7 +229,7 @@ export default function QuickAdd({
                   title={g.label}
                   className={`max-w-[12rem] truncate px-3 py-2 text-sm rounded-full border transition-colors ${goalId === g.id ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
                 >
-                  {g.label}
+                  <BlurAmounts text={g.label} />
                 </button>
               ))}
             </div>

@@ -12,7 +12,7 @@ import MoneyTargets from "../../src/MoneyTargets.jsx";
 import QuickAdd from "../../src/QuickAdd.jsx";
 import Portfolio, { syncProblem } from "../../src/Portfolio.jsx";
 import StocksSankey from "../../src/StocksSankey.jsx";
-import Money from "../../src/Money.jsx";
+import Money, { BlurAmounts } from "../../src/Money.jsx";
 
 const html = (el) => renderToStaticMarkup(el);
 
@@ -89,6 +89,16 @@ test("Money renders a blurrable .money span with the formatted amount", () => {
   const k = html(h(Money, { n: 1500, k: true, className: "font-mono" }));
   assert.match(k, /class="money font-mono"/);
   assert.match(k, /\$1\.5k/);
+});
+
+test("BlurAmounts wraps $ amounts in a string but leaves the rest plain", () => {
+  const out = html(h(BlurAmounts, { text: "$10,000 net worth milestone" }));
+  assert.match(out, /<span class="money">\$10,000<\/span>/);
+  assert.match(out, /net worth milestone/);
+  // a string with no amount renders unchanged (no money span)
+  assert.equal(html(h(BlurAmounts, { text: "First investment" })), "First investment");
+  // handles a negative amount mid-sentence
+  assert.match(html(h(BlurAmounts, { text: "$-80 — over budget" })), /class="money">\$-80</);
 });
 
 test("StocksSankey amount labels carry the .money class (blurrable)", () => {

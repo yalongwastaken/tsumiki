@@ -1,6 +1,6 @@
 // Fire.jsx — FIRE / Coast-FI readout (pure math, no chart deps).
 import { PartyPopper } from "lucide-react";
-import Money from "./Money.jsx";
+import Money, { BlurAmounts } from "./Money.jsx";
 import { fmt } from "./lib/format.js";
 
 // fire number = 25× annual expenses (the 4% rule)
@@ -111,9 +111,13 @@ export default function Fire({
         >
           {isCoasting && <PartyPopper size={16} className="flex-shrink-0 mt-0.5" />}
           <span>
-            {isCoasting
-              ? `You've hit Coast-FI — current savings alone grow to your FIRE number by age ${retireAge}. New contributions just get you there sooner.`
-              : `Coast-FI at age ${retireAge}: you'd need ${fmt(coastNumberAtRetire)} invested today (you have ${fmt(nw)}) to coast to FIRE without adding more.`}
+            <BlurAmounts
+              text={
+                isCoasting
+                  ? `You've hit Coast-FI — current savings alone grow to your FIRE number by age ${retireAge}. New contributions just get you there sooner.`
+                  : `Coast-FI at age ${retireAge}: you'd need ${fmt(coastNumberAtRetire)} invested today (you have ${fmt(nw)}) to coast to FIRE without adding more.`
+              }
+            />
           </span>
         </div>
       )}

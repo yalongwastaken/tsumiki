@@ -1,6 +1,6 @@
 // Home.jsx — landing screen: the valuable stuff at a glance, tap-through to detail.
 import { useState, useEffect, useMemo } from "react";
-import Money from "./Money.jsx";
+import Money, { BlurAmounts } from "./Money.jsx";
 import { fmt } from "./lib/format.js";
 import { getPlan, getNews } from "./lib/api.js";
 import { thisMonth, monthKey, annualSpend, sumLatestByType, monthTotals } from "./lib/selectors.js";
@@ -268,7 +268,9 @@ export default function Home({
               onClick={() => onGo?.(n.tab)}
               className={`w-full text-left rounded-xl p-3 text-sm flex items-center gap-2 ${TREND_TONE[n.tone] || TREND_TONE.info}`}
             >
-              <span className="flex-1">{n.text}</span>
+              <span className="flex-1">
+                <BlurAmounts text={n.text} />
+              </span>
               <ArrowRight size={15} className="flex-shrink-0 opacity-60" />
             </button>
           ))}
@@ -314,7 +316,11 @@ export default function Home({
               >
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium">{r.title}</div>
-                  {r.detail && <div className="text-xs text-slate-600">{r.detail}</div>}
+                  {r.detail && (
+                    <div className="text-xs text-slate-600">
+                      <BlurAmounts text={r.detail} />
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => setDismissed((s) => new Set(s).add(r.id))}
@@ -415,7 +421,7 @@ export default function Home({
           <div>
             <div className="flex items-baseline justify-between text-xs text-slate-500 mb-1">
               <span className="inline-flex items-center gap-1">
-                Next: <MilestoneIcon name={next.icon} size={12} /> {next.label}
+                Next: <MilestoneIcon name={next.icon} size={12} /> <BlurAmounts text={next.label} />
               </span>
               <span className="font-mono">
                 <Money n={next.cur} /> / <Money n={next.target} />

@@ -274,9 +274,13 @@ body {
   /* keep the blurred text unselectable so it can't be copied/revealed by dragging */
   user-select: none;
 }
-.blur-money .money:hover,
-.blur-money .money:focus,
-.blur-money .money:focus-within {
+/* SVG chart labels are small (~9px); a tighter blur keeps the halo from bleeding */
+.blur-money text.money {
+  filter: blur(4.5px);
+}
+/* hover to peek at a single amount (mouse/trackpad); the header eye toggle is the
+   keyboard/touch-accessible way to reveal everything at once */
+.blur-money .money:hover {
   filter: none;
   user-select: auto;
 }

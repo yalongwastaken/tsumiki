@@ -1,6 +1,6 @@
 // MoneyTargets.jsx — manage user-defined "save $X" goals with optional deadlines.
 import { useState } from "react";
-import Money from "./Money.jsx";
+import Money, { BlurAmounts } from "./Money.jsx";
 import { X } from "lucide-react";
 import { fmt } from "./lib/format.js";
 import { goalProgress } from "./lib/goals.js";
@@ -62,7 +62,7 @@ export default function MoneyTargets({
               <div key={t.id} className="py-2.5">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-slate-700">
-                    {t.label}{" "}
+                    <BlurAmounts text={t.label} />{" "}
                     <span className="text-xs text-slate-500">· {metricLabel(t.metric)}</span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -100,9 +100,11 @@ export default function MoneyTargets({
                       Save <Money n={p.requiredMonthly} />
                       /mo to hit it in {p.monthsLeft} mo.
                       {p.onTrack === true && " On track 🎉"}
-                      {p.onTrack === false &&
-                        monthlyPace > 0 &&
-                        ` You're saving ~${fmt(monthlyPace)}/mo — ${fmt(p.behindBy)}/mo short.`}
+                      {p.onTrack === false && monthlyPace > 0 && (
+                        <BlurAmounts
+                          text={` You're saving ~${fmt(monthlyPace)}/mo — ${fmt(p.behindBy)}/mo short.`}
+                        />
+                      )}
                     </span>
                   ) : (
                     <span className="text-slate-500">
