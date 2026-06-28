@@ -1,6 +1,6 @@
 // Projection.jsx — interactive compound-growth projection.
 import { useState, useMemo } from "react";
-import Money from "./Money.jsx";
+import Money, { BlurAmounts } from "./Money.jsx";
 import AreaChart from "./Chart.jsx";
 import { fmt } from "./lib/format.js";
 
@@ -31,7 +31,9 @@ function Slider({ label, value, min, max, step, suffix = "", fmt: f, onChange })
       <div className="flex justify-between items-baseline mb-1">
         <span className="text-sm text-slate-600">{label}</span>
         <span className="text-sm font-mono font-semibold text-slate-800">
-          {f ? f(value) : value + suffix}
+          {/* render via BlurAmounts so a $ value (Monthly invested) blurs in privacy
+              mode; the yr / % sliders have no $ token and pass through unchanged */}
+          <BlurAmounts text={f ? f(value) : value + suffix} />
         </span>
       </div>
       <input
