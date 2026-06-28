@@ -33,6 +33,11 @@ smoke test).
   and then into individual tickers, with value-weighted ribbons colored by bucket — so you
   can see at a glance where your stocks are held. Driven by a pure, tested `portfolioFlow`
   helper; it appears once you have at least two priced holdings.
+- **Credit card accounts.** A new "Credit card" account type, modeled as a liability
+  (its balance is what you owe and subtracts from net worth). Charge it up or pay it
+  down right from the account row — each writes a balance snapshot — so you can track a
+  card alongside your cash and investment accounts. (For paying a card down with interest
+  over time, Debts still has the APR-aware payoff plan.)
 - **Blur money (privacy mode).** An optional toggle that blurs every dollar amount on
   screen so balances aren't exposed on a glanced-at screen — flip it with the eye icon in
   the header (persists across tabs) or in Settings → Privacy. Hover an amount to peek; the
@@ -57,8 +62,9 @@ smoke test).
   (`sync.test.js`) cover ok / partial / empty / unreachable / multi-URL fallback /
   keyed fallback / merge-completes-partial. `syncProblem` and `portfolioFlow` are exported
   and tested. Suite: 80 server and 141 client tests (across UTC, US/Pacific, Tokyo,
-  UTC+14) plus 16 component tests. The blur-money mode is a stateless `<Money>` /
-  `BlurAmounts` layer toggled by a single root `.blur-money` class.
+  UTC+14) plus 18 component tests. The blur-money mode is a stateless `<Money>` /
+  `BlurAmounts` layer toggled by a single root `.blur-money` class. Credit cards reuse
+  the snapshot model with a negative balance, so net worth needs no special-casing.
 
 ## [1.5.0] — 2026-06-23
 
