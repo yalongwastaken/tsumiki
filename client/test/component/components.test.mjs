@@ -13,6 +13,8 @@ import QuickAdd from "../../src/QuickAdd.jsx";
 import Portfolio, { syncProblem } from "../../src/Portfolio.jsx";
 import StocksSankey from "../../src/StocksSankey.jsx";
 import Money, { BlurAmounts } from "../../src/Money.jsx";
+import AccountsSection from "../../src/setup/AccountsSection.jsx";
+import { netWorthFromSnapshots } from "../../src/lib/selectors.js";
 
 const html = (el) => renderToStaticMarkup(el);
 
@@ -89,6 +91,26 @@ test("Money renders a blurrable .money span with the formatted amount", () => {
   const k = html(h(Money, { n: 1500, k: true, className: "font-mono" }));
   assert.match(k, /class="money font-mono"/);
   assert.match(k, /\$1\.5k/);
+});
+
+test("AccountsSection shows a credit card as a liability ('owed', in red)", () => {
+  const data = {
+    accounts: [{ id: "cc", name: "Visa", type: "credit", color: "#94A3B8" }],
+    snapshots: [{ id: "s1", accountId: "cc", date: "2026-06-20T12:00:00Z", balance: -1240 }],
+    holdings: [],
+  };
+  const out = html(h(AccountsSection, { data, onSave() {} }));
+  assert.match(out, /Credit card/); // type label
+  assert.match(out, /owed/);
+  assert.match(out, /\$1,240/); // absolute amount, not -$1,240
+});
+
+test("a credit card's negative balance subtracts from net worth", () => {
+  const snaps = [
+    { id: "a", accountId: "chk", date: "2026-06-01", balance: 5000 },
+    { id: "b", accountId: "cc", date: "2026-06-01", balance: -1240 }, // owed
+  ];
+  assert.equal(netWorthFromSnapshots(snaps), 3760); // 5000 − 1240
 });
 
 test("BlurAmounts wraps $ amounts in a string but leaves the rest plain", () => {

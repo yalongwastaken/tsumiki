@@ -7,10 +7,22 @@ import { X, Pencil, ChevronDown } from "lucide-react";
 import { INVESTMENT_TYPES, TAX_TAG_FOR_TYPE, holdingsValueByAccount } from "../lib/portfolio.js";
 import { uid, field, Money } from "./ui.jsx";
 
-const ACCOUNT_TYPES = ["checking", "savings", "brokerage", "ira", "roth", "401k", "other"];
-const TYPE_LABEL = { "401k": "401(k)", ira: "IRA", roth: "Roth IRA" };
+const ACCOUNT_TYPES = [
+  "checking",
+  "savings",
+  "credit",
+  "brokerage",
+  "ira",
+  "roth",
+  "401k",
+  "other",
+];
+const TYPE_LABEL = { "401k": "401(k)", ira: "IRA", roth: "Roth IRA", credit: "Credit card" };
 const typeLabel = (t) => TYPE_LABEL[t] || t;
 const isInvestment = (t) => INVESTMENT_TYPES.has(t);
+// a credit card is a liability: its balance is stored negative (amount owed), so it
+// subtracts from net worth like any other negative snapshot.
+const isCredit = (t) => t === "credit";
 const iconBtn = "-m-1.5 flex h-11 w-11 items-center justify-center"; // 44px tap target (WCAG 2.5.5)
 
 /** Accounts editor body (rendered inside the accordion Section). */
@@ -85,9 +97,12 @@ export default function AccountsSection({ data, onSave, prices = null }) {
     }
     const next = { ...data, accounts: [...accounts, account] };
     if (!inv && acct.balance !== "") {
+      const entered = Number(acct.balance) || 0;
+      // a credit card's entered figure is what you OWE → store it negative (a liability)
+      const balance = isCredit(acct.type) ? -Math.abs(entered) : entered;
       next.snapshots = [
         ...snapshots,
-        { id: uid(), accountId: id, date: new Date().toISOString(), balance: Number(acct.balance) },
+        { id: uid(), accountId: id, date: new Date().toISOString(), balance },
       ];
     }
     onSave(next);
@@ -122,6 +137,23 @@ export default function AccountsSection({ data, onSave, prices = null }) {
       snapshots: [
         ...snapshots,
         { id: uid(), accountId: id, date: new Date().toISOString(), balance: v },
+      ],
+    });
+    setBalEdit({ id: null, value: "" });
+  }
+  // log money against a credit card: delta>0 charges it (owe more), delta<0 pays it down
+  // (owe less, never below 0). Each writes a snapshot of the new owed amount (negative).
+  function adjustCard(id, delta) {
+    if (!Number.isFinite(delta) || delta === 0) {
+      return;
+    }
+    const owed = -(latestBalance(id) || 0);
+    const newOwed = Math.max(0, owed + delta);
+    onSave({
+      ...data,
+      snapshots: [
+        ...snapshots,
+        { id: uid(), accountId: id, date: new Date().toISOString(), balance: -newOwed },
       ],
     });
     setBalEdit({ id: null, value: "" });
@@ -192,7 +224,11 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                     <div className="text-sm text-slate-700">
                       {a.name} <span className="text-xs text-slate-500">· {typeLabel(a.type)}</span>
                     </div>
-                    {val != null ? (
+                    {isCredit(a.type) ? (
+                      <div className="text-xs text-rose-600">
+                        <Cash n={-(val || 0)} /> owed
+                      </div>
+                    ) : val != null ? (
                       <div className="text-xs text-slate-500">
                         <Cash n={val} />
                         {inv && (
@@ -240,7 +276,7 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                           )
                         }
                         className={`${iconBtn} text-slate-400 hover:text-brand-600`}
-                        aria-label="Update balance"
+                        aria-label={isCredit(a.type) ? "Charge or pay card" : "Update balance"}
                       >
                         <Pencil size={14} />
                       </button>
@@ -255,8 +291,34 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                   </div>
                 </div>
 
+                {/* credit card: charge it up or pay it down (logs a new owed balance) */}
+                {isCredit(a.type) && balEdit.id === a.id && (
+                  <div className="mt-2 flex gap-2">
+                    <div className="flex-1">
+                      <Money
+                        value={balEdit.value}
+                        onChange={(v) => setBalEdit({ id: a.id, value: v })}
+                        placeholder="Amount"
+                        ariaLabel="Amount to charge or pay"
+                      />
+                    </div>
+                    <button
+                      onClick={() => adjustCard(a.id, Math.abs(Number(balEdit.value) || 0))}
+                      className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                    >
+                      Charge
+                    </button>
+                    <button
+                      onClick={() => adjustCard(a.id, -Math.abs(Number(balEdit.value) || 0))}
+                      className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                    >
+                      Pay
+                    </button>
+                  </div>
+                )}
+
                 {/* cash-account manual balance editor */}
-                {!inv && balEdit.id === a.id && (
+                {!inv && !isCredit(a.type) && balEdit.id === a.id && (
                   <div className="flex gap-2 mt-2">
                     <div className="flex-1">
                       <Money
@@ -438,8 +500,20 @@ export default function AccountsSection({ data, onSave, prices = null }) {
           <Money
             value={acct.balance}
             onChange={(v) => setAcct({ ...acct, balance: v })}
-            placeholder={isInvestment(acct.type) ? "Cash (optional)" : "Current balance (optional)"}
-            ariaLabel={isInvestment(acct.type) ? "Cash (optional)" : "Current balance (optional)"}
+            placeholder={
+              isInvestment(acct.type)
+                ? "Cash (optional)"
+                : isCredit(acct.type)
+                  ? "Amount owed (optional)"
+                  : "Current balance (optional)"
+            }
+            ariaLabel={
+              isInvestment(acct.type)
+                ? "Cash (optional)"
+                : isCredit(acct.type)
+                  ? "Amount owed (optional)"
+                  : "Current balance (optional)"
+            }
           />
         </div>
         <button
