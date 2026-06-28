@@ -73,7 +73,7 @@ Open `http://<mini-pc-ip>:4000`. Configuration via environment variables:
 | Variable              | Default                  | Purpose                                                                                                                          |
 | --------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
 | `PORT`                | `4000`                   | port to listen on                                                                                                                |
-| `HOST`                | `0.0.0.0`                | bind address (LAN / Tailscale)                                                                                                   |
+| `HOST`                | `0.0.0.0`                | bind address; set to `127.0.0.1` to expose only locally and front with a TLS reverse proxy                                       |
 | `TSUMIKI_DB`          | `server/data/tsumiki.db` | SQLite database file path                                                                                                        |
 | `TSUMIKI_NEWS_FEED`   | _(unset → off)_          | optional public RSS/Atom URL for money headlines                                                                                 |
 | `TSUMIKI_PRICES`      | _(unset → off)_          | set to `1` to sync prices for your stock holdings                                                                                |
@@ -131,14 +131,33 @@ with a theme color that follows light/dark mode.
 The whole database is one file, so a copy is a full backup:
 
 ```bash
-make backup       # → backups/tsumiki-YYYY-MM-DD.db
+make backup       # → backups/tsumiki-YYYY-MM-DD.db   (PLAINTEXT)
 ```
 
-Automate it nightly with cron on the mini PC:
+The plain copy is unencrypted — fine on an encrypted disk, risky if it leaves the box.
+For an encrypted backup (recommended before syncing anywhere off the machine):
+
+```bash
+TSUMIKI_BACKUP_PASSPHRASE='your-strong-passphrase' make backup-enc
+# → backups/tsumiki-YYYY-MM-DD.db.gpg   (AES-256, via gpg)
+# restore: gpg -d -o restored.db backups/tsumiki-YYYY-MM-DD.db.gpg
+```
+
+Automate it nightly with cron on the mini PC (set the passphrase in the cron env):
 
 ```cron
-0 2 * * *  cd ~/tsumiki && make backup
+0 2 * * *  cd ~/tsumiki && TSUMIKI_BACKUP_PASSPHRASE='…' make backup-enc
 ```
+
+## Security
+
+Tsumiki is built for a single user on a private network and is deliberately
+privacy-respecting: **no telemetry, no analytics, no third-party calls**, and the
+outbound news/price features are off by default (when on, only ticker symbols / the
+feed URL / your own API key ever leave). See [`SECURITY.md`](./SECURITY.md) for the
+full threat model, what protects your data, the residual risks (no at-rest encryption
+by default; the app lock is off by default; the server does no TLS itself), and the
+recommended hardening steps.
 
 ## Testing
 

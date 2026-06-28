@@ -10,7 +10,14 @@ import { getAuth, setAuth } from "./db.js";
 const COOKIE = "tsumiki_session";
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000; // trusted-device window
 const KEYLEN = 32;
-const MIN_LEN = 6;
+const MIN_LEN = 8;
+// in-memory login throttle (single-user): after MAX_FAILS wrong passwords, lock out
+// new attempts for LOCK_MS. Resets on a correct login or a server restart — enough to
+// blunt online brute-force without persisting lockout state.
+const MAX_FAILS = 5;
+const LOCK_MS = 60 * 1000;
+let loginFails = 0;
+let lockUntil = 0;
 
 /** Whether a password is currently set. */
 export const authEnabled = () => !!getAuth();
@@ -155,9 +162,18 @@ export function authLogin(req, res) {
   if (!isSecureReq(req)) {
     return res.status(400).json({ error: "open over HTTPS or Tailscale to sign in" });
   }
+  if (Date.now() < lockUntil) {
+    return res.status(429).json({ error: "too many attempts — wait a minute and try again" });
+  }
   if (!verifyPassword(req.body?.password, auth)) {
+    if (++loginFails >= MAX_FAILS) {
+      lockUntil = Date.now() + LOCK_MS;
+      loginFails = 0;
+    }
     return res.status(401).json({ error: "wrong password" });
   }
+  loginFails = 0;
+  lockUntil = 0;
   setSessionCookie(req, res, sign({ exp: Date.now() + SESSION_MS }, auth.secret));
   res.json({ ok: true });
 }
@@ -174,6 +190,9 @@ export function authSet(req, res) {
   if (existing && !verifyPassword(current, existing)) {
     return res.status(401).json({ error: "wrong current password" });
   }
+  // a successful set/change/clear clears any active login lockout
+  loginFails = 0;
+  lockUntil = 0;
   if (password == null || password === "") {
     setAuth(null); // disable the lock
     clearSessionCookie(res);

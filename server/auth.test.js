@@ -118,11 +118,28 @@ test("can't enable over insecure origin", () => {
   assert.equal(auth.authEnabled(), false);
 });
 
-test("enabling needs a 6+ char password (secure origin)", () => {
+test("enabling needs an 8+ char password (secure origin)", () => {
   const res = mockRes();
   auth.authSet(req({ headers: SECURE, body: { password: "short" } }), res);
   assert.equal(res.statusCode, 400);
   assert.equal(auth.authEnabled(), false);
+});
+
+test("login throttles after repeated wrong passwords", () => {
+  // set a password, then hammer with wrong guesses
+  auth.authSet(req({ headers: SECURE, body: { password: "correct horse" } }), mockRes());
+  for (let i = 0; i < 5; i++) {
+    auth.authLogin(req({ headers: SECURE, body: { password: "nope" } }), mockRes());
+  }
+  // 6th attempt (even with the RIGHT password) is locked out
+  const locked = mockRes();
+  auth.authLogin(req({ headers: SECURE, body: { password: "correct horse" } }), locked);
+  assert.equal(locked.statusCode, 429);
+  // clear the lock so later tests aren't affected
+  auth.authSet(
+    req({ headers: SECURE, body: { current: "correct horse", password: "" } }),
+    mockRes(),
+  );
 });
 
 test("end-to-end: set → gate locks → login → gate passes → logout/clear", () => {

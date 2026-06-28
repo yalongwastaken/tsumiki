@@ -2,7 +2,7 @@
 # Requires Node >= 22.12 and npm. Run `make` or `make help` for the list.
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev server client build start test test-client test-server test-components test-smoke format lint clean distclean backup
+.PHONY: help install dev server client build start test test-client test-server test-components test-smoke format lint clean distclean backup backup-enc
 
 ## help: list the available targets
 help:
@@ -66,11 +66,22 @@ format:
 lint:
 	npm run lint
 
-## backup: copy the SQLite database into ./backups (timestamped)
+## backup: copy the SQLite database into ./backups (timestamped, PLAINTEXT)
 backup:
 	@mkdir -p backups
 	cp server/data/tsumiki.db backups/tsumiki-$$(date +%F).db
 	@echo "backed up → backups/tsumiki-$$(date +%F).db"
+	@echo "note: this copy is unencrypted — use 'make backup-enc' for an encrypted one"
+
+## backup-enc: encrypted DB backup (set TSUMIKI_BACKUP_PASSPHRASE; requires gpg)
+backup-enc:
+	@command -v gpg >/dev/null || { echo "gpg not found — install gnupg (or use 'make backup' for a plaintext copy)"; exit 1; }
+	@[ -n "$$TSUMIKI_BACKUP_PASSPHRASE" ] || { echo "set TSUMIKI_BACKUP_PASSPHRASE=... to encrypt the backup"; exit 1; }
+	@mkdir -p backups
+	@gpg --batch --yes --pinentry-mode loopback --passphrase "$$TSUMIKI_BACKUP_PASSPHRASE" \
+		--cipher-algo AES256 -c -o backups/tsumiki-$$(date +%F).db.gpg server/data/tsumiki.db
+	@echo "encrypted backup → backups/tsumiki-$$(date +%F).db.gpg"
+	@echo "restore: gpg -d -o restored.db backups/tsumiki-YYYY-MM-DD.db.gpg"
 
 ## clean: remove build output and temp files (keeps node_modules + data)
 clean:
