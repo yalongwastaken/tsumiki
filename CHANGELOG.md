@@ -33,6 +33,13 @@ smoke test).
   and then into individual tickers, with value-weighted ribbons colored by bucket — so you
   can see at a glance where your stocks are held. Driven by a pure, tested `portfolioFlow`
   helper; it appears once you have at least two priced holdings.
+- **Blur money (privacy mode).** An optional toggle that blurs every dollar amount on
+  screen so balances aren't exposed on a glanced-at screen — flip it with the eye icon in
+  the header (persists across tabs) or in Settings → Privacy. Hover an amount to peek; the
+  rest stays readable (categories, tickers, dates, percentages) so the app is still usable
+  in public. It's visual-only and off by default. Covers everything: balances, plan and
+  ledger figures, budgets, the charts and both Sankeys, and amounts embedded in milestone
+  labels and coaching text.
 
 ### Fixed
 
@@ -50,7 +57,8 @@ smoke test).
   (`sync.test.js`) cover ok / partial / empty / unreachable / multi-URL fallback /
   keyed fallback / merge-completes-partial. `syncProblem` and `portfolioFlow` are exported
   and tested. Suite: 80 server and 141 client tests (across UTC, US/Pacific, Tokyo,
-  UTC+14) plus 13 component tests.
+  UTC+14) plus 16 component tests. The blur-money mode is a stateless `<Money>` /
+  `BlurAmounts` layer toggled by a single root `.blur-money` class.
 
 ## [1.5.0] — 2026-06-23
 

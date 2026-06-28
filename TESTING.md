@@ -17,7 +17,7 @@ make lint          # eslint
 make format        # prettier --write   (or: npm run format:check)
 ```
 
-As of v2.0.0 the suite is **80 server + 141 client + 13 component** tests, all green.
+As of v2.0.0 the suite is **80 server + 141 client + 16 component** tests, all green.
 
 Date-sensitive logic (months, streaks, reminders, CSV dates) is meant to hold in any
 timezone. To run the client unit tests across the same TZ matrix used during
@@ -203,16 +203,19 @@ Import `sample-portfolio.json`, open the **Portfolio** card, and:
 1. **OK path:** hit **Sync now** → all holdings priced, total + allocation donut show, the
    **"Where your stocks sit" Sankey** appears (Portfolio → Taxable / 401(k) / IRA / Roth →
    tickers), and the footer reads "Prices synced just now."
-2. **Unreachable (error):** stop the python server, **Sync now** → amber note "couldn't
-   reach the feed — showing the last saved prices," and the footer stops claiming a fresh
-   sync.
-3. **Partial:** delete one row (e.g. NVDA) from `sample-prices.csv`, restart the server,
-   **Sync now** → "No fresh price for NVDA — showing the last saved value"; NVDA keeps its
-   prior value.
-4. **Real feed (optional):** drop `TSUMIKI_PRICE_URL` and just run `TSUMIKI_PRICES=1 make
-start` → it defaults to the live Stooq feed (works from a normal home network).
-5. **Finnhub fallback (optional):** add `TSUMIKI_FINNHUB_KEY=<your key>` so it's tried for
-   any symbols the keyless feed couldn't price.
+
+**Blur money (privacy mode).** Click the **eye icon in the header** (top-right, next to net
+worth) — every dollar amount blurs: balances, the plan, ledger, budgets, charts, and both
+Sankeys. Non-money text (categories, tickers, dates, percentages) stays sharp. Hover any
+blurred amount to peek; click the eye again (or toggle Settings → Privacy) to unblur. It
+persists across tabs and is off by default. Note it's visual-only (a screen reader still
+reads the amounts). 2. **Unreachable (error):** stop the python server, **Sync now** → amber note "couldn't
+reach the feed — showing the last saved prices," and the footer stops claiming a fresh
+sync. 3. **Partial:** delete one row (e.g. NVDA) from `sample-prices.csv`, restart the server,
+**Sync now** → "No fresh price for NVDA — showing the last saved value"; NVDA keeps its
+prior value. 4. **Real feed (optional):** drop `TSUMIKI_PRICE_URL` and just run `TSUMIKI_PRICES=1 make
+start` → it defaults to the live Stooq feed (works from a normal home network). 5. **Finnhub fallback (optional):** add `TSUMIKI_FINNHUB_KEY=<your key>` so it's tried for
+any symbols the keyless feed couldn't price.
 
 ---
 
