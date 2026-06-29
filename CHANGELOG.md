@@ -48,6 +48,8 @@ Backward-compatible — no changes to your data or API shape.
 
 ### Fixed
 
+- **No more "$-0".** A displayed amount between −50¢ and $0 (e.g. a tiny loss) rounded to
+  `-0` and showed as "$-0"; the currency formatters now normalize it to "$0".
 - **Reject non-finite amounts.** Quick Add now rejects an `Infinity` amount (e.g. a
   pasted `1e999`), and the money-flow Sankey coerces any non-finite amount to 0 at the
   boundary, so a stray value can never blank the chart with `NaN` SVG geometry.
