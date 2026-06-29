@@ -14,6 +14,7 @@ import Portfolio, { syncProblem } from "../../src/views/Portfolio.jsx";
 import StocksSankey from "../../src/charts/StocksSankey.jsx";
 import Money, { BlurAmounts } from "../../src/components/Money.jsx";
 import AccountsSection from "../../src/setup/AccountsSection.jsx";
+import Ledger from "../../src/components/Ledger.jsx";
 import { netWorthFromSnapshots } from "../../src/lib/core/selectors.js";
 
 const html = (el) => renderToStaticMarkup(el);
@@ -111,6 +112,25 @@ test("a credit card's negative balance subtracts from net worth", () => {
     { id: "b", accountId: "cc", date: "2026-06-01", balance: -1240 }, // owed
   ];
   assert.equal(netWorthFromSnapshots(snaps), 3760); // 5000 − 1240
+});
+
+test("Ledger renders a transfer as 'From → To' with no +/− sign", () => {
+  const out = html(
+    h(Ledger, {
+      transactions: [
+        { id: "tr1", type: "transfer", amount: 500, date: "2026-06-01", fromId: "a", toId: "b" },
+      ],
+      sources: [],
+      accounts: [
+        { id: "a", name: "Checking", type: "checking" },
+        { id: "b", name: "Savings", type: "savings" },
+      ],
+      onDelete() {},
+    }),
+  );
+  assert.match(out, /Checking → Savings/);
+  assert.match(out, /\$500/);
+  assert.doesNotMatch(out, /[−+]\s*<span class="money">\$500/); // neutral, no sign
 });
 
 test("BlurAmounts wraps $ amounts in a string but leaves the rest plain", () => {

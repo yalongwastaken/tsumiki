@@ -7,19 +7,22 @@ import { bucketLabel } from "../lib/plan/buckets.js";
 import { allCategories } from "../lib/core/categories.js";
 
 /** Read-only ledger with filter/search/delete + bulk recategorize of spending. */
-export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
+export default function Ledger({ transactions, sources, accounts = [], onDelete, onUpdate }) {
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(() => new Set());
   const [bulkCat, setBulkCat] = useState("");
 
   const sourceName = (id) => sources.find((s) => s.id === id)?.name || "income";
+  const acctName = (id) => accounts.find((a) => a.id === id)?.name || "account";
   const meta = (t) =>
     t.type === "spending"
       ? t.cat || "Spending"
       : t.type === "income"
         ? sourceName(t.sourceId)
-        : bucketLabel(t.bucket);
+        : t.type === "transfer"
+          ? `${acctName(t.fromId)} → ${acctName(t.toId)}`
+          : bucketLabel(t.bucket);
   const color = (t) =>
     t.type === "income"
       ? "text-emerald-600"
@@ -161,7 +164,7 @@ export default function Ledger({ transactions, sources, onDelete, onUpdate }) {
                     </span>
                   ) : (
                     <span className={`text-sm font-mono ${color(t)}`}>
-                      {t.type === "spending" ? "−" : "+"}
+                      {t.type === "spending" ? "−" : t.type === "transfer" ? "" : "+"}
                       <Money n={t.amount} />
                     </span>
                   )}

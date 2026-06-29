@@ -648,6 +648,7 @@ export default function App() {
                 transactions={transactions}
                 profile={profile}
                 sources={incomeSources}
+                accounts={accounts}
                 onDelete={deleteTx}
                 onLog={(txs) =>
                   save({
@@ -780,6 +781,7 @@ export default function App() {
         cats={quickAddCats}
         sources={incomeSources}
         goals={(profile?.moneyTargets || []).filter((g) => g.metric === "earmarked")}
+        accounts={accounts}
         transactions={transactions}
       />
       <Onboarding

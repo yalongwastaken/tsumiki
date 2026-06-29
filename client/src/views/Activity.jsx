@@ -7,7 +7,15 @@ import Calendar from "../components/Calendar.jsx";
 import Ledger from "../components/Ledger.jsx";
 
 /** Merged history view: one place, two ways to look at it (calendar or list). */
-export default function Activity({ transactions, profile, sources, onDelete, onLog, onUpdate }) {
+export default function Activity({
+  transactions,
+  profile,
+  sources,
+  accounts = [],
+  onDelete,
+  onLog,
+  onUpdate,
+}) {
   const [view, setView] = useState("calendar");
   // expected paychecks this month that aren't logged yet → one-tap to log them all
   const pending = pendingPaychecks(profile, transactions);
@@ -56,6 +64,7 @@ export default function Activity({ transactions, profile, sources, onDelete, onL
           <Ledger
             transactions={transactions}
             sources={sources}
+            accounts={accounts}
             onDelete={onDelete}
             onUpdate={onUpdate}
           />

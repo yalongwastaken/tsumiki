@@ -41,6 +41,42 @@ test("putMeta updates only the blob slices and leaves the ledger intact", () => 
   assert.equal(out.rev, before.rev + 1);
 });
 
+test("a transfer round-trips with from/to and appends via addTransaction", () => {
+  putState({
+    accounts: [
+      { id: "a", name: "Checking", type: "checking" },
+      { id: "b", name: "Savings", type: "savings" },
+    ],
+    transactions: [],
+  });
+  const out = addTransaction({
+    id: "tr1",
+    type: "transfer",
+    amount: 500,
+    date: "2026-06-01",
+    fromId: "a",
+    toId: "b",
+  });
+  const tr = out.transactions.find((t) => t.id === "tr1");
+  assert.equal(tr.type, "transfer");
+  assert.equal(tr.fromId, "a");
+  assert.equal(tr.toId, "b");
+});
+
+test("validateTransaction accepts a transfer type", () => {
+  assert.equal(
+    validateTransaction({
+      id: "x",
+      type: "transfer",
+      amount: 100,
+      date: "2026-06-01",
+      fromId: "a",
+      toId: "b",
+    }),
+    null,
+  );
+});
+
 test("validateMeta accepts blob slices, rejects junk + bad tickers", () => {
   assert.equal(validateMeta({ settings: { theme: "dark" } }), null);
   assert.equal(validateMeta({ profile: { name: "x" }, holdings: [] }), null);

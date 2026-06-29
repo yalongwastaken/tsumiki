@@ -14,6 +14,7 @@ const TYPES = [
   ["spending", "Spending", "#B45309"],
   ["income", "Income", "#047857"],
   ["contribution", "Contribution", "#4F46E5"],
+  ["transfer", "Transfer", "#0E7490"],
 ];
 // contributions target an engine bucket; labels come from buckets.js (single source)
 const BUCKET_KEYS = ["emergency", "retirement", "invest", "debt"];
@@ -26,6 +27,7 @@ export default function QuickAdd({
   cats,
   sources = [],
   goals = [],
+  accounts = [],
   transactions,
 }) {
   const [type, setType] = useState("spending");
@@ -34,6 +36,8 @@ export default function QuickAdd({
   const [bucket, setBucket] = useState("invest");
   const [sourceId, setSourceId] = useState(null);
   const [goalId, setGoalId] = useState(null);
+  const [fromId, setFromId] = useState(null);
+  const [toId, setToId] = useState(null);
   const [note, setNote] = useState("");
   const amountRef = useRef(null);
   const panelRef = useFocusTrap(open, onClose); // trap Tab + Escape; restore focus on close
@@ -95,6 +99,8 @@ export default function QuickAdd({
       setBucket("invest");
       setSourceId(sources[0]?.id || null);
       setGoalId(null);
+      setFromId(accounts[0]?.id || null);
+      setToId(accounts[1]?.id || accounts[0]?.id || null);
       setNote("");
       setTimeout(() => amountRef.current?.focus(), 50);
     }
@@ -121,6 +127,10 @@ export default function QuickAdd({
     if (!(n > 0)) {
       return;
     }
+    // a transfer needs two distinct accounts to move between
+    if (type === "transfer" && (!fromId || !toId || fromId === toId)) {
+      return;
+    }
     onLog({
       type,
       amount: n,
@@ -129,6 +139,8 @@ export default function QuickAdd({
       bucket: type === "contribution" ? bucket : null,
       goalId: type === "contribution" ? goalId : null,
       sourceId: type === "income" ? sourceId : null,
+      fromId: type === "transfer" ? fromId : null,
+      toId: type === "transfer" ? toId : null,
     });
     onClose();
   }
@@ -254,6 +266,42 @@ export default function QuickAdd({
             Tip: add income sources in Setup to tag where this came from.
           </div>
         )}
+        {type === "transfer" &&
+          (accounts.length >= 2 ? (
+            <div className="mb-4 flex items-center gap-2">
+              <select
+                value={fromId || ""}
+                onChange={(e) => setFromId(e.target.value)}
+                aria-label="From account"
+                className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
+              >
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+              <span className="text-slate-400" aria-hidden="true">
+                →
+              </span>
+              <select
+                value={toId || ""}
+                onChange={(e) => setToId(e.target.value)}
+                aria-label="To account"
+                className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
+              >
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-500 mb-4">
+              Add at least two accounts in Accounts to record a transfer between them.
+            </div>
+          ))}
 
         <input
           type="text"

@@ -270,13 +270,15 @@ export default function Calendar({ transactions = [], profile = {} }) {
                         ? t.cat || "Spending"
                         : t.type === "income"
                           ? "Income"
-                          : "Saved"}
+                          : t.type === "transfer"
+                            ? "Transfer"
+                            : "Saved"}
                       {t.note ? ` · ${t.note}` : ""}
                     </span>
                     <span
-                      className={`font-mono ${t.type === "spending" ? "text-slate-700" : t.type === "income" ? "text-emerald-600" : "text-brand-600"}`}
+                      className={`font-mono ${t.type === "spending" ? "text-slate-700" : t.type === "income" ? "text-emerald-600" : t.type === "transfer" ? "text-slate-500" : "text-brand-600"}`}
                     >
-                      {t.type === "spending" ? "−" : "+"}
+                      {t.type === "spending" ? "−" : t.type === "transfer" ? "" : "+"}
                       <Money n={t.amount} />
                     </span>
                   </div>

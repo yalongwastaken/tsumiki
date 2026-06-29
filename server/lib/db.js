@@ -49,17 +49,19 @@ db.exec(`
     min_payment REAL NOT NULL DEFAULT 0
   );
 
-  -- one unified ledger: income | spending | contribution
+  -- one unified ledger: income | spending | contribution | transfer
   CREATE TABLE IF NOT EXISTS transactions (
     id        TEXT PRIMARY KEY,
-    type      TEXT NOT NULL,        -- income | spending | contribution
+    type      TEXT NOT NULL,        -- income | spending | contribution | transfer
     amount    REAL NOT NULL,
     date      TEXT NOT NULL,        -- ISO string
     note      TEXT,
     cat       TEXT,                 -- for spending
     goal_id   TEXT,                 -- legacy contribution target (folds into invest)
     source_id TEXT,                 -- for income (which income source it came from)
-    bucket    TEXT                  -- for contribution: emergency|retirement|invest|debt
+    bucket    TEXT,                 -- for contribution: emergency|retirement|invest|debt
+    from_id   TEXT,                 -- for transfer: account moved FROM
+    to_id     TEXT                  -- for transfer: account moved TO
   );
   CREATE INDEX IF NOT EXISTS idx_tx_date ON transactions(date);
   CREATE INDEX IF NOT EXISTS idx_tx_type ON transactions(type);
@@ -95,6 +97,11 @@ const MIGRATIONS = [
     addColumn("transactions", "bucket", "TEXT");
     addColumn("snapshots", "source", "TEXT");
     addColumn("accounts", "cash", "REAL");
+  },
+  // 2 → account-transfer ledger entries (money moved between your own accounts)
+  () => {
+    addColumn("transactions", "from_id", "TEXT");
+    addColumn("transactions", "to_id", "TEXT");
   },
 ];
 function runMigrations() {
@@ -210,7 +217,7 @@ export function appendPortfolioPoint(value, date = new Date().toISOString()) {
 }
 
 // ── lightweight validation: reject obviously malformed PUTs ───────────────────
-const TX_TYPES = new Set(["income", "spending", "contribution"]);
+const TX_TYPES = new Set(["income", "spending", "contribution", "transfer"]);
 
 /**
  * Validate a full-state PUT body.
@@ -351,8 +358,17 @@ export function addTransaction(t) {
   db.exec("BEGIN");
   try {
     db.prepare(
-      "INSERT INTO transactions(id,type,amount,date,note,cat,goal_id,source_id,bucket) VALUES(@id,@type,@amount,@date,@note,@cat,@goalId,@sourceId,@bucket)",
-    ).run({ note: null, cat: null, goalId: null, sourceId: null, bucket: null, ...t });
+      "INSERT INTO transactions(id,type,amount,date,note,cat,goal_id,source_id,bucket,from_id,to_id) VALUES(@id,@type,@amount,@date,@note,@cat,@goalId,@sourceId,@bucket,@fromId,@toId)",
+    ).run({
+      note: null,
+      cat: null,
+      goalId: null,
+      sourceId: null,
+      bucket: null,
+      fromId: null,
+      toId: null,
+      ...t,
+    });
     setMeta("rev", getRev() + 1);
     db.exec("COMMIT");
   } catch (e) {
@@ -379,7 +395,7 @@ export function getState() {
     debts: db.prepare("SELECT id, name, balance, apr, min_payment AS minPayment FROM debts").all(),
     transactions: db
       .prepare(
-        "SELECT id, type, amount, date, note, cat, goal_id AS goalId, source_id AS sourceId, bucket FROM transactions ORDER BY date",
+        "SELECT id, type, amount, date, note, cat, goal_id AS goalId, source_id AS sourceId, bucket, from_id AS fromId, to_id AS toId FROM transactions ORDER BY date",
       )
       .all(),
     holdings: getMeta("holdings", []), // [{ id, ticker, shares, costBasis }] — manually entered
@@ -413,7 +429,7 @@ function replaceAll(state) {
       "INSERT INTO debts(id,name,balance,apr,min_payment) VALUES(@id,@name,@balance,@apr,@minPayment)",
     ),
     tx: db.prepare(
-      "INSERT INTO transactions(id,type,amount,date,note,cat,goal_id,source_id,bucket) VALUES(@id,@type,@amount,@date,@note,@cat,@goalId,@sourceId,@bucket)",
+      "INSERT INTO transactions(id,type,amount,date,note,cat,goal_id,source_id,bucket,from_id,to_id) VALUES(@id,@type,@amount,@date,@note,@cat,@goalId,@sourceId,@bucket,@fromId,@toId)",
     ),
   };
 
@@ -430,7 +446,16 @@ function replaceAll(state) {
     ins.debt.run({ apr: 0, minPayment: 0, ...d });
   }
   for (const t of state.transactions || []) {
-    ins.tx.run({ note: null, cat: null, goalId: null, sourceId: null, bucket: null, ...t });
+    ins.tx.run({
+      note: null,
+      cat: null,
+      goalId: null,
+      sourceId: null,
+      bucket: null,
+      fromId: null,
+      toId: null,
+      ...t,
+    });
   }
 
   if (state.profile) {
