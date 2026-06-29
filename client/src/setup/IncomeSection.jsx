@@ -1,7 +1,7 @@
 // IncomeSection.jsx — income sources with pay cadence + payday. Self-contained:
 // owns its add/edit form state, commits via onSave (keeping profile.typicalIncome
 // as the derived monthly sum), and can fill cadence/payday from logged history.
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Money from "../components/Money.jsx";
 import { X, Pencil } from "lucide-react";
 import { detectIncomeSchedule } from "../lib/insights/insights.js";
@@ -28,11 +28,12 @@ const basisForType = (type) =>
 /** Income-sources editor body (rendered inside the accordion Section). */
 export default function IncomeSection({ data, onSave }) {
   const profile = data.profile || {};
-  const transactions = data.transactions || [];
+  const transactions = useMemo(() => data.transactions || [], [data.transactions]);
   const incomeSources = profile.incomeSources || [];
   const [src, setSrc] = useState(BLANK);
   const [editingSrc, setEditingSrc] = useState(null);
-  const incomeSchedule = detectIncomeSchedule(transactions);
+  // walks the ledger — memoize so typing in the form doesn't re-derive it each keystroke
+  const incomeSchedule = useMemo(() => detectIncomeSchedule(transactions), [transactions]);
 
   // convert any pay basis to a monthly figure
   const toMonthly = (s) => {

@@ -48,7 +48,7 @@ TSUMIKI_DB=/tmp/tsumiki-test.db make start
 ```
 
 **Load the bundled sample data:** in the app, **Settings → Data → Import** and choose
-`sample-portfolio.json` (nine holdings spread across a taxable brokerage, a 401(k), a
+`samples/sample-portfolio.json` (nine holdings spread across a taxable brokerage, a 401(k), a
 traditional IRA, and a Roth — so the stocks Sankey shows all four buckets). To wipe and
 start over, use **Settings → danger zone → reset** (note: a reset intentionally leaves
 the app lock in place — see v1.5.0).
@@ -194,11 +194,11 @@ cd /path/to/tsumiki && python3 -m http.server 7799
 # terminal 2 — run Tsumiki pointed at it, prices enabled
 cd /path/to/tsumiki
 TSUMIKI_PRICES=1 \
-TSUMIKI_PRICE_URL='http://localhost:7799/sample-prices.csv?s={SYMBOLS}' \
+TSUMIKI_PRICE_URL='http://localhost:7799/samples/sample-prices.csv?s={SYMBOLS}' \
 make start
 ```
 
-Import `sample-portfolio.json`, open the **Portfolio** card, and:
+Import `samples/sample-portfolio.json`, open the **Portfolio** card, and:
 
 1. **OK path:** hit **Sync now** → all holdings priced, total + allocation donut show, the
    **"Where your stocks sit" Sankey** appears (Portfolio → Taxable / 401(k) / IRA / Roth →
@@ -211,7 +211,7 @@ blurred amount to peek; click the eye again (or toggle Settings → Privacy) to 
 persists across tabs and is off by default. Note it's visual-only (a screen reader still
 reads the amounts). 2. **Unreachable (error):** stop the python server, **Sync now** → amber note "couldn't
 reach the feed — showing the last saved prices," and the footer stops claiming a fresh
-sync. 3. **Partial:** delete one row (e.g. NVDA) from `sample-prices.csv`, restart the server,
+sync. 3. **Partial:** delete one row (e.g. NVDA) from `samples/sample-prices.csv`, restart the server,
 **Sync now** → "No fresh price for NVDA — showing the last saved value"; NVDA keeps its
 prior value. 4. **Real feed (optional):** drop `TSUMIKI_PRICE_URL` and just run `TSUMIKI_PRICES=1 make
 start` → it defaults to the live Stooq feed (works from a normal home network). 5. **Finnhub fallback (optional):** add `TSUMIKI_FINNHUB_KEY=<your key>` so it's tried for

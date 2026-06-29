@@ -26,7 +26,11 @@ export default function Activity({ transactions, profile, sources, onDelete, onL
           </span>
         </button>
       )}
-      <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
+      <div
+        className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl"
+        role="tablist"
+        aria-label="History view"
+      >
         {[
           ["calendar", "Calendar", CalendarDays],
           ["list", "List", List],
@@ -34,6 +38,8 @@ export default function Activity({ transactions, profile, sources, onDelete, onL
           <button
             key={v}
             onClick={() => setView(v)}
+            role="tab"
+            aria-selected={view === v}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-sm font-medium rounded-lg transition-colors ${view === v ? "bg-brand-100 text-brand-700" : "text-slate-500"}`}
           >
             <Icon size={15} />

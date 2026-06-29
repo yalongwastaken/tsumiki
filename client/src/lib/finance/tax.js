@@ -4,6 +4,10 @@
 // Figures are 2026 (IRS Rev. Proc. 2025-32, post-OBBBA). State is a rough flat
 // approximation unless you override it.
 
+// The tax year these figures encode. Surfaced in the UI so a stale year is obvious:
+// when the calendar year moves past this, the brackets/limits need an update.
+export const TAX_YEAR = 2026;
+
 const BRACKETS = {
   single: [
     [12400, 0.1],

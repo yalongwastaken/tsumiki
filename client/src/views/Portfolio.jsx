@@ -1,6 +1,6 @@
 // Portfolio.jsx — manually-entered stock holdings + opt-in synced prices, with
 // deterministic portfolio-health recommendations (never buy/sell picks).
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { RefreshCw } from "lucide-react";
 import { fmt } from "../lib/core/format.js";
 import AreaChart from "../charts/Chart.jsx";
@@ -154,6 +154,22 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
     }
   }
 
+  // memoize the (pure, O(n)) holdings derivations so a parent re-render or a price tick
+  // doesn't re-walk every holding each time (hooks run before the empty-state return)
+  const priceMap = useMemo(() => prices?.prices || {}, [prices]);
+  const rows = useMemo(() => portfolioRows(holdings, priceMap), [holdings, priceMap]);
+  const totals = useMemo(() => portfolioTotals(rows), [rows]);
+  const recs = useMemo(() => portfolioInsights(rows, totals), [rows, totals]);
+  const flow = useMemo(() => portfolioFlow(rows), [rows]);
+  const allocSegs = useMemo(
+    () =>
+      rows
+        .filter((r) => r.value != null && r.value > 0)
+        .sort((a, b) => b.value - a.value)
+        .map((r, i) => ({ label: r.ticker, amount: r.value, color: PALETTE[i % PALETTE.length] })),
+    [rows],
+  );
+
   if (!holdings.length) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -170,22 +186,12 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
     );
   }
 
-  const priceMap = prices?.prices || {};
-  const rows = portfolioRows(holdings, priceMap);
-  const totals = portfolioTotals(rows);
-  const recs = portfolioInsights(rows, totals);
   const synced = ago(prices?.fetchedAt);
   const problem = syncProblem(prices?.lastSync);
   // show the stocks Sankey only when there are ≥2 priced holdings to separate
-  const flow = portfolioFlow(rows);
   const showSankey = flow.total > 0 && flow.buckets.reduce((s, b) => s + b.holdings.length, 0) >= 2;
   const retire = retirementValue(rows);
   const taxable = totals.value - retire;
-  // allocation donut: one slice per priced holding, biggest first (≥2 to be useful)
-  const allocSegs = rows
-    .filter((r) => r.value != null && r.value > 0)
-    .sort((a, b) => b.value - a.value)
-    .map((r, i) => ({ label: r.ticker, amount: r.value, color: PALETTE[i % PALETTE.length] }));
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">

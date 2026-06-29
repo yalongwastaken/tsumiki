@@ -7,7 +7,7 @@ import { typicalIncome } from "../lib/finance/income.js";
 import { nonTaxableMonthly, taxableShare } from "../lib/finance/finance.js";
 import { BUCKETS, bucketOf } from "../lib/plan/buckets.js";
 import { thisMonth, monthKey, sumLatestByType, monthTotals } from "../lib/core/selectors.js";
-import { estimateTax, nextQuarterlyDue } from "../lib/finance/tax.js";
+import { estimateTax, nextQuarterlyDue, TAX_YEAR } from "../lib/finance/tax.js";
 import { payoffPlan } from "../lib/finance/debt.js";
 import PlanSplitChart from "../charts/PlanSplitChart.jsx";
 import Recurring from "../components/Recurring.jsx";
@@ -384,9 +384,15 @@ export default function Plan({
             </div>
           )}
           <div className="text-xs text-slate-500 mt-2">
-            2026 estimate{tax.stateNoTax ? ` · ${profile.state} has no income tax` : ""}
+            {TAX_YEAR} estimate{tax.stateNoTax ? ` · ${profile.state} has no income tax` : ""}
             {!profile.state ? " — set your filing status & state in Settings for accuracy." : "."}
           </div>
+          {new Date().getFullYear() > TAX_YEAR && (
+            <div className="mt-1 rounded-lg bg-amber-50 p-2 text-xs text-amber-800" role="note">
+              These figures still use {TAX_YEAR} tax law — the brackets and contribution limits need
+              updating for the current year.
+            </div>
+          )}
         </div>
       )}
 

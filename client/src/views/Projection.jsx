@@ -43,6 +43,8 @@ function Slider({ label, value, min, max, step, suffix = "", fmt: f, onChange })
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
+        aria-label={label}
+        aria-valuetext={f ? f(value) : value + suffix}
         className="w-full accent-emerald-600"
       />
     </div>

@@ -20,7 +20,7 @@ export default class ErrorBoundary extends Component {
     if (this.state.error) {
       return (
         this.props.fallback?.(this.state.error, this.reset) ?? (
-          <div className="m-4 rounded-xl border border-rose-200 bg-rose-50 p-4">
+          <div className="m-4 rounded-xl border border-rose-200 bg-rose-50 p-4" role="alert">
             <div className="text-sm font-semibold text-rose-700 mb-1">
               Something went wrong here.
             </div>

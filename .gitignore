@@ -14,7 +14,8 @@ server/data/
 *.db-shm
 backups/
 
-# ── local test fixtures (sample data for smoke-testing, not shipped) ─
+# ── local sample data (smoke-test fixtures, never committed) ─
+/samples/
 sample*
 
 # ── logs / env ───────────────────────────────────────────────

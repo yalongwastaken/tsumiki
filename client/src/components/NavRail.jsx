@@ -51,6 +51,7 @@ export default function NavRail({ tab, setTab, menuOpen, setMenuOpen, collapsed,
               setMenuOpen(false);
             }}
             title={label}
+            aria-current={tab === key ? "page" : undefined}
             className={`press w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "md:justify-center" : ""} ${tab === key ? "bg-brand-100 text-brand-700" : "text-slate-600 hover:bg-slate-50"}`}
           >
             <Icon size={20} className="flex-shrink-0" />
