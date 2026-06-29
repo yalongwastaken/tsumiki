@@ -2,6 +2,7 @@
 import { useState, useMemo, useRef } from "react";
 import { ChevronDown } from "lucide-react";
 import { importData, exportUrl } from "../lib/core/api.js";
+import { transactionsToCsv } from "../lib/core/csv.js";
 import Money from "../components/Money.jsx";
 import { card, label } from "../setup/ui.jsx";
 import { INVESTMENT_TYPES, holdingsValueByAccount } from "../lib/finance/portfolio.js";
@@ -127,6 +128,16 @@ export default function Setup({
       window.alert("Import failed: " + (err.message || err));
     }
     e.target.value = "";
+  }
+  // human/spreadsheet-friendly export of just the ledger (alongside the full JSON backup)
+  function exportCsv() {
+    const blob = new Blob([transactionsToCsv(transactions)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `tsumiki-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -358,8 +369,16 @@ export default function Setup({
                 className="hidden"
               />
             </div>
-            <div className="text-xs text-slate-500 mt-2">
-              Export downloads everything as JSON. Import replaces all current data.
+            <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-500">
+              <span>Export downloads everything as JSON. Import replaces all current data.</span>
+              {transactions.length > 0 && (
+                <button
+                  onClick={exportCsv}
+                  className="flex-shrink-0 font-medium text-brand-600 hover:text-brand-700"
+                >
+                  Export CSV ›
+                </button>
+              )}
             </div>
           </div>
 

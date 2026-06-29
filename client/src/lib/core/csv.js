@@ -1,6 +1,26 @@
 // csv.js — minimal, dependency-free CSV parsing + bank-statement mapping. Pure and
-// testable: turns pasted/uploaded CSV text into transactions the ledger understands.
+// testable: turns pasted/uploaded CSV text into transactions the ledger understands,
+// and serializes the ledger back out to a human-readable CSV.
 import { categorize } from "./categories.js";
+
+/** Serialize transactions to a CSV string (one row per entry). Pure — used for a
+ * human/spreadsheet-friendly export alongside the full JSON backup. */
+export function transactionsToCsv(transactions = []) {
+  const esc = (v) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const cols = ["date", "type", "amount", "category", "bucket", "goalId", "note"];
+  const lines = [cols.join(",")];
+  for (const t of transactions) {
+    lines.push(
+      [t.date, t.type, t.amount, t.cat || "", t.bucket || "", t.goalId || "", t.note || ""]
+        .map(esc)
+        .join(","),
+    );
+  }
+  return lines.join("\n");
+}
 
 /**
  * Parse CSV text into a header row + data rows. Handles quoted fields, escaped
