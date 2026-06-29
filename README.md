@@ -41,8 +41,8 @@ game layer.
 - [`docs/INSTRUCTIONS.md`](./docs/INSTRUCTIONS.md) — run it on a mini PC, install it on
   your phone, keep it updated, and keep it secure.
 - [`docs/TESTING.md`](./docs/TESTING.md) — per-release review + manual QA runbook.
-- [`SECURITY.md`](./SECURITY.md) — threat model, protections, and hardening steps.
-- [`CHANGELOG.md`](./CHANGELOG.md) — release history.
+- [`SECURITY.md`](./docs/SECURITY.md) — threat model, protections, and hardening steps.
+- [`CHANGELOG.md`](./docs/CHANGELOG.md) — release history.
 
 ## Requirements
 
@@ -173,7 +173,7 @@ Automate it nightly with cron on the mini PC (set the passphrase in the cron env
 Tsumiki is built for a single user on a private network and is deliberately
 privacy-respecting: **no telemetry, no analytics, no third-party calls**, and the
 outbound news/price features are off by default (when on, only ticker symbols / the
-feed URL / your own API key ever leave). See [`SECURITY.md`](./SECURITY.md) for the
+feed URL / your own API key ever leave). See [`SECURITY.md`](./docs/SECURITY.md) for the
 full threat model, what protects your data, the residual risks (no at-rest encryption
 by default; the app lock is off by default; the server does no TLS itself), and the
 recommended hardening steps.
@@ -207,7 +207,7 @@ Run `make help` for the full list: `install`, `dev`, `server`, `client`, `build`
 
 ## Releases
 
-See [`CHANGELOG.md`](./CHANGELOG.md). Releases follow [SemVer](https://semver.org);
+See [`CHANGELOG.md`](./docs/CHANGELOG.md). Releases follow [SemVer](https://semver.org);
 the current release is **v2.1.0**.
 
 ## License

@@ -59,7 +59,12 @@ WorkingDirectory=/home/youruser/tsumiki/server
 ExecStart=/usr/bin/node --experimental-sqlite index.js
 Restart=on-failure
 Environment=PORT=4000
-Environment=HOST=0.0.0.0
+# Hardened default: bind to localhost ONLY, so the port is NOT exposed on your LAN/
+# wifi — you reach it through `tailscale serve` (next section), which also adds HTTPS.
+Environment=HOST=127.0.0.1
+Environment=TSUMIKI_TRUST_PROXY=1
+# Optional: a rolling daily local backup (keeps the newest 30; never leaves the box).
+Environment=TSUMIKI_AUTO_BACKUP=1
 
 [Install]
 WantedBy=multi-user.target
@@ -76,14 +81,25 @@ sudo systemctl status tsumiki       # check it's running
 > Note: the server only serves the web app if `client/dist` exists, so always run
 > `make build` before (re)starting the service.
 
+> **Why `HOST=127.0.0.1`?** With this, the server listens only on the machine itself —
+> nothing on your wifi/LAN can connect to the port at all. You reach it over your private
+> tailnet via `tailscale serve` (set up in the next section), which terminates HTTPS and
+> forwards to localhost; `TSUMIKI_TRUST_PROXY=1` tells the app to trust that proxy's
+> HTTPS. If you'd rather reach the tailnet IP directly **without** `tailscale serve`, use
+> `HOST=0.0.0.0` instead — but that also opens the port to your LAN, so only do it on a
+> network you fully trust, and definitely turn on the app lock (§8).
+
 ### Configuration (optional environment variables)
 
-| Variable            | Default                  | What it does                                         |
-| ------------------- | ------------------------ | ---------------------------------------------------- |
-| `PORT`              | `4000`                   | port the server listens on                           |
-| `HOST`              | `0.0.0.0`                | bind address (`0.0.0.0` = reachable over Tailscale)  |
-| `TSUMIKI_DB`        | `server/data/tsumiki.db` | where the SQLite database lives                      |
-| `TSUMIKI_NEWS_FEED` | _(unset → off)_          | optional public RSS/Atom URL for the money-news card |
+| Variable                | Default                  | What it does                                                                                                              |
+| ----------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                  | `4000`                   | port the server listens on                                                                                                |
+| `HOST`                  | `0.0.0.0`                | bind address. `127.0.0.1` = localhost-only (hardened; reach via `tailscale serve`); `0.0.0.0` = also reachable on the LAN |
+| `TSUMIKI_DB`            | `server/data/tsumiki.db` | where the SQLite database lives                                                                                           |
+| `TSUMIKI_TRUST_PROXY`   | _(unset → off)_          | set to `1` when behind a TLS proxy (`tailscale serve`) so its HTTPS is trusted                                            |
+| `TSUMIKI_AUTO_BACKUP`   | _(unset → off)_          | `1` = daily local JSON backup (keeps newest 30); off by default                                                           |
+| `TSUMIKI_ALLOWED_HOSTS` | _(unset → off)_          | optional comma-separated `host[:port]` allowlist for writes (anti-DNS-rebinding)                                          |
+| `TSUMIKI_NEWS_FEED`     | _(unset → off)_          | optional public RSS/Atom URL for the money-news card                                                                      |
 
 Set them in the systemd file (`Environment=...`) or before `make start`
 (`PORT=8080 make start`).
@@ -98,10 +114,22 @@ The server has **no public ports** — the only way in is your own private tailn
 2. Install the **Tailscale app** on your iPhone and sign into the **same account**.
 3. (Recommended) turn on **MagicDNS** in the Tailscale admin console. Now the mini PC
    has a friendly name, so instead of an IP you can use something like
-   `http://minipc:4000`.
+   `https://minipc`.
+
+**Expose it to your tailnet over HTTPS (matches the hardened `HOST=127.0.0.1` above):**
+
+```bash
+sudo tailscale serve --bg 4000      # serves localhost:4000 to your tailnet over HTTPS
+tailscale serve status              # shows the https://<machine> URL it's now serving
+```
+
+Now open `https://minipc` (or your MagicDNS name) from any device on the tailnet — HTTPS,
+encrypted end-to-end, and reachable **only** by your own devices. Nothing on your wifi/LAN
+can touch the server, because it isn't listening on the LAN interface at all.
 
 Find the mini PC's Tailscale address any time with `tailscale ip -4` (or use its
-MagicDNS name).
+MagicDNS name). (If you chose the simpler `HOST=0.0.0.0`, skip `tailscale serve` and just
+open `http://<tailscale-ip>:4000` — but see the wifi note in §8.)
 
 ---
 
@@ -111,7 +139,8 @@ Tsumiki is an installable web app (PWA), so it gets a home-screen icon and opens
 fullscreen — no App Store, no download.
 
 1. Make sure **Tailscale is connected** on the phone (toggle it on).
-2. Open **Safari** and go to `http://minipc:4000` (or `http://<tailscale-ip>:4000`).
+2. Open **Safari** and go to `https://minipc` (with `tailscale serve`), or
+   `http://<tailscale-ip>:4000` if you went with the simpler `HOST=0.0.0.0` setup.
 3. Tap the **Share** button (the square with an up-arrow).
 4. Scroll down and tap **Add to Home Screen**, then **Add**.
 
@@ -229,21 +258,31 @@ operational choices are what actually keep your data safe. In order of importanc
    it won't let you set one over a plain `http://<lan-ip>` connection). **It's off by
    default, which means an unlocked instance has no password at all** — anyone who can
    reach the server can see everything.
-2. **Only reach it over Tailscale** (Section 3), never a plain `http://<lan-ip>:4000`
-   address. Tailscale encrypts the connection; plain LAN http does not. Behind a TLS
-   reverse proxy instead? Set `TSUMIKI_TRUST_PROXY=1`.
+2. **Don't expose the port to your wifi/LAN.** The hardened setup (`HOST=127.0.0.1` +
+   `tailscale serve`, Sections 2–3) means the server isn't listening on the LAN at all —
+   someone who gets onto your wifi can't even connect to it, and all traffic is HTTPS. If
+   you instead run `HOST=0.0.0.0`, the port is open to everyone on your network, so it's
+   only safe on a network you fully trust **and** with the app lock on. Either way, never
+   use a plain `http://<lan-ip>:4000` address — that traffic is sniffable.
+
+   > **"What if someone gets onto my wifi?"** With `HOST=127.0.0.1` they can't reach the
+   > server. With `HOST=0.0.0.0` and the app lock **on**, they hit a login wall, can't log
+   > in over plain http (the password is refused on a non-secure origin), and can't sniff a
+   > session (one only exists over Tailscale/HTTPS). With the app lock **off**, they can see
+   > everything — so turn it on.
+
 3. **Encrypt your backups** with `make backup-enc` (Section 7) before any of them leave
    the machine, and keep `server/data/` on an encrypted disk — the database file itself
    is not encrypted.
-4. **Limit who can reach it** with a Tailscale ACL (or host firewall) so only your own
-   devices can hit the port.
+4. **Limit who can reach it** with a Tailscale ACL — or a host firewall allowing port 4000
+   only on the `tailscale0` interface — so only your own devices can hit it.
 
 Two things to know: **"Blur money"** (the eye icon) only hides amounts on screen — it's
 for shoulder-surfing, not access control. And the app does **no encryption itself** — it
 relies on Tailscale/your disk for that.
 
 For the full threat model and the reasoning behind all of this, see
-[`SECURITY.md`](../SECURITY.md).
+[`SECURITY.md`](./SECURITY.md).
 
 ---
 

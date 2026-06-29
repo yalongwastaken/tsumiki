@@ -1,7 +1,7 @@
 # Testing Tsumiki — release review & manual QA runbook
 
 A per-release summary of what shipped (v1.0.0 → v2.0.0) and how to verify each one by
-hand. For the authoritative change list see [`CHANGELOG.md`](../CHANGELOG.md); this file
+hand. For the authoritative change list see [`CHANGELOG.md`](./CHANGELOG.md); this file
 is the practical "how do I smoke-test it" companion.
 
 ---

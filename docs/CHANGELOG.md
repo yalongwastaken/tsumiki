@@ -81,6 +81,14 @@ Backward-compatible — no changes to your data or API shape.
 - **Optional Host allowlist** (`TSUMIKI_ALLOWED_HOSTS`) for mutating requests — closes the
   DNS-rebinding edge where an attacker controls both Origin and Host. Off by default for
   plain LAN/Tailscale; reads are never affected.
+- **Hardened deployment docs.** `docs/INSTRUCTIONS.md` now defaults to `HOST=127.0.0.1`
+  fronted by `tailscale serve` (HTTPS, tailnet-only) so the port isn't exposed on the LAN
+  at all, with explicit guidance for the "someone got onto my wifi" threat.
+
+### Docs
+
+- Moved `CHANGELOG.md` into `docs/` alongside the other docs; `README.md` is the only
+  top-level Markdown file. Fixed the doc cross-links (several pointed at the wrong path).
 
 ### Internal
 
