@@ -2,10 +2,10 @@
 // other) keep a manually-entered balance; investment accounts (brokerage/IRA/Roth/401k)
 // hold their shares inline and auto-value from synced prices + optional uninvested cash.
 import { useState, useMemo } from "react";
-import Cash from "../components/Money.jsx";
+import Money from "../components/Money.jsx";
 import { X, Pencil, ChevronDown } from "lucide-react";
 import { INVESTMENT_TYPES, TAX_TAG_FOR_TYPE, holdingsValueByAccount } from "../lib/portfolio.js";
-import { uid, field, Money } from "./ui.jsx";
+import { uid, field, AmountInput } from "./ui.jsx";
 
 const ACCOUNT_TYPES = [
   "checking",
@@ -226,11 +226,11 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                     </div>
                     {isCredit(a.type) ? (
                       <div className="text-xs text-rose-600">
-                        <Cash n={-(val || 0)} /> owed
+                        <Money n={-(val || 0)} /> owed
                       </div>
                     ) : val != null ? (
                       <div className="text-xs text-slate-500">
-                        <Cash n={val} />
+                        <Money n={val} />
                         {inv && (
                           <span>
                             {" "}
@@ -239,7 +239,7 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                             {Number(a.cash) ? (
                               <>
                                 {" + "}
-                                <Cash n={a.cash} /> cash
+                                <Money n={a.cash} /> cash
                               </>
                             ) : (
                               ""
@@ -295,7 +295,7 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                 {isCredit(a.type) && balEdit.id === a.id && (
                   <div className="mt-2 flex gap-2">
                     <div className="flex-1">
-                      <Money
+                      <AmountInput
                         value={balEdit.value}
                         onChange={(v) => setBalEdit({ id: a.id, value: v })}
                         placeholder="Amount"
@@ -321,7 +321,7 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                 {!inv && !isCredit(a.type) && balEdit.id === a.id && (
                   <div className="flex gap-2 mt-2">
                     <div className="flex-1">
-                      <Money
+                      <AmountInput
                         value={balEdit.value}
                         onChange={(v) => setBalEdit({ id: a.id, value: v })}
                         placeholder="New balance"
@@ -357,7 +357,7 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                                   {mv != null && (
                                     <>
                                       {" · "}
-                                      <Cash n={mv} />
+                                      <Money n={mv} />
                                     </>
                                   )}
                                 </span>
@@ -395,7 +395,7 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                         aria-label="Shares"
                         className={field}
                       />
-                      <Money
+                      <AmountInput
                         value={hold.costBasis}
                         onChange={(v) => setHold({ ...hold, costBasis: v })}
                         placeholder="cost/sh"
@@ -413,7 +413,7 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                         Uninvested cash
                       </span>
                       <div className="flex-1">
-                        <Money
+                        <AmountInput
                           value={a.cash ?? ""}
                           onChange={(v) => setCash(a, v)}
                           placeholder="0"
@@ -497,7 +497,7 @@ export default function AccountsSection({ data, onSave, prices = null }) {
       </div>
       <div className="flex gap-2">
         <div className="flex-1">
-          <Money
+          <AmountInput
             value={acct.balance}
             onChange={(v) => setAcct({ ...acct, balance: v })}
             placeholder={

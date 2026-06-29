@@ -8,7 +8,7 @@ export const field =
   "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700";
 
 /** A "$"-prefixed number input used across the Setup forms. */
-export function Money({ value, onChange, placeholder, ariaLabel }) {
+export function AmountInput({ value, onChange, placeholder, ariaLabel }) {
   return (
     <div className="relative">
       <span className="absolute left-3 top-2.5 text-slate-500 text-sm">$</span>

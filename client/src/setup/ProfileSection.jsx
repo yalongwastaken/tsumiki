@@ -1,10 +1,10 @@
 // ProfileSection.jsx — the profile/strategy/tax form. Self-contained: holds a local
 // draft committed with a Save button, with emergency/floor suggestions from spending.
 import { useState, useMemo } from "react";
-import Cash from "../components/Money.jsx";
+import Money from "../components/Money.jsx";
 import { annualSpend } from "../lib/selectors.js";
 import { FILING_STATUSES } from "../lib/tax.js";
-import { card, label, field, Money } from "./ui.jsx";
+import { card, label, field, AmountInput } from "./ui.jsx";
 
 const STRATEGIES = [
   ["short_term", "Safety first", "Kill debt + build a cash buffer before investing."],
@@ -180,7 +180,7 @@ export default function ProfileSection({ data, onSave }) {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <div className="text-sm text-slate-600 mb-1">Checking floor</div>
-            <Money
+            <AmountInput
               value={form.checkingFloor}
               onChange={set("checkingFloor")}
               placeholder={suggestFloor ? String(suggestFloor) : "1 mo expenses"}
@@ -188,7 +188,7 @@ export default function ProfileSection({ data, onSave }) {
           </div>
           <div>
             <div className="text-sm text-slate-600 mb-1">Emergency target</div>
-            <Money
+            <AmountInput
               value={form.emergencyTarget}
               onChange={set("emergencyTarget")}
               placeholder={suggestEmergency ? String(suggestEmergency) : "3 mo expenses"}
@@ -206,8 +206,8 @@ export default function ProfileSection({ data, onSave }) {
             }
             className="text-xs text-brand-600 hover:text-brand-700"
           >
-            Use suggested from your spending (<Cash n={suggestFloor} /> /{" "}
-            <Cash n={suggestEmergency} />)
+            Use suggested from your spending (<Money n={suggestFloor} /> /{" "}
+            <Money n={suggestEmergency} />)
           </button>
         )}
         <div>

@@ -1,9 +1,9 @@
 // DebtsSection.jsx — debts the engine prioritizes (balance, APR, min payment).
 // Self-contained: owns its form state, commits via onSave.
 import { useState } from "react";
-import Cash from "../components/Money.jsx";
+import Money from "../components/Money.jsx";
 import { X } from "lucide-react";
-import { uid, field, Money } from "./ui.jsx";
+import { uid, field, AmountInput } from "./ui.jsx";
 
 /** Debts editor body (rendered inside the accordion Section). */
 export default function DebtsSection({ data, onSave }) {
@@ -42,7 +42,7 @@ export default function DebtsSection({ data, onSave }) {
               <div>
                 <div className="text-sm text-slate-700">{d.name}</div>
                 <div className="text-xs text-slate-500">
-                  <Cash n={d.balance} /> · {d.apr}% APR · <Cash n={d.minPayment} />
+                  <Money n={d.balance} /> · {d.apr}% APR · <Money n={d.minPayment} />
                   /mo min
                 </div>
               </div>
@@ -64,7 +64,7 @@ export default function DebtsSection({ data, onSave }) {
         className={field + " mb-2"}
       />
       <div className="grid grid-cols-3 gap-2 mb-2">
-        <Money
+        <AmountInput
           value={debt.balance}
           onChange={(v) => setDebt({ ...debt, balance: v })}
           placeholder="Balance"
@@ -76,7 +76,7 @@ export default function DebtsSection({ data, onSave }) {
           placeholder="APR %"
           className={field}
         />
-        <Money
+        <AmountInput
           value={debt.minPayment}
           onChange={(v) => setDebt({ ...debt, minPayment: v })}
           placeholder="Min/mo"

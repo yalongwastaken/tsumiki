@@ -2,12 +2,12 @@
 // owns its add/edit form state, commits via onSave (keeping profile.typicalIncome
 // as the derived monthly sum), and can fill cadence/payday from logged history.
 import { useState } from "react";
-import Cash from "../components/Money.jsx";
+import Money from "../components/Money.jsx";
 import { X, Pencil } from "lucide-react";
 import { detectIncomeSchedule } from "../lib/insights.js";
 import { CADENCE_LABEL } from "../lib/cadence.js";
 import { nextPaydays } from "../lib/paydays.js";
-import { uid, field, Money } from "./ui.jsx";
+import { uid, field, AmountInput } from "./ui.jsx";
 
 const SOURCE_TYPES = ["salary", "hourly", "self_employed", "passive", "other"];
 const BLANK = {
@@ -95,17 +95,17 @@ export default function IncomeSection({ data, onSave }) {
   const srcDetail = (s) =>
     s.basis === "hourly" ? (
       <>
-        <Cash n={Number(s.amount) || 0} />
+        <Money n={Number(s.amount) || 0} />
         /hr · {s.hours}h/wk
       </>
     ) : s.basis === "annual" ? (
       <>
-        <Cash n={s.amount} />
+        <Money n={s.amount} />
         /yr
       </>
     ) : (
       <>
-        <Cash n={s.amount} />
+        <Money n={s.amount} />
         /mo
       </>
     );
@@ -123,7 +123,7 @@ export default function IncomeSection({ data, onSave }) {
                 </div>
                 <div className="text-xs text-slate-500">
                   {s.basis ? <>{srcDetail(s)} → </> : ""}
-                  ~<Cash n={s.typicalMonthly || 0} />
+                  ~<Money n={s.typicalMonthly || 0} />
                   /mo
                   {s.taxable === false && <span className="text-emerald-600"> · non-taxable</span>}
                 </div>
@@ -179,7 +179,7 @@ export default function IncomeSection({ data, onSave }) {
           <option value="annual">per year</option>
           <option value="hourly">per hour</option>
         </select>
-        <Money
+        <AmountInput
           value={src.amount}
           onChange={(v) => setSrc({ ...src, amount: v })}
           placeholder={src.basis === "hourly" ? "rate" : "amount"}
@@ -194,7 +194,7 @@ export default function IncomeSection({ data, onSave }) {
           />
         ) : (
           <div className="flex items-center text-xs text-slate-500">
-            ≈ <Cash n={toMonthly(src)} />
+            ≈ <Money n={toMonthly(src)} />
             /mo
           </div>
         )}
@@ -253,7 +253,7 @@ export default function IncomeSection({ data, onSave }) {
       <div className="flex items-center justify-between gap-2">
         {src.basis === "hourly" && (
           <span className="text-xs text-slate-500">
-            ≈ <Cash n={toMonthly(src)} />
+            ≈ <Money n={toMonthly(src)} />
             /mo
           </span>
         )}

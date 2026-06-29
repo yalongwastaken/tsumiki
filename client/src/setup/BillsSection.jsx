@@ -2,10 +2,10 @@
 // allocates). Self-contained: owns its form state, commits via onSave, and offers
 // to add charges that look recurring in the ledger.
 import { useState } from "react";
-import Cash from "../components/Money.jsx";
+import Money from "../components/Money.jsx";
 import { X } from "lucide-react";
 import { detectRecurring } from "../lib/insights.js";
-import { uid, field, Money } from "./ui.jsx";
+import { uid, field, AmountInput } from "./ui.jsx";
 
 const ordinal = (n) =>
   n % 10 === 1 && n !== 11
@@ -73,7 +73,7 @@ export default function BillsSection({ data, onSave }) {
                 <span className="text-slate-700 flex-1 truncate">
                   {d.label}{" "}
                   <span className="text-xs text-slate-500">
-                    · <Cash n={d.amount} /> · {d.months} months
+                    · <Money n={d.amount} /> · {d.months} months
                   </span>
                 </span>
                 <button
@@ -103,7 +103,7 @@ export default function BillsSection({ data, onSave }) {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono text-slate-500">
-                  <Cash n={b.amount} />
+                  <Money n={b.amount} />
                 </span>
                 <button
                   onClick={() => removeBill(b.id)}
@@ -125,7 +125,7 @@ export default function BillsSection({ data, onSave }) {
           className={field + " flex-1"}
         />
         <div className="relative" style={{ width: 100 }}>
-          <Money
+          <AmountInput
             value={bill.amount}
             onChange={(v) => setBill({ ...bill, amount: v })}
             placeholder="/mo"

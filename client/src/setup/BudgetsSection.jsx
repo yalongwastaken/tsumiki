@@ -2,11 +2,11 @@
 // form state, commits caps to profile.budgets and per-category options (rollover /
 // annual period) to profile.budgetOpts via onSave, and can seed caps from spending.
 import { useState } from "react";
-import Cash from "../components/Money.jsx";
+import Money from "../components/Money.jsx";
 import { X } from "lucide-react";
 import { allCategories } from "../lib/categories.js";
 import { categoryAverages } from "../lib/budgets.js";
-import { card, label, field, Money } from "./ui.jsx";
+import { card, label, field, AmountInput } from "./ui.jsx";
 
 /** Category budgets card (lives in the Settings section). */
 export default function BudgetsSection({ data, onSave }) {
@@ -79,7 +79,7 @@ export default function BudgetsSection({ data, onSave }) {
                   <div className="text-sm text-slate-700">{cat}</div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-mono text-slate-500">
-                      <Cash n={amount} />/{annual ? "yr" : "mo"}
+                      <Money n={amount} />/{annual ? "yr" : "mo"}
                     </span>
                     <button
                       onClick={() => removeBudget(cat)}
@@ -135,7 +135,7 @@ export default function BudgetsSection({ data, onSave }) {
           ))}
         </datalist>
         <div className="relative" style={{ width: 110 }}>
-          <Money
+          <AmountInput
             value={budgetForm.amount}
             onChange={(v) => setBudgetForm({ ...budgetForm, amount: v })}
             placeholder="/mo cap"
