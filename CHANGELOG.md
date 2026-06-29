@@ -4,15 +4,19 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.0] — 2026-06-29
 
-Post-2.0 improvements (a code-audit + UX/polish pass).
+Post-2.0 improvements (feature additions plus a deep code-audit + UX/polish pass).
+Backward-compatible — no changes to your data or API shape.
 
 ### Added
 
 - **Edit a logged transaction.** Each ledger row has a pencil to fix the amount, date, and
   note (and category, for spending) in place, instead of delete-and-re-add. The edited date
   is normalized to local noon so it never drifts a day in other timezones.
+- **Streak milestones.** The daily streak now shows the tier you've reached, a progress bar
+  toward the next milestone (3 days → 1 year), a flame that warms as you climb, and a
+  personal-best marker — gentle encouragement, no loss-aversion pressure.
 - **Flexible bill schedules.** Bills can now be due on the last day, the last business day,
   or an Nth/last weekday (e.g. "first Monday", "last Friday") — not just a fixed day of the
   month. Reminders, the cash-flow forecast, and the calendar all resolve these dates, and
@@ -40,6 +44,14 @@ Post-2.0 improvements (a code-audit + UX/polish pass).
   success note) instead of silently doing nothing.
 - **Performance:** memoized the Portfolio holdings derivations and the income-schedule
   detection so they don't re-walk on every render/keystroke.
+
+### Fixed
+
+- **Timezone-consistent day bucketing.** Portfolio auto-valuation and CSV-import dedup now
+  bucket "today" on your local calendar (matching the streak/insights/forecast logic), so
+  the auto-valued day flips at your midnight rather than UTC's.
+- **Stricter date validation.** The server now rejects roll-over-invalid calendar dates
+  (e.g. `2024-02-30`) instead of letting them silently shift to the next month.
 
 ### Internal
 
