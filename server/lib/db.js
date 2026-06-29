@@ -633,7 +633,7 @@ export function resetAll() {
       db.prepare(`DELETE FROM ${t}`).run();
     }
     db.prepare(
-      "DELETE FROM meta WHERE key IN ('profile', 'settings', 'holdings', 'portfolioHistory', 'symbolPriceHistory')",
+      "DELETE FROM meta WHERE key IN ('profile', 'settings', 'holdings', 'portfolioHistory', 'symbolPriceHistory', 'priceFailures')",
     ).run();
     setMeta("rev", getRev() + 1);
     db.exec("COMMIT");

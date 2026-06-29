@@ -30,6 +30,7 @@ const TTL = 20 * 60 * 60 * 1000; // refetch at most ~daily
 const RETRY_FLOOR = 5 * 60 * 1000; // after a failed sync, wait this long before a lazy retry
 const HIST_MAX = 40;
 const MANUAL_AFTER = 3; // consecutive misses before a symbol is given up on → "update manually"
+const PROBE_EVERY = 7; // re-attempt given-up symbols every Nth refresh so a transient gap can recover
 
 // env read live (not cached at import) so tests can vary it between cases
 const enabled = () =>
@@ -212,6 +213,7 @@ function recordHistory(history, symbol, date, price) {
 }
 
 let inFlight = null; // single-flight guard: scheduler + lazy + manual refresh share one fetch
+let refreshCount = 0; // drives the periodic re-probe of given-up symbols (resets on restart)
 
 /** Fetch + cache closes for held tickers; concurrent calls share one in-flight fetch. */
 export function refreshPrices() {
@@ -231,8 +233,18 @@ async function doRefresh() {
   }
   const held = [...new Set((getState().holdings || []).map((h) => String(h.ticker).toUpperCase()))];
 
+  // no price source configured at all (no TSUMIKI_PRICE_URL, no Finnhub key): report a
+  // plain "empty" without penalizing any symbol — a missing config isn't a per-symbol
+  // failure, so don't let the breaker mark holdings "manual" because of it.
+  if (!providers().length) {
+    lastSync = { status: "empty", at: Date.now(), source: null, missing: held, manual: [] };
+    return cache;
+  }
+
   // circuit breaker: keep per-symbol failure counts, drop entries for symbols no longer
-  // held, and treat any at/over the threshold as "manual" — don't even request those.
+  // held, and treat any at/over the threshold as "manual" — we don't request those every
+  // time, but every PROBE_EVERY-th refresh we re-attempt them so a transient feed gap can
+  // recover (a successful price resets the symbol below the threshold).
   const failures = getPriceFailures();
   for (const s of Object.keys(failures)) {
     if (!held.includes(s)) {
@@ -240,7 +252,8 @@ async function doRefresh() {
     }
   }
   const isManual = (s) => (failures[s] || 0) >= MANUAL_AFTER;
-  const toFetch = held.filter((s) => !isManual(s));
+  const probe = refreshCount++ % PROBE_EVERY === 0; // re-attempt given-up symbols this round
+  const toFetch = held.filter((s) => !isManual(s) || probe);
 
   if (!toFetch.length) {
     // nothing to fetch (no holdings, or every held symbol has been given up on)
@@ -282,9 +295,10 @@ async function doRefresh() {
   const rows = Object.values(collected);
   const source = sources.length ? sources.join(",") : null;
 
-  // update the breaker: reset a symbol that priced, increment one that missed
+  // update the breaker: reset a symbol that priced, increment one that missed (capped at
+  // the threshold so re-probing a permanently-unpriceable symbol can't grow it unbounded)
   for (const s of toFetch) {
-    failures[s] = s in collected ? 0 : (failures[s] || 0) + 1;
+    failures[s] = s in collected ? 0 : Math.min((failures[s] || 0) + 1, MANUAL_AFTER);
   }
   setPriceFailures(failures);
 

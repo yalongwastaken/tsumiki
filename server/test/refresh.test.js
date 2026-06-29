@@ -81,7 +81,7 @@ test("getPrices reports the opt-in flag + cached payload shape", async () => {
   assert.ok(p.prices.AAPL);
 });
 
-test("circuit breaker: a never-priced symbol becomes 'manual' and is no longer chased", async () => {
+test("circuit breaker: a never-priced symbol is given up on after MANUAL_AFTER misses", async () => {
   // hold a symbol the feed never returns (e.g. a mutual fund); stub always prices AAPL only
   db.putState({ holdings: [{ id: "f1", ticker: "SWPPX", shares: 5 }] });
   stub(ok(stooq("AAPL", "2026-08-01", 100))); // CSV never contains SWPPX
@@ -93,21 +93,28 @@ test("circuit breaker: a never-priced symbol becomes 'manual' and is no longer c
   assert.ok(p.lastSync.manual.includes("SWPPX"), "symbol should be given up on after 3 misses");
   assert.ok(!p.lastSync.missing.includes("SWPPX"), "given-up symbol is not reported as missing");
   assert.equal(p.lastSync.status, "ok"); // calm: nothing left to retry, not an error
+});
 
-  // and it's no longer requested: a stub that throws on any fetch must NOT be hit
-  let hits = 0;
-  stub(async () => {
-    hits++;
-    throw new Error("should not fetch a manual symbol");
-  });
-  await prices.refreshPrices();
-  assert.equal(hits, 0, "a manual symbol must not trigger any fetch");
+test("circuit breaker: a given-up symbol recovers on a later probe if the feed returns", async () => {
+  db.putState({ holdings: [{ id: "f1", ticker: "SWPPX", shares: 5 }] });
+  stub(ok(stooq("AAPL", "2026-08-05", 100))); // still no SWPPX → give up
+  for (let i = 0; i < 3; i++) {
+    await prices.refreshPrices();
+  }
+  assert.ok((await prices.getPrices()).lastSync.manual.includes("SWPPX"));
 
-  // editing the holding to a new ticker starts fresh (the breaker is per-symbol)
-  db.putState({ holdings: [{ id: "f1", ticker: "VOO", shares: 5 }] });
-  stub(ok(stooq("VOO", "2026-08-02", 550)));
-  const after = await prices.refreshPrices();
-  assert.equal(after.prices.VOO.price, 550);
+  // feed starts covering SWPPX again; a periodic probe (≤ PROBE_EVERY refreshes) re-prices it
+  stub(ok(stooq("SWPPX", "2026-08-09", 80)));
+  let recovered = false;
+  for (let i = 0; i < 8 && !recovered; i++) {
+    const r = await prices.refreshPrices();
+    recovered = r.prices.SWPPX?.price === 80;
+  }
+  assert.ok(recovered, "a given-up symbol should re-price on a later probe");
+  assert.ok(
+    !(await prices.getPrices()).lastSync.manual.includes("SWPPX"),
+    "and leave the manual list",
+  );
 });
 
 // ── news ────────────────────────────────────────────────────────────────────
