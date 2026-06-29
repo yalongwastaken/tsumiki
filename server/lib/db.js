@@ -219,6 +219,21 @@ export function appendPortfolioPoint(value, date = new Date().toISOString()) {
 // ── lightweight validation: reject obviously malformed PUTs ───────────────────
 const TX_TYPES = new Set(["income", "spending", "contribution", "transfer"]);
 
+// a transfer must move between two DISTINCT accounts → reject a malformed one (the UI
+// already enforces this; this guards a direct POST). Returns an error string or null.
+function transferError(t) {
+  if (t.type !== "transfer") {
+    return null;
+  }
+  if (!t.fromId || !t.toId) {
+    return "transfer needs a from and to account";
+  }
+  if (t.fromId === t.toId) {
+    return "transfer needs two different accounts";
+  }
+  return null;
+}
+
 /**
  * Validate a full-state PUT body.
  * @returns {string|null} an error message, or null when valid
@@ -279,6 +294,10 @@ export function validateState(s) {
     }
     if (Number.isNaN(Date.parse(t.date))) {
       return "transaction.date is not a valid date";
+    }
+    const te = transferError(t);
+    if (te) {
+      return te;
     }
   }
   for (const sn of s.snapshots || []) {
@@ -346,7 +365,7 @@ export function validateTransaction(t) {
   if (Number.isNaN(Date.parse(t.date))) {
     return "transaction.date is not a valid date";
   }
-  return null;
+  return transferError(t);
 }
 
 /**

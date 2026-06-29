@@ -77,6 +77,15 @@ test("validateTransaction accepts a transfer type", () => {
   );
 });
 
+test("a transfer needs two distinct accounts (rejected otherwise)", () => {
+  const ok = { id: "x", type: "transfer", amount: 100, date: "2026-06-01", fromId: "a", toId: "b" };
+  assert.equal(validateTransaction(ok), null);
+  assert.ok(validateTransaction({ ...ok, toId: "a" })); // same account
+  assert.ok(validateTransaction({ ...ok, toId: null })); // missing endpoint
+  // full-state PUT rejects a malformed transfer too
+  assert.ok(validateState({ transactions: [{ ...ok, toId: "a" }] }));
+});
+
 test("validateMeta accepts blob slices, rejects junk + bad tickers", () => {
   assert.equal(validateMeta({ settings: { theme: "dark" } }), null);
   assert.equal(validateMeta({ profile: { name: "x" }, holdings: [] }), null);
