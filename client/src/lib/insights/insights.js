@@ -1,6 +1,6 @@
 // insights.js — pure, explainable "smart" derivations over the ledger + plan.
 // No AI/network: deterministic rules so every number is testable and defensible.
-import { monthKey, sumLatestByType } from "../core/selectors.js";
+import { monthKey, sumLatestByType, dayKey } from "../core/selectors.js";
 import { nextPaydays } from "../plan/paydays.js";
 import { CADENCE } from "../plan/cadence.js";
 import { scheduleOf, billDueDay } from "../plan/billdates.js";
@@ -202,17 +202,15 @@ export function detectRecurring(transactions = [], existingBills = []) {
  * @returns {{cadence, lastPayday, count, medianGap}|null}
  */
 export function detectIncomeSchedule(transactions = []) {
-  // normalize each deposit to its UTC calendar day (stored dates are UTC-anchored),
-  // so gaps and the emitted payday are timezone-stable
-  const utcDay = (d) => {
-    const x = new Date(d);
-    return Date.UTC(x.getUTCFullYear(), x.getUTCMonth(), x.getUTCDate());
-  };
+  // normalize each deposit to its LOCAL calendar day (stored dates are local-instant
+  // ISO stamps), so gaps and the emitted payday match the user's own calendar — same
+  // convention as the streak/forecast/portfolio bucketing
+  const localDayMs = (d) => startOfDay(parseLocalDay(d)).getTime();
   const days = [
     ...new Set(
       (transactions || [])
         .filter((t) => t.type === "income" && t.amount > 0)
-        .map((t) => utcDay(t.date)),
+        .map((t) => localDayMs(t.date)),
     ),
   ].sort((a, b) => a - b);
   if (days.length < 3) {
@@ -226,7 +224,7 @@ export function detectIncomeSchedule(transactions = []) {
   const medianGap = gaps[Math.floor(gaps.length / 2)];
   // semimonthly (e.g. 1st & 15th) lands on ≤2 days of the month; true biweekly
   // drifts across many days — use that to tell the two ~14-day cadences apart
-  const distinctDoms = new Set(days.map((d) => new Date(d).getUTCDate())).size;
+  const distinctDoms = new Set(days.map((d) => new Date(d).getDate())).size;
   let cadence;
   if (medianGap <= 9) {
     cadence = "weekly";
@@ -237,7 +235,7 @@ export function detectIncomeSchedule(transactions = []) {
     // run that happens to repeat a day-of-month (e.g. Feb 14/28 → Mar 14) is ambiguous
     cadence = distinctDoms <= 2 && days.length >= 4 ? "semimonthly" : "biweekly";
   }
-  const lastPayday = new Date(days[days.length - 1]).toISOString().slice(0, 10);
+  const lastPayday = dayKey(new Date(days[days.length - 1])); // local YYYY-MM-DD
   return { cadence, lastPayday, count: days.length, medianGap };
 }
 

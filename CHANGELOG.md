@@ -47,9 +47,10 @@ Backward-compatible — no changes to your data or API shape.
 
 ### Fixed
 
-- **Timezone-consistent day bucketing.** Portfolio auto-valuation and CSV-import dedup now
-  bucket "today" on your local calendar (matching the streak/insights/forecast logic), so
-  the auto-valued day flips at your midnight rather than UTC's.
+- **Timezone-consistent day bucketing.** Portfolio auto-valuation, CSV-import dedup,
+  income-schedule detection, and the server's portfolio-history points now all bucket the
+  day on the local calendar (matching the streak/insights/forecast logic), so a day flips
+  at your midnight rather than UTC's. (Corrected a stale "UTC slice" comment too.)
 - **Stricter date validation.** The server now rejects roll-over-invalid calendar dates
   (e.g. `2024-02-30`) instead of letting them silently shift to the next month.
 

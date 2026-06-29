@@ -204,6 +204,15 @@ test("detectIncomeSchedule infers cadence + last payday from deposits", () => {
     { type: "income", amount: 2500, date: "2026-06-01" },
   ];
   assert.equal(detectIncomeSchedule(semimonthly).cadence, "semimonthly");
+
+  // full ISO timestamps bucket on the LOCAL calendar day (08:00Z is the same local
+  // day across the test matrix), so the emitted lastPayday matches the user's day
+  const timestamped = [
+    { type: "income", amount: 2000, date: "2026-05-15T08:00:00.000Z" },
+    { type: "income", amount: 2000, date: "2026-05-29T08:00:00.000Z" },
+    { type: "income", amount: 2000, date: "2026-06-12T08:00:00.000Z" },
+  ];
+  assert.equal(detectIncomeSchedule(timestamped).lastPayday, "2026-06-12");
 });
 
 test("coachNudges prioritizes a cashflow dip and respects the limit", () => {

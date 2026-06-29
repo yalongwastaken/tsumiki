@@ -194,12 +194,25 @@ export function setAuth(obj) {
   }
 }
 
+// local "YYYY-MM-DD" — the server runs on the user's own machine, so its local day is
+// the user's day; bucket portfolio-history points the same way as the client's day keys
+// (rather than a UTC slice, which would flip the point's date for late-evening syncs).
+const localDayKey = (d) => {
+  const x = typeof d === "string" ? new Date(d) : d;
+  return isNaN(x.getTime())
+    ? ""
+    : `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+};
+
 /** Append (or replace same-day) a portfolio-value point, capped to the last N days. */
-export function appendPortfolioPoint(value, date = new Date().toISOString()) {
+export function appendPortfolioPoint(value, date = new Date()) {
   if (typeof value !== "number" || !isFinite(value)) {
     return;
   }
-  const day = date.slice(0, 10);
+  const day = localDayKey(date);
+  if (!day) {
+    return;
+  }
   const hist = getPortfolioHistory();
   // replace any existing point for this day (not just the last one), else append
   const existing = hist.find((p) => p.date === day);

@@ -1,6 +1,7 @@
 // finance.js — income/spend derivations shared by BOTH the client and the server
 // engine, so the two can't drift. Pure + dependency-free (the server imports this
-// directly from client/src). Month buckets use a UTC slice for stability.
+// directly from client/src). Month buckets use the LOCAL calendar (see monthOf), to
+// match the day-bucketing in streak/insights/portfolio and the user's own calendar.
 
 // "YYYY-MM" for a date; "" for an unparseable one (so a single bad/corrupt
 // transaction date can't throw "Invalid time value" and crash the whole view).
