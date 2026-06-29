@@ -106,13 +106,19 @@ export default function App() {
   const [authSecure, setAuthSecure] = useState(true); // served over a secure origin?
   const revRef = useRef(0); // last server rev (optimistic concurrency)
   const saveChain = useRef(Promise.resolve()); // serialize writes so rapid saves can't self-conflict
+  // synchronous mirror of the latest committed state. Every write rebases onto this (not
+  // the render closure), so a save queued behind another — or fired from an effect with
+  // intentionally-narrow deps (e.g. the auto price-sync reconcile) — can't persist a stale
+  // full-state snapshot that clobbers a concurrent edit.
+  const dataRef = useRef(EMPTY);
 
   // load the full model + plan + prices (called after boot and after a successful unlock)
   async function loadData() {
     try {
       const fresh = await getState();
       revRef.current = fresh.rev ?? 0;
-      setData({ ...EMPTY, ...fresh });
+      dataRef.current = { ...EMPTY, ...fresh };
+      setData(dataRef.current);
       if (!fresh.settings?.onboarded) {
         setShowOnboard(true);
       } // first run
@@ -162,19 +168,29 @@ export default function App() {
     if (loading || !prices) {
       return;
     }
-    const { snapshots, changed } = reconcileInvestmentSnapshots(data, prices.prices || {});
+    // build from the LATEST state (dataRef), not this effect's closure — its deps omit
+    // data.transactions, so the closure can be stale after a log; rebasing prevents the
+    // snapshot write from clobbering a just-logged transaction.
+    const { snapshots, changed } = reconcileInvestmentSnapshots(
+      dataRef.current,
+      prices.prices || {},
+    );
     if (changed) {
-      save({ ...data, snapshots });
+      save((d) => ({ ...d, snapshots }));
     }
   }, [prices, data.holdings, data.accounts, data.snapshots]); // eslint-disable-line
 
   // shared persistence: optimistic UI, then a rev-checked write serialized through the
-  // saveChain; on failure (409 or otherwise) re-sync from the server.
-  function runSave(optimisticNext, write) {
-    setData(optimisticNext);
+  // saveChain; on failure (409 or otherwise) re-sync from the server. `produce` is a
+  // functional updater applied to the latest state (dataRef) so queued/concurrent writes
+  // rebase instead of overwriting each other from a stale closure.
+  function runSave(produce, write) {
+    const next = typeof produce === "function" ? produce(dataRef.current) : produce;
+    dataRef.current = next; // advance the mirror synchronously so the next write composes
+    setData(next);
     saveChain.current = saveChain.current.then(async () => {
       try {
-        const saved = await write(revRef.current);
+        const saved = await write(next, revRef.current);
         revRef.current = saved.rev ?? revRef.current;
         setToast("Saved");
         setTimeout(() => setToast(""), 1200);
@@ -184,7 +200,8 @@ export default function App() {
         try {
           const fresh = await getState();
           revRef.current = fresh.rev ?? 0;
-          setData({ ...EMPTY, ...fresh });
+          dataRef.current = { ...EMPTY, ...fresh };
+          setData(dataRef.current);
           setError(e.status === 409 ? "" : String(e.message || e));
           setToast(e.status === 409 ? "Reloaded — changed elsewhere" : "Couldn't save — reloaded");
           setTimeout(() => setToast(""), 1800);
@@ -194,14 +211,20 @@ export default function App() {
       }
     });
   }
-  // full-state save (rewrites the normalized tables) — for account/snapshot/debt edits
+  // full-state save (rewrites the normalized tables) — for account/snapshot/debt edits.
+  // Accepts a functional updater (d) => next; a bare object is treated as a constant.
   function save(next) {
-    runSave(next, (rev) => putState({ ...next, rev }));
+    runSave(next, (d, rev) => putState({ ...d, rev }));
   }
   // granular save of only profile/settings/holdings blobs — for the frequent toggles
-  // (theme, blur, goals, strategy…) so they don't rewrite the whole ledger
+  // (theme, blur, goals, strategy…) so they don't rewrite the whole ledger. Accepts a
+  // partial object or a (d) => partial updater; the blob is rebased on the latest state.
   function saveMeta(partial) {
-    runSave({ ...data, ...partial }, (rev) => patchState({ ...partial, rev }));
+    const part = typeof partial === "function" ? partial(dataRef.current) : partial;
+    runSave(
+      (d) => ({ ...d, ...part }),
+      (_d, rev) => patchState({ ...part, rev }),
+    );
   }
 
   const { transactions, settings, accounts, snapshots, profile, debts, holdings = [] } = data;
@@ -360,7 +383,7 @@ export default function App() {
   }, [snapshots]);
 
   function deleteTx(id) {
-    save({ ...data, transactions: transactions.filter((t) => t.id !== id) });
+    save((d) => ({ ...d, transactions: d.transactions.filter((t) => t.id !== id) }));
   }
   // append via the lean endpoint instead of re-sending the whole state.
   function logTx({
@@ -387,8 +410,10 @@ export default function App() {
       fromId,
       toId,
     };
-    // functional update so rapid successive logs compose (no stale-closure drop)
-    setData((d) => ({ ...d, transactions: [...d.transactions, tx] })); // optimistic
+    // advance the synchronous mirror + optimistic UI so rapid logs (and any full-state
+    // save queued behind this) compose on the new tx instead of dropping it
+    dataRef.current = { ...dataRef.current, transactions: [...dataRef.current.transactions, tx] };
+    setData(dataRef.current);
     saveChain.current = saveChain.current.then(async () => {
       try {
         const saved = await addTransaction(tx);
@@ -399,7 +424,8 @@ export default function App() {
         try {
           const fresh = await getState();
           revRef.current = fresh.rev ?? 0;
-          setData({ ...EMPTY, ...fresh });
+          dataRef.current = { ...EMPTY, ...fresh };
+          setData(dataRef.current);
         } catch (_) {}
         setError(String(e.message || e));
       }
@@ -417,24 +443,24 @@ export default function App() {
       ? [...(profile.incomeSources || []), source]
       : profile.incomeSources || [];
     const typical = sources.reduce((s, x) => s + (x.typicalMonthly || 0), 0);
-    save({
-      ...data,
-      accounts: [...accounts, ...newAccts],
-      snapshots: [...snapshots, ...newSnaps],
+    save((d) => ({
+      ...d,
+      accounts: [...d.accounts, ...newAccts],
+      snapshots: [...d.snapshots, ...newSnaps],
       profile: {
-        ...profile,
+        ...d.profile,
         name,
         strategy,
         incomeSources: sources,
         typicalIncome: typical,
         ...(emergencyTarget != null ? { emergencyTarget } : {}),
       },
-      settings: { ...settings, onboarded: true },
-    });
+      settings: { ...d.settings, onboarded: true },
+    }));
     setShowOnboard(false);
   }
   function skipOnboarding() {
-    save({ ...data, settings: { ...settings, onboarded: true } });
+    save((d) => ({ ...d, settings: { ...d.settings, onboarded: true } }));
     setShowOnboard(false);
   }
   // wipe all data on the server, reset the UI, and start onboarding fresh
@@ -442,7 +468,8 @@ export default function App() {
     try {
       const fresh = await resetAll();
       revRef.current = fresh.rev ?? 0;
-      setData({ ...EMPTY, ...fresh });
+      dataRef.current = { ...EMPTY, ...fresh };
+      setData(dataRef.current);
       setTab("home");
       setShowOnboard(true);
       setToast("All data deleted");
@@ -452,19 +479,19 @@ export default function App() {
     }
   }
   function setNetWorth(value) {
-    let acctId = accounts[0]?.id,
-      accts = accounts;
-    if (!acctId) {
-      acctId = "primary";
-      accts = [{ id: acctId, name: "Net worth", type: "other", color: "#94A3B8" }];
-    }
-    save({
-      ...data,
-      accounts: accts,
-      snapshots: [
-        ...snapshots,
-        { id: uid(), accountId: acctId, date: new Date().toISOString(), balance: value },
-      ],
+    const snap = { accountId: null, date: new Date().toISOString(), balance: value };
+    save((d) => {
+      let acctId = d.accounts[0]?.id;
+      let accts = d.accounts;
+      if (!acctId) {
+        acctId = "primary";
+        accts = [{ id: acctId, name: "Net worth", type: "other", color: "#94A3B8" }];
+      }
+      return {
+        ...d,
+        accounts: accts,
+        snapshots: [...d.snapshots, { id: uid(), ...snap, accountId: acctId }],
+      };
     });
   }
 
@@ -483,7 +510,8 @@ export default function App() {
   const sectionLabel = NAV.find((n) => n[0] === tab)?.[1] || "";
 
   const blurMoney = !!settings?.blurMoney;
-  const toggleBlur = () => saveMeta({ settings: { ...settings, blurMoney: !blurMoney } });
+  const toggleBlur = () =>
+    saveMeta((d) => ({ settings: { ...d.settings, blurMoney: !blurMoney } }));
 
   return (
     <div className={`min-h-screen bg-slate-50 md:flex${blurMoney ? " blur-money" : ""}`}>
@@ -592,16 +620,18 @@ export default function App() {
                 profile={profile}
                 onGoSetup={() => setTab("settings")}
                 onApplyMonth={(s) =>
-                  save({
-                    ...data,
-                    profile: { ...profile, monthOverride: { ym: thisMonth(), strategy: s } },
+                  save((d) => ({
+                    ...d,
+                    profile: { ...d.profile, monthOverride: { ym: thisMonth(), strategy: s } },
+                  }))
+                }
+                onClearMonth={() =>
+                  save((d) => {
+                    // drop the monthOverride key, keep the rest of the profile
+                    const { monthOverride: _omit, ...rest } = d.profile;
+                    return { ...d, profile: rest };
                   })
                 }
-                onClearMonth={() => {
-                  // drop the monthOverride key, keep the rest of the profile
-                  const { monthOverride: _omit, ...rest } = profile;
-                  save({ ...data, profile: rest });
-                }}
               />
             )}
 
@@ -613,17 +643,19 @@ export default function App() {
                 accounts={accounts}
                 onDelete={deleteTx}
                 onLog={(txs) =>
-                  save({
-                    ...data,
-                    transactions: [...transactions, ...txs.map((t) => ({ id: uid(), ...t }))],
-                  })
+                  save((d) => ({
+                    ...d,
+                    transactions: [...d.transactions, ...txs.map((t) => ({ id: uid(), ...t }))],
+                  }))
                 }
                 onUpdate={(ids, patch) => {
                   const set = new Set(ids);
-                  save({
-                    ...data,
-                    transactions: transactions.map((t) => (set.has(t.id) ? { ...t, ...patch } : t)),
-                  });
+                  save((d) => ({
+                    ...d,
+                    transactions: d.transactions.map((t) =>
+                      set.has(t.id) ? { ...t, ...patch } : t,
+                    ),
+                  }));
                 }}
               />
             )}
@@ -662,7 +694,7 @@ export default function App() {
                   start={netWorth}
                   derivedInvest={derivedInvest}
                   settings={settings}
-                  onChange={(s) => save({ ...data, settings: s })}
+                  onChange={(s) => save((d) => ({ ...d, settings: s }))}
                 />
                 <NetWorthHistory data={nwSeries} />
                 <Fire
@@ -704,7 +736,9 @@ export default function App() {
                   }}
                   earmarked={earmarked}
                   monthlyPace={monthlyPace}
-                  onChange={(list) => saveMeta({ profile: { ...profile, moneyTargets: list } })}
+                  onChange={(list) =>
+                    saveMeta((d) => ({ profile: { ...d.profile, moneyTargets: list } }))
+                  }
                 />
               </>
             )}
@@ -721,7 +755,7 @@ export default function App() {
                 onReplayIntro={() => setShowOnboard(true)}
                 onReset={resetEverything}
                 theme={settings?.theme || "light"}
-                onSetTheme={(t) => saveMeta({ settings: { ...settings, theme: t } })}
+                onSetTheme={(t) => saveMeta((d) => ({ settings: { ...d.settings, theme: t } }))}
               />
             )}
           </main>

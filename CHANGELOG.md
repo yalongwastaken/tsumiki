@@ -47,6 +47,11 @@ Backward-compatible — no changes to your data or API shape.
 
 ### Fixed
 
+- **Save-flow data-loss race.** All client writes now rebase onto a synchronous
+  latest-state mirror instead of the render closure, so a full-state save fired from the
+  auto price-sync (whose effect deliberately ignores `transactions`) can no longer clobber
+  a just-logged transaction or a concurrent edit. `save`/`saveMeta` take functional
+  updaters; the per-blob PATCH path is unchanged.
 - **Corrupt-data resilience.** A damaged `meta` JSON blob (disk corruption / an external
   edit) now falls back to its default instead of throwing — one bad byte can no longer
   brick `GET /api/state` or block a reset/recovery.
