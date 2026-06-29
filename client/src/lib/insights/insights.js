@@ -3,6 +3,7 @@
 import { monthKey, sumLatestByType } from "../core/selectors.js";
 import { nextPaydays } from "../plan/paydays.js";
 import { CADENCE } from "../plan/cadence.js";
+import { scheduleOf, billDueDay } from "../plan/billdates.js";
 
 const DAY = 86400000;
 const startOfDay = (d) => {
@@ -53,7 +54,7 @@ export function cashflowForecast(state = {}, { days = 45, today = new Date() } =
   const { accounts = [], snapshots = [], profile = {}, transactions = [] } = state;
   const floor = Math.max(0, profile.checkingFloor || 0);
   const start = sumLatestByType(accounts, snapshots, ["checking"]);
-  const billDays = (profile.bills || []).filter((b) => b.dayOfMonth && b.amount > 0);
+  const billDays = (profile.bills || []).filter((b) => scheduleOf(b) && b.amount > 0);
   const monthlyBills = billDays.reduce((s, b) => s + b.amount, 0);
   const burn = avgDailySpend(transactions, 60, today);
   // bills are subtracted on their due dates below. only net them out of the daily
@@ -94,10 +95,10 @@ export function cashflowForecast(state = {}, { days = 45, today = new Date() } =
     const day = new Date(t0.getTime() + i * DAY);
     const key = localKey(day);
     bal += delta[key] || 0;
-    // clamp a bill's due day to month-end so e.g. "due the 31st" still fires in Feb/Apr
-    const dim = new Date(day.getFullYear(), day.getMonth() + 1, 0).getDate();
+    // each bill's resolved due-day for this month (handles last day, last business
+    // day, Nth/last weekday — clamped to month length inside billDueDay)
     for (const b of billDays) {
-      if (Math.min(b.dayOfMonth, dim) === day.getDate()) {
+      if (billDueDay(b, day.getFullYear(), day.getMonth()) === day.getDate()) {
         bal -= b.amount;
       }
     }

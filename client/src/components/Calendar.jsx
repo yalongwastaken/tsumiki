@@ -5,6 +5,7 @@ import { Flame, ChevronLeft, ChevronRight } from "lucide-react";
 import { fmt } from "../lib/core/format.js";
 import { weekKey, objectiveForWeek } from "../lib/insights/streak.js";
 import { paydaysInMonth } from "../lib/plan/paydays.js";
+import { billDueDay } from "../lib/plan/billdates.js";
 
 const DOW = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -56,12 +57,13 @@ export default function Calendar({ transactions = [], profile = {} }) {
   const billsByDay = useMemo(() => {
     const m = {};
     for (const b of profile.bills || []) {
-      if (b.dayOfMonth) {
-        (m[b.dayOfMonth] ??= []).push(b);
+      const day = billDueDay(b, year, month); // resolves day/last-day/Nth-weekday this month
+      if (day) {
+        (m[day] ??= []).push(b);
       }
     }
     return m;
-  }, [profile.bills]);
+  }, [profile.bills, year, month]);
 
   // forecast paydays this month, per income source (day-of-month → source names)
   const paydaysByDay = useMemo(() => {

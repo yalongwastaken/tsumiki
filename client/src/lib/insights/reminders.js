@@ -3,6 +3,7 @@
 // tax deadline, and a streak about to lapse. Pure and dependency-light so it can drive
 // both the in-app alerts and (opt-in) server-scheduled push.
 import { nextPaydays } from "../plan/paydays.js";
+import { nextBillDue } from "../plan/billdates.js";
 import { nextQuarterlyDue } from "../finance/tax.js";
 import { computeDailyStreak, dayKey } from "./streak.js";
 import { sumLatestByType } from "../core/selectors.js";
@@ -15,23 +16,8 @@ const startOfDay = (d) => {
   return x;
 };
 const daysBetween = (a, b) => Math.round((startOfDay(a) - startOfDay(b)) / DAY);
-const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
 const shortDate = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 const plural = (n) => (n === 1 ? "" : "s");
-
-// next calendar occurrence of a day-of-month on/after `today` (clamped to month length)
-function nextDayOfMonth(dom, today) {
-  const t = startOfDay(today);
-  const y = t.getFullYear();
-  const m = t.getMonth();
-  const here = new Date(y, m, Math.min(dom, daysInMonth(y, m)));
-  if (here >= t) {
-    return here;
-  }
-  const m2 = (m + 1) % 12;
-  const y2 = m + 1 > 11 ? y + 1 : y;
-  return new Date(y2, m2, Math.min(dom, daysInMonth(y2, m2)));
-}
 
 /**
  * Active reminders for the current model.
@@ -66,12 +52,13 @@ export function computeReminders(state = {}, today = new Date(), opts = {}) {
     }
   });
 
-  // bills due soon (only bills with a day-of-month set)
+  // bills due soon (any bill with a resolvable schedule — fixed day, last day,
+  // last business day, Nth/last weekday)
   (profile.bills || []).forEach((b, i) => {
-    if (!b.dayOfMonth) {
+    const next = nextBillDue(b, today);
+    if (!next) {
       return;
     }
-    const next = nextDayOfMonth(b.dayOfMonth, today);
     const d = daysBetween(next, today);
     if (d >= 0 && d <= horizon) {
       out.push({
