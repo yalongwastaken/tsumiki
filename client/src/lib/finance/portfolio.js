@@ -85,20 +85,6 @@ export const INVESTMENT_TYPES = new Set(["brokerage", "ira", "roth", "401k"]);
 /** Holding tax tag implied by the account type it lives in. */
 export const TAX_TAG_FOR_TYPE = { brokerage: "taxable", ira: "ira", roth: "roth", "401k": "401k" };
 
-/**
- * Derived balance of an investment account: market value of its linked holdings
- * (from the latest synced prices) plus any uninvested cash. Returns null for a
- * non-investment account (those keep a manually-entered balance).
- * @returns {number|null}
- */
-export function investmentAccountValue(account = {}, holdings = [], prices = {}) {
-  if (!INVESTMENT_TYPES.has(account.type)) {
-    return null;
-  }
-  const market = holdingsValueByAccount(holdings, prices)[account.id] || 0;
-  return market + (Number(account.cash) || 0);
-}
-
 /** Account types that are tax-advantaged (retirement) vs a taxable brokerage. */
 export const RETIREMENT_ACCOUNTS = new Set(["401k", "ira", "roth"]);
 

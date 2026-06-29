@@ -120,7 +120,7 @@ function clearSessionCookie(res) {
 }
 
 /** True when the request carries a valid session (or no password is set at all). */
-export function isAuthed(req) {
+function isAuthed(req) {
   const auth = getAuth();
   if (!auth) {
     return true;

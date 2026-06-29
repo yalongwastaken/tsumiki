@@ -5,8 +5,8 @@
 import { nextPaydays } from "../plan/paydays.js";
 import { nextBillDue } from "../plan/billdates.js";
 import { nextQuarterlyDue } from "../finance/tax.js";
-import { computeDailyStreak, dayKey } from "./streak.js";
-import { sumLatestByType } from "../core/selectors.js";
+import { computeDailyStreak } from "./streak.js";
+import { dayKey, sumLatestByType } from "../core/selectors.js";
 import { fmt } from "../core/format.js";
 
 const DAY = 86400000;

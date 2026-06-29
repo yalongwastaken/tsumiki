@@ -7,7 +7,6 @@ import {
   portfolioInsights,
   retirementValue,
   holdingsValueByAccount,
-  investmentAccountValue,
   portfolioFlow,
   reconcileInvestmentSnapshots,
   effectivePrice,
@@ -120,22 +119,6 @@ test("holdingsValueByAccount groups linked holdings' market value by account", (
   assert.equal(byAcct.acc1, 2500); // 10×200 + 5×100
   assert.equal(byAcct.acc2, 100); // 2×50; NOPRICE excluded
   assert.equal("acc3" in byAcct, false);
-});
-
-test("investmentAccountValue = holdings market value + cash; null for cash accounts", () => {
-  const holdings = [
-    { id: "1", ticker: "AAPL", shares: 10, accountId: "brk" },
-    { id: "2", ticker: "VTI", shares: 4, accountId: "brk" },
-  ];
-  const prices = { AAPL: { price: 200 }, VTI: { price: 100 } };
-  assert.equal(
-    investmentAccountValue({ id: "brk", type: "brokerage", cash: 500 }, holdings, prices),
-    2900, // 10×200 + 4×100 + 500 cash
-  );
-  // no cash, no prices yet → 0 (last-synced handled by the snapshot layer, not here)
-  assert.equal(investmentAccountValue({ id: "brk", type: "ira" }, holdings, {}), 0);
-  // a cash account is not auto-valued
-  assert.equal(investmentAccountValue({ id: "chk", type: "checking" }, holdings, prices), null);
 });
 
 test("holdingsValueByAccount tolerates empty / NaN shares", () => {

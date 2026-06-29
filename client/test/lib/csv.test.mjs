@@ -8,7 +8,7 @@ import {
   dedupeAgainst,
   transactionsToCsv,
 } from "../../src/lib/core/csv.js";
-import { dayKey } from "../../src/lib/insights/streak.js";
+import { dayKey } from "../../src/lib/core/selectors.js";
 
 test("transactionsToCsv writes a header + a row per txn, escaping commas/quotes", () => {
   const csv = transactionsToCsv([

@@ -110,9 +110,6 @@ export function parseFeed(xml = "") {
   return out;
 }
 
-/** Whether the news feature is configured. */
-export const newsEnabled = () => !!FEED;
-
 /** Fetch + cache the feed; on any failure, keep the last good cache. */
 export async function refreshNews() {
   if (!FEED) {

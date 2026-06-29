@@ -1,26 +1,9 @@
 // streak.js — two streaks: a DAILY logging streak (the headline — keep showing up,
 // any log counts) and a weekly plan-adherence challenge with a rotating objective.
+import { dayKey } from "../core/selectors.js"; // single local-day helper (no duplicate)
 
 export const DAY = 86400000;
 export const WEEK = 7 * DAY;
-
-// local "YYYY-MM-DD" for a date ("" for an unparseable one). Local — not UTC — so a
-// day bucket lines up with the user's own calendar across timezones.
-export const dayKey = (d) => {
-  // a bare YYYY-MM-DD is already a local calendar day — return it as-is so it doesn't
-  // shift back a day when parsed as UTC midnight in western timezones (matches monthOf)
-  if (typeof d === "string") {
-    const bare = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
-    if (bare) {
-      return d;
-    }
-  }
-  const x = new Date(d);
-  if (isNaN(x.getTime())) {
-    return "";
-  }
-  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
-};
 
 /**
  * Daily logging streak: consecutive days, ending today, with at least one log of

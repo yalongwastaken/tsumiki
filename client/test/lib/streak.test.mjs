@@ -8,11 +8,11 @@ import {
   OBJECTIVES,
   WEEK,
   DAY,
-  dayKey,
   weekKey,
   streakMilestone,
   STREAK_TIERS,
 } from "../../src/lib/insights/streak.js";
+import { dayKey } from "../../src/lib/core/selectors.js";
 
 test("streakMilestone: before the first tier, aim at it from zero", () => {
   const m = streakMilestone(0);
