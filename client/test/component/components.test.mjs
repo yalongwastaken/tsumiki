@@ -86,6 +86,27 @@ test("QuickAdd (open) renders the amount field + type toggle", () => {
   assert.match(out, /Dining Out/);
 });
 
+test("QuickAdd spending shows a 'charge to' account picker (cash + cards, not investments)", () => {
+  const out = html(
+    h(QuickAdd, {
+      open: true,
+      onClose() {},
+      onLog() {},
+      cats: [],
+      transactions: [],
+      accounts: [
+        { id: "chk", name: "Checking", type: "checking" },
+        { id: "visa", name: "Visa", type: "credit" },
+        { id: "brk", name: "Brokerage", type: "brokerage" }, // investment → excluded
+      ],
+    }),
+  );
+  assert.match(out, /Charge to/);
+  assert.match(out, /Checking/);
+  assert.match(out, /Visa/);
+  assert.doesNotMatch(out, /Brokerage/); // investment accounts aren't chargeable
+});
+
 test("QuickAdd (closed) renders nothing", () => {
   const out = html(
     h(QuickAdd, { open: false, onClose() {}, onLog() {}, cats: [], transactions: [] }),

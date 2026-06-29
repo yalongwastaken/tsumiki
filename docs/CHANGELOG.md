@@ -4,6 +4,19 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] — 2026-06-29
+
+### Added
+
+- **Charge a + entry to an account.** Quick Add now has an optional account picker:
+  charge a spend to a credit card or pay it from checking, or deposit income into an
+  account — and it **moves that account's balance** (so net worth updates as you log).
+  Defaults to your primary cash account; pick "— none —" to just log without moving a
+  balance (quick logs and no-spend days stay one-tap). Investment accounts aren't
+  chargeable (they auto-value from holdings).
+- **Transfers now move money.** A Quick Add transfer adjusts both account balances —
+  including paying down a credit card by transferring into it (checking → card).
+
 ## [2.3.0] — 2026-06-29
 
 ### Added

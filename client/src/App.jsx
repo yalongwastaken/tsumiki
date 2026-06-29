@@ -20,6 +20,7 @@ import {
   annualSpend,
   thisMonth,
   avgMonthlyContribution,
+  appendBalanceChange,
 } from "./lib/core/selectors.js";
 import { computeDailyStreak } from "./lib/insights/streak.js";
 import { reconcileInvestmentSnapshots } from "./lib/finance/portfolio.js";
@@ -389,7 +390,6 @@ export default function App() {
   function deleteTx(id) {
     save((d) => ({ ...d, transactions: d.transactions.filter((t) => t.id !== id) }));
   }
-  // append via the lean endpoint instead of re-sending the whole state.
   function logTx({
     type,
     amount,
@@ -400,6 +400,7 @@ export default function App() {
     note = null,
     fromId = null,
     toId = null,
+    accountId = null,
   }) {
     const tx = {
       id: uid(),
@@ -414,6 +415,31 @@ export default function App() {
       fromId,
       toId,
     };
+    // does this entry move an account balance? spending charged to an account lowers it,
+    // income deposited raises it, a transfer moves between two (paying a card if to one)
+    const moves = [];
+    if (type === "spending" && accountId) {
+      moves.push([accountId, -amount]);
+    } else if (type === "income" && accountId) {
+      moves.push([accountId, amount]);
+    } else if (type === "transfer" && fromId && toId) {
+      moves.push([fromId, -amount], [toId, amount]);
+    }
+
+    if (moves.length) {
+      // full-state write (tx + the balance snapshot(s)) so they land atomically; rebased
+      // on the latest state via the functional updater
+      save((d) => {
+        let snaps = d.snapshots;
+        for (const [acc, delta] of moves) {
+          snaps = appendBalanceChange(snaps, acc, delta);
+        }
+        return { ...d, transactions: [...d.transactions, tx], snapshots: snaps };
+      });
+      return;
+    }
+
+    // no balance move → the lean append endpoint (cheaper than re-sending the whole state).
     // advance the synchronous mirror + optimistic UI so rapid logs (and any full-state
     // save queued behind this) compose on the new tx instead of dropping it
     dataRef.current = { ...dataRef.current, transactions: [...dataRef.current.transactions, tx] };

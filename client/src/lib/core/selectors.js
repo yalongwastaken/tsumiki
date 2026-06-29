@@ -1,5 +1,32 @@
 // selectors.js — shared pure derivations over the ledger + account snapshots.
 import { monthOf } from "../finance/finance.js";
+import { uid } from "./uid.js";
+
+/**
+ * Append a snapshot moving an account's balance by `delta` (used when a logged spend is
+ * charged to an account, income is deposited, or a transfer moves money). Reads the
+ * account's latest balance and writes a new snapshot at `latest + delta`. Pure. A credit
+ * card's balance is stored negative (owed), so a spend (delta<0) makes it more negative
+ * = owe more, and a transfer INTO it (delta>0) pays it down toward 0.
+ * @returns {Array} snapshots with the new point appended (unchanged if no account/delta)
+ */
+export function appendBalanceChange(snapshots = [], accountId, delta, now = new Date()) {
+  if (!accountId || !Number.isFinite(delta) || delta === 0) {
+    return snapshots;
+  }
+  let latest = 0;
+  let latestT = -Infinity;
+  for (const s of snapshots) {
+    if (s.accountId === accountId) {
+      const t = new Date(s.date).getTime();
+      if (Number.isFinite(t) && t >= latestT) {
+        latestT = t;
+        latest = Number(s.balance) || 0;
+      }
+    }
+  }
+  return [...snapshots, { id: uid(), accountId, date: now.toISOString(), balance: latest + delta }];
+}
 
 /** Month key like "2026-06" for a date ("" for an unparseable date). */
 export const monthKey = monthOf;

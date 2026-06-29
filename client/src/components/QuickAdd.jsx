@@ -18,6 +18,10 @@ const TYPES = [
 ];
 // contributions target an engine bucket; labels come from buckets.js (single source)
 const BUCKET_KEYS = ["emergency", "retirement", "invest", "debt"];
+// investment accounts auto-value from holdings, so you don't charge a spend to them —
+// only cash-like accounts + credit cards can be "charged to" / "deposited to"
+const INV = new Set(["brokerage", "ira", "roth", "401k"]);
+const chargeable = (accts) => accts.filter((a) => !INV.has(a.type));
 
 /** Always-available bottom sheet for logging spending / income / contributions fast. */
 export default function QuickAdd({
@@ -38,7 +42,9 @@ export default function QuickAdd({
   const [goalId, setGoalId] = useState(null);
   const [fromId, setFromId] = useState(null);
   const [toId, setToId] = useState(null);
+  const [acctId, setAcctId] = useState(null); // charge a spend to / deposit income to
   const [note, setNote] = useState("");
+  const chargeAccts = chargeable(accounts);
   const amountRef = useRef(null);
   const panelRef = useFocusTrap(open, onClose); // trap Tab + Escape; restore focus on close
 
@@ -101,6 +107,8 @@ export default function QuickAdd({
       setGoalId(null);
       setFromId(accounts[0]?.id || null);
       setToId(accounts[1]?.id || accounts[0]?.id || null);
+      // default the charge/deposit account to the first cash-like account (remembered-ish)
+      setAcctId(chargeable(accounts)[0]?.id || null);
       setNote("");
       setTimeout(() => amountRef.current?.focus(), 50);
     }
@@ -142,6 +150,8 @@ export default function QuickAdd({
       sourceId: type === "income" ? sourceId : null,
       fromId: type === "transfer" ? fromId : null,
       toId: type === "transfer" ? toId : null,
+      // which account this spend was charged to / income deposited to (moves its balance)
+      accountId: (type === "spending" || type === "income") && acctId ? acctId : null,
     });
     onClose();
   }
@@ -267,6 +277,34 @@ export default function QuickAdd({
             Tip: add income sources in Setup to tag where this came from.
           </div>
         )}
+        {/* charge a spend to / deposit income into an account — moves that balance */}
+        {(type === "spending" || type === "income") && chargeAccts.length > 0 && (
+          <div className="mb-4">
+            <div className="text-xs text-slate-500 mb-1.5">
+              {type === "spending" ? "Charge to (optional)" : "Deposit to (optional)"}
+            </div>
+            <select
+              value={acctId || ""}
+              onChange={(e) => setAcctId(e.target.value || null)}
+              aria-label={type === "spending" ? "Charge to account" : "Deposit to account"}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
+            >
+              <option value="">— none (don’t move a balance) —</option>
+              {chargeAccts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+            {acctId && (
+              <div className="mt-1 text-xs text-slate-400">
+                {type === "spending"
+                  ? "Lowers that account (a credit card's balance owed goes up)."
+                  : "Adds to that account's balance."}
+              </div>
+            )}
+          </div>
+        )}
         {type === "transfer" &&
           (accounts.length >= 2 ? (
             <div className="mb-4 flex items-center gap-2">
@@ -301,8 +339,8 @@ export default function QuickAdd({
           ) : null)}
         {type === "transfer" && accounts.length >= 2 && (
           <div className="text-xs text-slate-500 mb-4">
-            Recorded for your history — it won't count as income or spending. Update the account
-            balances themselves in Accounts.
+            Moves the balance from one account to the other (and pays a card if you transfer into
+            one). Doesn't count as income or spending.
           </div>
         )}
         {type === "transfer" && accounts.length < 2 && (

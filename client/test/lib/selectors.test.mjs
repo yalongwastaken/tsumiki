@@ -10,7 +10,31 @@ import {
   annualSpend,
   monthTotals,
   localNoonIso,
+  appendBalanceChange,
 } from "../../src/lib/core/selectors.js";
+
+test("appendBalanceChange moves an account's latest balance by a delta", () => {
+  const now = new Date("2026-06-20T12:00:00Z");
+  const snaps = [
+    { id: "a1", accountId: "chk", date: "2026-06-01", balance: 1000 },
+    { id: "a2", accountId: "chk", date: "2026-06-10", balance: 1200 }, // latest for chk
+    { id: "c1", accountId: "card", date: "2026-06-05", balance: -300 }, // owed 300
+  ];
+  // a $50 spend charged to checking → new checking snapshot at 1150
+  const afterSpend = appendBalanceChange(snaps, "chk", -50, now);
+  assert.equal(afterSpend.length, 4);
+  assert.equal(afterSpend[3].balance, 1150);
+  assert.equal(afterSpend[3].accountId, "chk");
+  // a $50 charge on the credit card → balance more negative (owe more)
+  assert.equal(appendBalanceChange(snaps, "card", -50, now).at(-1).balance, -350);
+  // a $300 payment INTO the card (transfer to it) → toward 0
+  assert.equal(appendBalanceChange(snaps, "card", 300, now).at(-1).balance, 0);
+  // an account with no prior snapshot starts from 0
+  assert.equal(appendBalanceChange(snaps, "new", -25, now).at(-1).balance, -25);
+  // no account / zero delta → unchanged array
+  assert.equal(appendBalanceChange(snaps, null, -10), snaps);
+  assert.equal(appendBalanceChange(snaps, "chk", 0), snaps);
+});
 
 test("localNoonIso keeps the calendar day in every timezone (no UTC-midnight drift)", () => {
   const d = new Date(localNoonIso("2026-06-15"));
