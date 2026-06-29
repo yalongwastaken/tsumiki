@@ -20,7 +20,7 @@ import {
   thisMonth,
   avgMonthlyContribution,
 } from "./lib/selectors.js";
-import { computeAdherence, computeDailyStreak } from "./lib/streak.js";
+import { computeDailyStreak } from "./lib/streak.js";
 import { holdingsValueByAccount, INVESTMENT_TYPES } from "./lib/portfolio.js";
 import { computeReminders } from "./lib/reminders.js";
 import { earmarkedByGoal } from "./lib/goals.js";
@@ -34,26 +34,10 @@ import Onboarding from "./views/Onboarding.jsx";
 import Login from "./views/Login.jsx";
 import Home from "./views/Home.jsx";
 import NetWorthCard from "./components/NetWorthCard.jsx";
-import {
-  Home as HomeIcon,
-  Target,
-  History,
-  TrendingUp,
-  Trophy,
-  Settings as SettingsIcon,
-  Wallet,
-  Flame,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Menu,
-  Snowflake,
-  Check,
-  PartyPopper,
-  Plus,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import { Menu, PartyPopper, Plus, Eye, EyeOff } from "lucide-react";
 import Money, { BlurAmounts } from "./components/Money.jsx";
+import StreakPanel from "./components/StreakPanel.jsx";
+import NavRail, { NAV } from "./components/NavRail.jsx";
 import MilestoneIcon from "./components/MilestoneIcon.jsx";
 import Milestones from "./views/Milestones.jsx";
 import MoneyTargets from "./views/MoneyTargets.jsx";
@@ -78,80 +62,6 @@ const EMPTY = {
   profile: { incomeType: "salary", typicalIncome: 7000, strategy: "balanced" },
   settings: { returnRate: 0.07, monthlyInvest: null },
 };
-
-// ─── Streak ─── daily logging streak (headline) + weekly rotating challenge ─────
-function StreakPanel({ streak, transactions, freezes = 2 }) {
-  const { current, longest, freezesUsed, loggedToday, cells } = streak;
-  // secondary: this week's rotating plan-adherence challenge (a bonus to chase)
-  const { objective, metThisWeek } = computeAdherence(transactions, freezes);
-  const freezesLeft = Math.max(0, freezes - freezesUsed);
-  const daysLogged = cells.filter((c) => c.met).length;
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-          Daily streak
-        </div>
-        <div className="flex items-center gap-1 text-xs text-slate-500">
-          <span
-            className="inline-flex items-center gap-0.5"
-            aria-label={`${freezesLeft} streak freezes left`}
-          >
-            {Array.from({ length: freezesLeft }).map((_, i) => (
-              <Snowflake key={i} size={12} className="text-blue-400" aria-hidden="true" />
-            ))}
-          </span>
-          <span>
-            longest {longest} {longest === 1 ? "day" : "days"}
-          </span>
-        </div>
-      </div>
-      <div className="flex items-center gap-3 mb-3">
-        <Flame size={34} className={current > 0 ? "text-orange-500" : "text-slate-400"} />
-        <div>
-          <div className="text-3xl font-mono font-bold text-slate-900">{current}</div>
-          <div className="text-xs text-slate-500">{current === 1 ? "day" : "days"} in a row</div>
-        </div>
-      </div>
-      <div
-        role="status"
-        className={`rounded-lg px-3 py-2 mb-3 text-sm flex items-center gap-1.5 ${loggedToday ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
-      >
-        {loggedToday ? (
-          <>
-            <Check size={14} /> <span className="font-semibold">Logged today</span> — streak safe.
-          </>
-        ) : (
-          <>
-            <span className="font-semibold">Nothing logged today.</span> Any entry (even a no-spend
-            day) keeps it going.
-          </>
-        )}
-      </div>
-      <span className="sr-only">{daysLogged} of the last 14 days logged.</span>
-      <div className="flex gap-1.5" aria-hidden="true">
-        {cells.map((c, i) => (
-          <div
-            key={i}
-            title={c.day ? new Date(`${c.day}T00:00:00`).toLocaleDateString() : ""}
-            className={`flex-1 rounded transition-colors ${c.met ? "bg-orange-400" : "bg-slate-100"} ${c.isNow ? "ring-2 ring-orange-300" : ""}`}
-            style={{ height: 28 }}
-          />
-        ))}
-      </div>
-      <div className="flex justify-between mt-1.5 mb-3 text-xs text-slate-400">
-        <span>14 days ago</span>
-        <span>today</span>
-      </div>
-      <div
-        className={`rounded-lg px-3 py-2 text-xs flex items-center gap-1.5 ${metThisWeek ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-500"}`}
-      >
-        <span className="font-semibold">Weekly bonus:</span> {objective.label}{" "}
-        {metThisWeek && <Check size={13} />}
-      </div>
-    </div>
-  );
-}
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 /** Root component: loads state, serializes saves, owns the nav rail + tab routing. */
@@ -616,56 +526,14 @@ export default function App() {
         />
       )}
 
-      {/* nav — collapsible icon-rail on desktop, slide-in drawer on mobile */}
-      <aside
-        className={`fixed z-40 inset-y-0 left-0 bg-white border-r border-slate-200 flex flex-col transform transition-all duration-300 ease-out md:static md:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "w-60 md:w-16" : "w-60"}`}
-      >
-        <div className="px-4 py-4 flex items-center gap-2 border-b border-slate-100">
-          <svg
-            width="22"
-            height="22"
-            viewBox="0 0 64 64"
-            aria-hidden="true"
-            className="flex-shrink-0"
-          >
-            <rect x="6" y="37" width="18" height="18" rx="3" fill="#C9C0FB" />
-            <rect x="23" y="23" width="18" height="18" rx="3" fill="#9B8AFA" />
-            <rect x="40" y="9" width="18" height="18" rx="3" fill="#7C6FE8" />
-          </svg>
-          <span className={`font-bold text-slate-800 ${collapsed ? "md:hidden" : ""}`}>
-            Tsumiki
-          </span>
-        </div>
-        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {NAV.map(([key, label, Icon]) => (
-            <button
-              key={key}
-              onClick={() => {
-                setTab(key);
-                setMenuOpen(false);
-              }}
-              title={label}
-              className={`press w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? "md:justify-center" : ""} ${tab === key ? "bg-brand-100 text-brand-700" : "text-slate-600 hover:bg-slate-50"}`}
-            >
-              <Icon size={20} className="flex-shrink-0" />
-              <span className={collapsed ? "md:hidden" : ""}>{label}</span>
-            </button>
-          ))}
-        </nav>
-        <button
-          onClick={toggleRail}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="hidden md:flex items-center gap-2 px-4 py-3 border-t border-slate-100 text-slate-500 hover:text-slate-600 text-sm"
-        >
-          {collapsed ? (
-            <PanelLeftOpen size={18} />
-          ) : (
-            <>
-              <PanelLeftClose size={18} /> Collapse
-            </>
-          )}
-        </button>
-      </aside>
+      <NavRail
+        tab={tab}
+        setTab={setTab}
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        collapsed={collapsed}
+        toggleRail={toggleRail}
+      />
 
       {/* main column */}
       <div className="flex-1 min-w-0 flex flex-col min-h-screen">
@@ -915,12 +783,3 @@ export default function App() {
 }
 
 // section nav (clean-rename IA + lucide icons)
-const NAV = [
-  ["home", "Home", HomeIcon],
-  ["plan", "Plan", Target],
-  ["activity", "Activity", History],
-  ["grow", "Grow", TrendingUp],
-  ["goals", "Goals", Trophy],
-  ["accounts", "Accounts", Wallet],
-  ["settings", "Settings", SettingsIcon],
-];
