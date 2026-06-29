@@ -137,6 +137,18 @@ export function syncProblem(ls) {
   return null;
 }
 
+/** A calm reminder for symbols the feed has given up on (the circuit breaker's "manual"
+ * list — e.g. mutual funds Finnhub can't price). Returns text or null. Exported for tests. */
+export function manualNote(ls) {
+  const m = (ls && ls.manual) || [];
+  if (!m.length) {
+    return null;
+  }
+  const shown = m.slice(0, 4).join(", ");
+  const extra = m.length > 4 ? ` +${m.length - 4} more` : "";
+  return `No price feed for ${shown}${extra} — update ${m.length > 1 ? "these holdings" : "it"} manually in Accounts.`;
+}
+
 /** Holdings table + allocation donut + total/gain + recommendations. `prices` is the
  * optional synced-price payload ({enabled, prices, fetchedAt}); `onSync` forces a refresh. */
 export default function Portfolio({ holdings = [], prices = null, onGoSetup, onSync }) {
@@ -188,6 +200,7 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
 
   const synced = ago(prices?.fetchedAt);
   const problem = syncProblem(prices?.lastSync);
+  const manualText = manualNote(prices?.lastSync);
   // show the stocks Sankey only when there are ≥2 priced holdings to separate
   const showSankey = flow.total > 0 && flow.buckets.reduce((s, b) => s + b.holdings.length, 0) >= 2;
   const retire = retirementValue(rows);
@@ -266,7 +279,7 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
                 )}
               </div>
               <div className="text-xs text-slate-500">
-                {r.shares} sh
+                <span className="money">{r.shares}</span> sh
                 {r.price != null && (
                   <>
                     {" · "}
@@ -308,6 +321,15 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
           role={problem.tone === "error" ? "alert" : "status"}
         >
           {problem.text}
+        </div>
+      )}
+
+      {manualText && (
+        <div
+          className="mt-3 rounded-lg p-2.5 text-sm bg-slate-50 text-slate-600 break-words"
+          role="status"
+        >
+          {manualText}
         </div>
       )}
 

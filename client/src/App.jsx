@@ -573,16 +573,10 @@ export default function App() {
           </button>
           <div className="font-semibold text-slate-800">{sectionLabel}</div>
           <div className="ml-auto flex items-center gap-2">
-            {toast ? (
-              <span role="status" aria-live="polite" className="anim-fade text-xs text-emerald-500">
-                {toast}
-              </span>
-            ) : (
-              <span className="text-sm font-mono font-bold text-slate-700">
-                <Money n={netWorthDisplay} />{" "}
-                <span className="text-xs font-sans font-normal text-slate-500">net worth</span>
-              </span>
-            )}
+            <span className="text-sm font-mono font-bold text-slate-700">
+              <Money n={netWorthDisplay} />{" "}
+              <span className="text-xs font-sans font-normal text-slate-500">net worth</span>
+            </span>
             <button
               onClick={toggleBlur}
               aria-pressed={blurMoney}
@@ -594,6 +588,16 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        {toast && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="anim-fade fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-lg"
+          >
+            {toast}
+          </div>
+        )}
 
         <ErrorBoundary key={tab}>
           <main className="anim-in flex-1 px-4 sm:px-6 pt-5 pb-28 space-y-4 w-full max-w-lg md:max-w-2xl lg:max-w-4xl mx-auto">

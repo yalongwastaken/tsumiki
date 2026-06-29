@@ -39,6 +39,7 @@ export default function AccountsSection({ data, onSave, prices = null }) {
   const [balEdit, setBalEdit] = useState({ id: null, value: "" });
   const [openId, setOpenId] = useState(null); // which investment account is expanded
   const [hold, setHold] = useState({ ticker: "", shares: "", costBasis: "" });
+  const [editHold, setEditHold] = useState({ id: null, ticker: "", shares: "", costBasis: "" });
 
   // latest manual balance per account (for cash accounts + as the "last synced" fallback)
   const latestBalances = useMemo(() => {
@@ -192,6 +193,35 @@ export default function AccountsSection({ data, onSave, prices = null }) {
   }
   function removeHolding(id) {
     onSave({ ...data, holdings: holdings.filter((h) => h.id !== id) });
+  }
+  function startEditHold(h) {
+    setEditHold({
+      id: h.id,
+      ticker: h.ticker || "",
+      shares: String(h.shares ?? ""),
+      costBasis: h.costBasis == null ? "" : String(h.costBasis),
+    });
+  }
+  function saveEditHold() {
+    const ticker = editHold.ticker.trim().toUpperCase();
+    const shares = Number(editHold.shares);
+    if (!ticker || !Number.isFinite(shares) || shares <= 0) {
+      return; // need a ticker and a positive share count
+    }
+    onSave({
+      ...data,
+      holdings: holdings.map((h) =>
+        h.id === editHold.id
+          ? {
+              ...h,
+              ticker,
+              shares,
+              costBasis: editHold.costBasis === "" ? null : Number(editHold.costBasis),
+            }
+          : h,
+      ),
+    });
+    setEditHold({ id: null, ticker: "", shares: "", costBasis: "" });
   }
   function assignHolding(hid, accId) {
     if (!accId) {
@@ -349,6 +379,63 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                         {accHoldings.map((h) => {
                           const q = priceMap[h.ticker];
                           const mv = q?.price != null ? q.price * h.shares : null;
+                          if (editHold.id === h.id) {
+                            return (
+                              <div key={h.id} className="py-1.5">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <input
+                                    value={editHold.ticker}
+                                    onChange={(e) =>
+                                      setEditHold({ ...editHold, ticker: e.target.value })
+                                    }
+                                    aria-label={`Edit ticker for ${h.ticker}`}
+                                    autoCapitalize="characters"
+                                    autoCorrect="off"
+                                    spellCheck={false}
+                                    className={field + " uppercase"}
+                                  />
+                                  <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    min="0"
+                                    value={editHold.shares}
+                                    onChange={(e) =>
+                                      setEditHold({ ...editHold, shares: e.target.value })
+                                    }
+                                    aria-label={`Edit shares for ${h.ticker}`}
+                                    className={field}
+                                  />
+                                  <AmountInput
+                                    value={editHold.costBasis}
+                                    onChange={(v) => setEditHold({ ...editHold, costBasis: v })}
+                                    placeholder="cost/sh"
+                                    ariaLabel={`Edit cost per share for ${h.ticker}`}
+                                  />
+                                </div>
+                                <div className="mt-2 flex gap-2">
+                                  <button
+                                    onClick={saveEditHold}
+                                    className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      setEditHold({
+                                        id: null,
+                                        ticker: "",
+                                        shares: "",
+                                        costBasis: "",
+                                      })
+                                    }
+                                    className="px-2 py-1.5 text-sm text-slate-500"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
                           return (
                             <div
                               key={h.id}
@@ -357,7 +444,7 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                               <span className="text-slate-700">
                                 {h.ticker}{" "}
                                 <span className="text-xs text-slate-500">
-                                  · {h.shares} sh
+                                  · <span className="money">{h.shares}</span> sh
                                   {mv != null && (
                                     <>
                                       {" · "}
@@ -366,13 +453,22 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                                   )}
                                 </span>
                               </span>
-                              <button
-                                onClick={() => removeHolding(h.id)}
-                                aria-label={`Remove ${h.ticker}`}
-                                className={`${iconBtn} text-slate-400 hover:text-rose-500`}
-                              >
-                                <X size={14} />
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => startEditHold(h)}
+                                  aria-label={`Edit ${h.ticker}`}
+                                  className={`${iconBtn} text-slate-400 hover:text-brand-600`}
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  onClick={() => removeHolding(h.id)}
+                                  aria-label={`Remove ${h.ticker}`}
+                                  className={`${iconBtn} text-slate-400 hover:text-rose-500`}
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
                             </div>
                           );
                         })}
@@ -454,7 +550,10 @@ export default function AccountsSection({ data, onSave, prices = null }) {
               {orphans.map((h) => (
                 <div key={h.id} className="flex items-center justify-between gap-2 py-1.5">
                   <span className="text-sm text-slate-700">
-                    {h.ticker} <span className="text-xs text-slate-500">· {h.shares} sh</span>
+                    {h.ticker}{" "}
+                    <span className="text-xs text-slate-500">
+                      · <span className="money">{h.shares}</span> sh
+                    </span>
                   </span>
                   <select
                     defaultValue=""

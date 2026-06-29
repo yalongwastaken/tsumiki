@@ -5,6 +5,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 process.env.TSUMIKI_PRICES = "1";
+// there's no default price feed anymore (Stooq is bot-walled), so configure a keyless
+// CSV feed explicitly; the stubbed fetch ignores the URL and returns canned CSV.
+process.env.TSUMIKI_PRICE_URL = "https://example.test/q?s={SYMBOLS}&e=csv";
 process.env.TSUMIKI_NEWS_FEED = "https://example.com/feed.xml";
 process.env.TSUMIKI_DB = `/tmp/tsumiki-refresh-${process.pid}-${Date.now()}.db`;
 
@@ -76,6 +79,35 @@ test("getPrices reports the opt-in flag + cached payload shape", async () => {
   assert.equal(p.enabled, true);
   assert.ok(Array.isArray(p.history));
   assert.ok(p.prices.AAPL);
+});
+
+test("circuit breaker: a never-priced symbol becomes 'manual' and is no longer chased", async () => {
+  // hold a symbol the feed never returns (e.g. a mutual fund); stub always prices AAPL only
+  db.putState({ holdings: [{ id: "f1", ticker: "SWPPX", shares: 5 }] });
+  stub(ok(stooq("AAPL", "2026-08-01", 100))); // CSV never contains SWPPX
+  let p;
+  for (let i = 0; i < 3; i++) {
+    await prices.refreshPrices(); // MANUAL_AFTER = 3 consecutive misses
+    p = await prices.getPrices();
+  }
+  assert.ok(p.lastSync.manual.includes("SWPPX"), "symbol should be given up on after 3 misses");
+  assert.ok(!p.lastSync.missing.includes("SWPPX"), "given-up symbol is not reported as missing");
+  assert.equal(p.lastSync.status, "ok"); // calm: nothing left to retry, not an error
+
+  // and it's no longer requested: a stub that throws on any fetch must NOT be hit
+  let hits = 0;
+  stub(async () => {
+    hits++;
+    throw new Error("should not fetch a manual symbol");
+  });
+  await prices.refreshPrices();
+  assert.equal(hits, 0, "a manual symbol must not trigger any fetch");
+
+  // editing the holding to a new ticker starts fresh (the breaker is per-symbol)
+  db.putState({ holdings: [{ id: "f1", ticker: "VOO", shares: 5 }] });
+  stub(ok(stooq("VOO", "2026-08-02", 550)));
+  const after = await prices.refreshPrices();
+  assert.equal(after.prices.VOO.price, 550);
 });
 
 // ── news ────────────────────────────────────────────────────────────────────

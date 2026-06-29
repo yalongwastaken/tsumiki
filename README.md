@@ -93,8 +93,8 @@ Open `http://<mini-pc-ip>:4000`. Configuration via environment variables:
 | `TSUMIKI_DB`            | `server/data/tsumiki.db` | SQLite database file path                                                                                                             |
 | `TSUMIKI_NEWS_FEED`     | _(unset → off)_          | optional public RSS/Atom URL for money headlines                                                                                      |
 | `TSUMIKI_PRICES`        | _(unset → off)_          | set to `1` to sync prices for your stock holdings                                                                                     |
-| `TSUMIKI_PRICE_URL`     | _(Stooq CSV)_            | price feed URL(s) (`{SYMBOLS}` placeholder); comma-separate to list fallback feeds tried in order                                     |
-| `TSUMIKI_FINNHUB_KEY`   | _(unset → off)_          | optional Finnhub API key; when set, Finnhub is tried as a fallback for any symbols the keyless feed(s) couldn't price                 |
+| `TSUMIKI_FINNHUB_KEY`   | _(unset → off)_          | a [Finnhub](https://finnhub.io) API key — the primary price feed (free tier; only your ticker symbols + the key are sent)             |
+| `TSUMIKI_PRICE_URL`     | _(none)_                 | optional custom keyless CSV feed(s) (`{SYMBOLS}` placeholder), tried before Finnhub; no default (the old Stooq default is bot-walled) |
 | `TSUMIKI_FINNHUB_URL`   | _(Finnhub quote API)_    | override the Finnhub quote endpoint (only sends a ticker + your key)                                                                  |
 | `TSUMIKI_TRUST_PROXY`   | _(unset → off)_          | set to `1` only when behind a TLS-terminating proxy (Tailscale serve / nginx) so `x-forwarded-proto` is trusted for the app lock      |
 | `TSUMIKI_AUTO_BACKUP`   | _(unset → off)_          | set to `1` for a daily local JSON backup (keeps the newest 30); off by default, never leaves the device                               |
@@ -104,15 +104,16 @@ Open `http://<mini-pc-ip>:4000`. Configuration via environment variables:
 The money-news card and price sync are both **off by default** — the server makes
 no outbound calls unless you opt in. With `TSUMIKI_NEWS_FEED` set it fetches that
 feed nightly and serves headlines only. With `TSUMIKI_PRICES=1` it fetches daily
-closing prices **for only the tickers you hold** (symbols aren't personal) from a
-keyless public source, caches them, and falls back to the last good prices when
-offline. You can list several feeds in `TSUMIKI_PRICE_URL` (comma-separated) and
-they're tried in order; if you also set `TSUMIKI_FINNHUB_KEY`, Finnhub is tried as a
-last fallback (only your ticker symbols and your own key are sent to it). The
-Portfolio card shows the outcome of the last sync — synced, partial (which tickers
-had no data), nothing returned, or unreachable — so a stale feed is never silently
-passed off as fresh. Everything stays general info, never personalized, and nothing
-about you leaves the device.
+closing prices **for only the tickers you hold** (symbols aren't personal), caches
+them, and falls back to the last good prices when offline. The primary feed is
+[Finnhub](https://finnhub.io) (set `TSUMIKI_FINNHUB_KEY` — free tier; only your ticker
+symbols and your own key are sent); you can optionally set a custom keyless CSV feed in
+`TSUMIKI_PRICE_URL` to try first. The Portfolio card shows the outcome of the last sync
+— synced, partial, nothing returned, or unreachable — so a stale feed is never silently
+passed off as fresh. A symbol the feed can't price (e.g. a mutual fund Finnhub doesn't
+cover) is retried a few times, then flagged for you to update by hand instead of
+erroring forever. Everything stays general info, never personalized, and nothing about
+you leaves the device.
 
 ## App lock (optional password)
 

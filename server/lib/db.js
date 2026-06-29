@@ -191,6 +191,17 @@ export function setSymbolPriceHistory(hist) {
   setMeta("symbolPriceHistory", hist);
 }
 
+/** Per-symbol consecutive price-sync failure counts { SYMBOL: n }, for the circuit
+ * breaker that stops retrying a symbol the feed never prices (e.g. mutual funds). */
+export function getPriceFailures() {
+  return getMeta("priceFailures", {});
+}
+
+/** Persist the per-symbol failure-count map. */
+export function setPriceFailures(map) {
+  setMeta("priceFailures", map);
+}
+
 /** App-lock config { salt, hash, secret } or null when no password is set. Stored
  * outside the keys resetAll() clears, so a data reset doesn't unlock the app. */
 export function getAuth() {

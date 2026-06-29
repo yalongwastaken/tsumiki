@@ -4,6 +4,28 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] — 2026-06-29
+
+Price-sync reliability + holdings editing, after Stooq put its keyless feed behind a
+bot-wall. Backward-compatible.
+
+### Added
+
+- **Edit a holding in place.** Each holding in Accounts has a pencil to change its
+  ticker, shares, and cost basis without removing and re-adding it.
+- **Price-sync circuit breaker.** A symbol the feed can't price (e.g. a mutual fund
+  Finnhub doesn't cover) is retried only a few times, then marked "manual": the app stops
+  hammering the API for it and the Portfolio card reminds you to update that holding by
+  hand, instead of flagging it as a sync error forever.
+
+### Changed
+
+- **Finnhub is now the primary price feed.** The built-in Stooq default was removed —
+  Stooq now sits behind a JavaScript bot-wall that a self-hosted server can't pass.
+  Set `TSUMIKI_FINNHUB_KEY` (free tier) to sync prices; `TSUMIKI_PRICE_URL` remains an
+  optional custom keyless CSV feed, tried first when set. Mutual funds aren't covered by
+  Finnhub's free tier — use the circuit-breaker's manual path or an equivalent ETF.
+
 ## [2.1.0] — 2026-06-29
 
 Post-2.0 improvements (feature additions plus a deep code-audit + UX/polish pass).

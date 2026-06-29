@@ -6,29 +6,37 @@
 // "synced / nothing came back / failed" instead of silently serving stale prices.
 //
 // Providers, tried in order:
-//   1. keyless CSV feed(s) — TSUMIKI_PRICE_URL (Stooq by default; comma-separate to
-//      list fallbacks). {SYMBOLS} is replaced with the lowercased ".us" tickers.
-//   2. Finnhub JSON quotes — only when TSUMIKI_FINNHUB_KEY is set (a real fallback for
-//      when the keyless feed is blocked/rate-limited).
+//   1. keyless CSV feed(s) — only if you set TSUMIKI_PRICE_URL ({SYMBOLS} → lowercased
+//      ".us" tickers); tried first so a private, keyless feed is preferred when present.
+//      There is NO default: the old Stooq default is gone because Stooq now sits behind a
+//      JavaScript bot-wall a server can't pass — so with nothing configured, (2) is primary.
+//   2. Finnhub JSON quotes — the default/primary feed; on when TSUMIKI_FINNHUB_KEY is set.
+//
+// Circuit breaker: a symbol the feed can't price (e.g. a mutual fund Finnhub doesn't
+// cover) is retried only MANUAL_AFTER times, then marked "manual" — we stop requesting
+// it and the UI reminds you to update that holding by hand, instead of erroring forever.
 import {
   getState,
   appendPortfolioPoint,
   getPortfolioHistory,
   getSymbolPriceHistory,
   setSymbolPriceHistory,
+  getPriceFailures,
+  setPriceFailures,
 } from "./db.js";
 import { fetchTextCapped } from "./http.js";
 
 const TTL = 20 * 60 * 60 * 1000; // refetch at most ~daily
 const RETRY_FLOOR = 5 * 60 * 1000; // after a failed sync, wait this long before a lazy retry
 const HIST_MAX = 40;
-const DEFAULT_STOOQ = "https://stooq.com/q/l/?s={SYMBOLS}&f=sd2ohlcv&h&e=csv";
+const MANUAL_AFTER = 3; // consecutive misses before a symbol is given up on → "update manually"
 
 // env read live (not cached at import) so tests can vary it between cases
 const enabled = () =>
   ["1", "true", "yes"].includes((process.env.TSUMIKI_PRICES || "").toLowerCase());
+// optional custom keyless CSV feed(s); empty by default (no Stooq fallback anymore)
 const feedUrls = () =>
-  (process.env.TSUMIKI_PRICE_URL || DEFAULT_STOOQ)
+  (process.env.TSUMIKI_PRICE_URL || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
@@ -36,8 +44,9 @@ const finnhubKey = () => process.env.TSUMIKI_FINNHUB_KEY || "";
 const finnhubUrl = () => process.env.TSUMIKI_FINNHUB_URL || "https://finnhub.io/api/v1/quote";
 
 let cache = { prices: {}, fetchedAt: 0 };
-// outcome of the most recent refresh attempt (surfaced via getPrices)
-let lastSync = { status: "idle", at: 0, source: null, missing: [] };
+// outcome of the most recent refresh attempt (surfaced via getPrices). `manual` lists
+// symbols given up on (price them by hand); `missing` is symbols still being retried.
+let lastSync = { status: "idle", at: 0, source: null, missing: [], manual: [] };
 
 // split one CSV line, honoring "quoted, fields" and "" escapes. Stooq's own feed is
 // plain, but a custom TSUMIKI_PRICE_URL might not be — be tolerant either way.
@@ -161,6 +170,8 @@ async function fetchFinnhub(symbols) {
   return rows;
 }
 function providers() {
+  // a custom keyless CSV feed (if configured) is tried first; Finnhub is the fallback —
+  // and, since there's no default feed, the primary when no TSUMIKI_PRICE_URL is set
   const list = feedUrls().map((url, i) => ({
     name: i === 0 ? "feed" : `feed-${i + 1}`,
     fetch: (syms) => fetchStooq(url, syms),
@@ -215,16 +226,35 @@ export function refreshPrices() {
 
 async function doRefresh() {
   if (!enabled()) {
-    lastSync = { status: "disabled", at: Date.now(), source: null, missing: [] };
+    lastSync = { status: "disabled", at: Date.now(), source: null, missing: [], manual: [] };
     return cache;
   }
-  const symbols = [
-    ...new Set((getState().holdings || []).map((h) => String(h.ticker).toUpperCase())),
-  ];
-  if (!symbols.length) {
-    lastSync = { status: "ok", at: Date.now(), source: null, missing: [] };
+  const held = [...new Set((getState().holdings || []).map((h) => String(h.ticker).toUpperCase()))];
+
+  // circuit breaker: keep per-symbol failure counts, drop entries for symbols no longer
+  // held, and treat any at/over the threshold as "manual" — don't even request those.
+  const failures = getPriceFailures();
+  for (const s of Object.keys(failures)) {
+    if (!held.includes(s)) {
+      delete failures[s];
+    }
+  }
+  const isManual = (s) => (failures[s] || 0) >= MANUAL_AFTER;
+  const toFetch = held.filter((s) => !isManual(s));
+
+  if (!toFetch.length) {
+    // nothing to fetch (no holdings, or every held symbol has been given up on)
+    setPriceFailures(failures);
+    lastSync = {
+      status: "ok",
+      at: Date.now(),
+      source: null,
+      missing: [],
+      manual: held.filter(isManual),
+    };
     return cache;
   }
+
   // try providers in order, each asked only for the symbols still missing, merging
   // their results. This way a provider that prices *some* symbols doesn't mask a
   // later provider that could fill the rest; we stop as soon as everything is covered.
@@ -232,7 +262,7 @@ async function doRefresh() {
   const sources = [];
   let anyError = false;
   for (const p of providers()) {
-    const need = symbols.filter((s) => !(s in collected));
+    const need = toFetch.filter((s) => !(s in collected));
     if (!need.length) {
       break;
     }
@@ -252,6 +282,12 @@ async function doRefresh() {
   const rows = Object.values(collected);
   const source = sources.length ? sources.join(",") : null;
 
+  // update the breaker: reset a symbol that priced, increment one that missed
+  for (const s of toFetch) {
+    failures[s] = s in collected ? 0 : (failures[s] || 0) + 1;
+  }
+  setPriceFailures(failures);
+
   if (rows.length) {
     const prices = { ...cache.prices };
     const history = getSymbolPriceHistory(); // persisted → week-over-week survives restarts
@@ -269,18 +305,23 @@ async function doRefresh() {
     if (value > 0) {
       appendPortfolioPoint(value);
     }
-    const have = new Set(rows.map((r) => r.symbol));
-    const missing = symbols.filter((s) => !have.has(s));
-    lastSync = { status: missing.length ? "partial" : "ok", at: Date.now(), source, missing };
-  } else {
-    // nothing came back: distinguish "providers errored/unreachable" from "returned empty"
-    lastSync = {
-      status: anyError ? "error" : "empty",
-      at: Date.now(),
-      source: null,
-      missing: symbols,
-    };
   }
+
+  // classify the outcome. manual = held symbols now past the give-up threshold; missing =
+  // symbols we tried but didn't get and haven't given up on yet (still being retried).
+  const manual = held.filter(isManual);
+  const have = new Set(rows.map((r) => r.symbol));
+  const missing = toFetch.filter((s) => !have.has(s) && !isManual(s));
+  const status = rows.length
+    ? missing.length
+      ? "partial"
+      : "ok"
+    : missing.length
+      ? anyError
+        ? "error"
+        : "empty"
+      : "ok"; // nothing priced but nothing left to retry (all manual) → calm, not an error
+  lastSync = { status, at: Date.now(), source, missing, manual };
   return cache;
 }
 

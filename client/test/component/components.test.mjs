@@ -10,7 +10,7 @@ import NetWorthCard from "../../src/components/NetWorthCard.jsx";
 import AreaChart from "../../src/charts/Chart.jsx";
 import MoneyTargets from "../../src/views/MoneyTargets.jsx";
 import QuickAdd from "../../src/components/QuickAdd.jsx";
-import Portfolio, { syncProblem } from "../../src/views/Portfolio.jsx";
+import Portfolio, { syncProblem, manualNote } from "../../src/views/Portfolio.jsx";
 import StocksSankey from "../../src/charts/StocksSankey.jsx";
 import SankeyFlow from "../../src/charts/Sankey.jsx";
 import Money, { BlurAmounts } from "../../src/components/Money.jsx";
@@ -267,6 +267,34 @@ test("Portfolio shows a failure note + 'last good sync' wording, not a fresh-syn
   assert.match(out, /role="alert"/); // error is announced assertively
   assert.match(out, /last good sync/); // footer doesn't claim a fresh sync
   assert.doesNotMatch(out, /Prices synced 2h ago/); // ...the contradictory wording is gone
+});
+
+test("manualNote: summarizes given-up symbols, caps the list, null when empty", () => {
+  assert.equal(manualNote(null), null);
+  assert.equal(manualNote({ manual: [] }), null);
+  const one = manualNote({ manual: ["SWPPX"] });
+  assert.match(one, /SWPPX/);
+  assert.match(one, /update it manually/);
+  const many = manualNote({ manual: ["A", "B", "C", "D", "E"] });
+  assert.match(many, /A, B, C, D \+1 more/);
+  assert.match(many, /update these holdings manually/);
+});
+
+test("Portfolio shows the circuit-breaker 'update manually' reminder for given-up symbols", () => {
+  const out = html(
+    h(Portfolio, {
+      holdings: [{ id: "f1", ticker: "SWPPX", shares: 5, account: "taxable" }],
+      prices: {
+        enabled: true,
+        prices: {},
+        fetchedAt: Date.now(),
+        history: [],
+        lastSync: { status: "ok", at: Date.now(), source: null, missing: [], manual: ["SWPPX"] },
+      },
+    }),
+  );
+  assert.match(out, /No price feed for SWPPX/);
+  assert.match(out, /update it manually in Accounts/);
 });
 
 test("Portfolio idle (enabled, never synced) invites a first sync rather than 'off'", () => {
