@@ -58,6 +58,9 @@ smoke test).
 - `categoryAverages`, `avgDailySpend`, and the milestones "months tracked" count now
   bucket bare dates by the local calendar (matching `monthOf`), so a transaction on a
   month/window boundary no longer counts differently across timezones.
+- Hardening from a code audit: the retirement-contribution sum guards a missing amount
+  (`|| 0`) so it can't `NaN` the contribution-room calc, and `dayKey` short-circuits a
+  bare `YYYY-MM-DD` like `monthOf` (no off-by-one for a future date picker).
 
 ### Security
 
@@ -79,7 +82,7 @@ smoke test).
 - Project layout: `client/src` is grouped into `views/`, `charts/`, and `components/`
   (with `StreakPanel`/`NavRail` extracted from `App.jsx`); `lib/` into
   `core/finance/plan/insights/`; the server into `server/lib/` + `server/test/`; and
-  client tests into `test/lib/`. No behavior change.
+  client tests into `test/lib/`. The run/QA guides moved to `docs/`. No behavior change.
 
 ## [1.5.0] — 2026-06-23
 
