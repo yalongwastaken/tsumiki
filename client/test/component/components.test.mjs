@@ -114,6 +114,19 @@ test("a credit card's negative balance subtracts from net worth", () => {
   assert.equal(netWorthFromSnapshots(snaps), 3760); // 5000 − 1240
 });
 
+test("Ledger shows an edit button per row when onUpdate is provided", () => {
+  const out = html(
+    h(Ledger, {
+      transactions: [{ id: "s1", type: "spending", amount: 12, date: "2026-06-01", cat: "Food" }],
+      sources: [],
+      onDelete() {},
+      onUpdate() {},
+    }),
+  );
+  assert.match(out, /aria-label="Edit Food"/); // per-row edit affordance
+  assert.match(out, /id="tsumiki-ledger-cats"/); // category suggestions always present
+});
+
 test("Ledger renders a transfer as 'From → To' with no +/− sign", () => {
   const out = html(
     h(Ledger, {

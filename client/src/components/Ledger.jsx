@@ -2,7 +2,7 @@
 // recategorize (select multiple spending rows → set a new category).
 import { useState } from "react";
 import Money from "./Money.jsx";
-import { X, Check } from "lucide-react";
+import { X, Check, Pencil } from "lucide-react";
 import { bucketLabel } from "../lib/plan/buckets.js";
 import { allCategories } from "../lib/core/categories.js";
 
@@ -12,6 +12,30 @@ export default function Ledger({ transactions, sources, accounts = [], onDelete,
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(() => new Set());
   const [bulkCat, setBulkCat] = useState("");
+  const [editId, setEditId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+
+  function startEdit(t) {
+    setEditId(t.id);
+    setEditForm({
+      amount: String(t.amount),
+      date: String(t.date).slice(0, 10), // YYYY-MM-DD for the date input
+      note: t.note || "",
+      cat: t.cat || "",
+    });
+  }
+  function saveEdit(t) {
+    const amount = Number(editForm.amount);
+    if (!Number.isFinite(amount) || amount < 0 || !editForm.date || !onUpdate) {
+      return; // basic guard; the date input + number input keep this rare
+    }
+    const patch = { amount, date: editForm.date, note: editForm.note.trim() || null };
+    if (t.type === "spending") {
+      patch.cat = editForm.cat.trim() || t.cat || "Other";
+    }
+    onUpdate([t.id], patch);
+    setEditId(null);
+  }
 
   const sourceName = (id) => sources.find((s) => s.id === id)?.name || "income";
   const acctName = (id) => accounts.find((a) => a.id === id)?.name || "account";
@@ -93,6 +117,13 @@ export default function Ledger({ transactions, sources, accounts = [], onDelete,
         className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
       />
 
+      {/* category suggestions shared by the bulk bar + per-row edit */}
+      <datalist id="tsumiki-ledger-cats">
+        {allCategories(transactions).map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
+
       {/* bulk recategorize bar — appears once spending rows are selected */}
       {selected.size > 0 && (
         <div className="flex items-center gap-2 rounded-xl bg-brand-50 p-2.5">
@@ -105,11 +136,6 @@ export default function Ledger({ transactions, sources, accounts = [], onDelete,
             list="tsumiki-ledger-cats"
             className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-brand-200 rounded-lg bg-white text-slate-700"
           />
-          <datalist id="tsumiki-ledger-cats">
-            {allCategories(transactions).map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
           <button
             onClick={applyBulk}
             className="flex-shrink-0 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg"
@@ -140,43 +166,107 @@ export default function Ledger({ transactions, sources, accounts = [], onDelete,
         <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-50">
           {rows.map((t) => {
             const selectable = t.type === "spending" && !!onUpdate;
+            const noSpend = t.type === "spending" && t.amount === 0;
+            const editable = !!onUpdate && !noSpend;
             return (
-              <div key={t.id} className="flex items-center gap-2 px-4 py-2.5">
-                {selectable && (
-                  <input
-                    type="checkbox"
-                    checked={selected.has(t.id)}
-                    onChange={() => toggle(t.id)}
-                    aria-label={`Select ${meta(t)}`}
-                    className="flex-shrink-0 accent-brand-600"
-                  />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-slate-700 truncate">{meta(t)}</div>
-                  {t.note && <div className="text-xs text-slate-500 truncate">{t.note}</div>}
-                  <div className="text-xs text-slate-400">
-                    {new Date(t.date).toLocaleDateString()}
+              <div key={t.id}>
+                <div className="flex items-center gap-2 px-4 py-2.5">
+                  {selectable && (
+                    <input
+                      type="checkbox"
+                      checked={selected.has(t.id)}
+                      onChange={() => toggle(t.id)}
+                      aria-label={`Select ${meta(t)}`}
+                      className="flex-shrink-0 accent-brand-600"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-slate-700 truncate">{meta(t)}</div>
+                    {t.note && <div className="text-xs text-slate-500 truncate">{t.note}</div>}
+                    <div className="text-xs text-slate-400">
+                      {new Date(t.date).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {noSpend ? (
+                      <span className="text-xs text-emerald-600 inline-flex items-center gap-1">
+                        no spend <Check size={12} />
+                      </span>
+                    ) : (
+                      <span className={`text-sm font-mono ${color(t)}`}>
+                        {t.type === "spending" ? "−" : t.type === "transfer" ? "" : "+"}
+                        <Money n={t.amount} />
+                      </span>
+                    )}
+                    {editable && (
+                      <button
+                        onClick={() => (editId === t.id ? setEditId(null) : startEdit(t))}
+                        aria-label={`Edit ${meta(t)}`}
+                        aria-expanded={editId === t.id}
+                        className="-m-1 flex h-9 w-9 items-center justify-center text-slate-400 hover:text-brand-600"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onDelete(t.id)}
+                      aria-label="Delete"
+                      className="-m-1 flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-400"
+                    >
+                      <X size={15} />
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  {t.type === "spending" && t.amount === 0 ? (
-                    <span className="text-xs text-emerald-600 inline-flex items-center gap-1">
-                      no spend <Check size={12} />
-                    </span>
-                  ) : (
-                    <span className={`text-sm font-mono ${color(t)}`}>
-                      {t.type === "spending" ? "−" : t.type === "transfer" ? "" : "+"}
-                      <Money n={t.amount} />
-                    </span>
-                  )}
-                  <button
-                    onClick={() => onDelete(t.id)}
-                    aria-label="Delete"
-                    className="-m-1 flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-400"
-                  >
-                    <X size={15} />
-                  </button>
-                </div>
+                {editId === t.id && (
+                  <div className="flex flex-wrap items-center gap-2 bg-slate-50 px-4 py-2.5">
+                    <div className="relative">
+                      <span className="absolute left-2 top-2 text-xs text-slate-400">$</span>
+                      <input
+                        type="number"
+                        value={editForm.amount}
+                        onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                        aria-label="Amount"
+                        className="w-24 rounded-lg border border-slate-200 bg-white py-1.5 pl-5 pr-2 text-sm"
+                      />
+                    </div>
+                    <input
+                      type="date"
+                      value={editForm.date}
+                      onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                      aria-label="Date"
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                    />
+                    {t.type === "spending" && (
+                      <input
+                        value={editForm.cat}
+                        onChange={(e) => setEditForm({ ...editForm, cat: e.target.value })}
+                        placeholder="Category"
+                        aria-label="Category"
+                        list="tsumiki-ledger-cats"
+                        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                      />
+                    )}
+                    <input
+                      value={editForm.note}
+                      onChange={(e) => setEditForm({ ...editForm, note: e.target.value })}
+                      placeholder="Note"
+                      aria-label="Note"
+                      className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                    />
+                    <button
+                      onClick={() => saveEdit(t)}
+                      className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditId(null)}
+                      className="px-2 py-1.5 text-sm text-slate-500"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
