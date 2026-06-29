@@ -22,8 +22,9 @@ Post-2.0 improvements (a code-audit + UX/polish pass).
 ### Changed
 
 - **Accessibility:** `aria-current` on the active nav tab, labels + `aria-valuetext` on
-  the projection sliders, `role="alert"` on the error boundary, and a proper
-  `tablist`/`tab` for the Activity calendar/list toggle.
+  the projection sliders, `role="alert"` on the error boundary, a proper `tablist`/`tab`
+  for the Activity calendar/list toggle, and the global error banner + save toast are now
+  announced (`role="alert"` / `aria-live`).
 - **Forms:** the net-worth and goal forms now show inline validation errors (and a
   success note) instead of silently doing nothing.
 - **Performance:** memoized the Portfolio holdings derivations and the income-schedule
