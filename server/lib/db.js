@@ -316,6 +316,10 @@ export function validateState(s) {
     if (h.accountId != null && typeof h.accountId !== "string") {
       return "holding.accountId must be a string";
     }
+    // optional user-entered price/share for manual (un-synced) holdings, e.g. mutual funds
+    if (h.manualPrice != null && (typeof h.manualPrice !== "number" || !isFinite(h.manualPrice))) {
+      return "holding.manualPrice must be a finite number";
+    }
   }
   for (const a of s.accounts || []) {
     if (!a?.id || !a?.type) {

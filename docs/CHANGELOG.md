@@ -4,6 +4,19 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] — 2026-06-29
+
+### Added
+
+- **Per-holding manual price.** Each holding can be set to a manual price/share with a
+  "set price manually (don't sync)" toggle — for things the feed can't value, like mutual
+  funds. A manual holding is **never requested from the price API** (so it can't trip the
+  sync circuit breaker), and you maintain its price yourself; it still counts toward its
+  account's value and net worth. Any holding can also take a manual price as a stopgap
+  before its first sync — for an auto-sync holding, the next sync simply overrides it.
+- Holdings now always show **price/share** alongside the value when priced (synced or
+  manual), with a small "manual" tag when the price was entered by hand.
+
 ## [2.2.1] — 2026-06-29
 
 ### Fixed

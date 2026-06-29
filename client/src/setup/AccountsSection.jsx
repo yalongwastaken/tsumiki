@@ -8,6 +8,7 @@ import {
   INVESTMENT_TYPES,
   TAX_TAG_FOR_TYPE,
   holdingsValueByAccount,
+  effectivePrice,
 } from "../lib/finance/portfolio.js";
 import { uid, field, AmountInput } from "./ui.jsx";
 
@@ -39,7 +40,14 @@ export default function AccountsSection({ data, onSave, prices = null }) {
   const [balEdit, setBalEdit] = useState({ id: null, value: "" });
   const [openId, setOpenId] = useState(null); // which investment account is expanded
   const [hold, setHold] = useState({ ticker: "", shares: "", costBasis: "" });
-  const [editHold, setEditHold] = useState({ id: null, ticker: "", shares: "", costBasis: "" });
+  const [editHold, setEditHold] = useState({
+    id: null,
+    ticker: "",
+    shares: "",
+    costBasis: "",
+    manual: false,
+    manualPrice: "",
+  });
 
   // latest manual balance per account (for cash accounts + as the "last synced" fallback)
   const latestBalances = useMemo(() => {
@@ -200,6 +208,8 @@ export default function AccountsSection({ data, onSave, prices = null }) {
       ticker: h.ticker || "",
       shares: String(h.shares ?? ""),
       costBasis: h.costBasis == null ? "" : String(h.costBasis),
+      manual: !!h.manual, // price entered by hand, not synced
+      manualPrice: h.manualPrice == null ? "" : String(h.manualPrice),
     });
   }
   function saveEditHold() {
@@ -208,6 +218,7 @@ export default function AccountsSection({ data, onSave, prices = null }) {
     if (!ticker || !Number.isFinite(shares) || shares <= 0) {
       return; // need a ticker and a positive share count
     }
+    const mp = editHold.manualPrice === "" ? null : Math.max(0, Number(editHold.manualPrice));
     onSave({
       ...data,
       holdings: holdings.map((h) =>
@@ -217,11 +228,20 @@ export default function AccountsSection({ data, onSave, prices = null }) {
               ticker,
               shares,
               costBasis: editHold.costBasis === "" ? null : Number(editHold.costBasis),
+              manual: !!editHold.manual,
+              manualPrice: Number.isFinite(mp) ? mp : null,
             }
           : h,
       ),
     });
-    setEditHold({ id: null, ticker: "", shares: "", costBasis: "" });
+    setEditHold({
+      id: null,
+      ticker: "",
+      shares: "",
+      costBasis: "",
+      manual: false,
+      manualPrice: "",
+    });
   }
   function assignHolding(hid, accId) {
     if (!accId) {
@@ -377,8 +397,11 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                     {accHoldings.length > 0 && (
                       <div className="divide-y divide-slate-100 mb-2">
                         {accHoldings.map((h) => {
-                          const q = priceMap[h.ticker];
-                          const mv = q?.price != null ? q.price * h.shares : null;
+                          const { price: effPrice, manual: effManual } = effectivePrice(
+                            h,
+                            priceMap,
+                          );
+                          const mv = effPrice != null ? effPrice * h.shares : null;
                           if (editHold.id === h.id) {
                             return (
                               <div key={h.id} className="py-1.5">
@@ -412,6 +435,35 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                                     ariaLabel={`Edit cost per share for ${h.ticker}`}
                                   />
                                 </div>
+                                {/* manual price: for holdings the feed can't sync (e.g. mutual
+                                    funds) — turn off auto-sync and set the price/share yourself */}
+                                <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                                  <input
+                                    type="checkbox"
+                                    checked={editHold.manual}
+                                    onChange={(e) =>
+                                      setEditHold({ ...editHold, manual: e.target.checked })
+                                    }
+                                    aria-label={`Set price manually for ${h.ticker} (don't sync)`}
+                                    className="accent-brand-600"
+                                  />
+                                  Set price manually (don’t sync — e.g. a mutual fund)
+                                </label>
+                                <div className="mt-2 flex items-center gap-2">
+                                  <span className="text-xs text-slate-500 whitespace-nowrap">
+                                    {editHold.manual
+                                      ? "Price / share"
+                                      : "Price / share (until synced)"}
+                                  </span>
+                                  <div className="flex-1">
+                                    <AmountInput
+                                      value={editHold.manualPrice}
+                                      onChange={(v) => setEditHold({ ...editHold, manualPrice: v })}
+                                      placeholder="0.00"
+                                      ariaLabel={`Manual price per share for ${h.ticker}`}
+                                    />
+                                  </div>
+                                </div>
                                 <div className="mt-2 flex gap-2">
                                   <button
                                     onClick={saveEditHold}
@@ -426,6 +478,8 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                                         ticker: "",
                                         shares: "",
                                         costBasis: "",
+                                        manual: false,
+                                        manualPrice: "",
                                       })
                                     }
                                     className="px-2 py-1.5 text-sm text-slate-500"
@@ -445,12 +499,15 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                                 {h.ticker}{" "}
                                 <span className="text-xs text-slate-500">
                                   · <span className="money">{h.shares}</span> sh
-                                  {mv != null && (
+                                  {effPrice != null && (
                                     <>
+                                      {" @ "}
+                                      <Money n={effPrice} />
                                       {" · "}
                                       <Money n={mv} />
                                     </>
                                   )}
+                                  {effManual && <span className="text-slate-400"> · manual</span>}
                                 </span>
                               </span>
                               <div className="flex items-center gap-1">

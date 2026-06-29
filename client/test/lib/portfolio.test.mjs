@@ -10,7 +10,47 @@ import {
   investmentAccountValue,
   portfolioFlow,
   reconcileInvestmentSnapshots,
+  effectivePrice,
 } from "../../src/lib/finance/portfolio.js";
+
+test("effectivePrice: manual holding uses its own price; auto uses synced (manual as fallback)", () => {
+  // manual holding ignores the synced price entirely
+  assert.deepEqual(
+    effectivePrice({ ticker: "SWPPX", manual: true, manualPrice: 80 }, { SWPPX: { price: 999 } }),
+    {
+      price: 80,
+      manual: true,
+    },
+  );
+  // manual holding with no manualPrice yet → no value
+  assert.deepEqual(effectivePrice({ ticker: "SWPPX", manual: true }, {}), {
+    price: null,
+    manual: true,
+  });
+  // auto holding prefers the synced price
+  assert.deepEqual(effectivePrice({ ticker: "AAPL" }, { AAPL: { price: 200 } }), {
+    price: 200,
+    manual: false,
+  });
+  // auto holding with no synced price falls back to a manual price (flagged manual)
+  assert.deepEqual(effectivePrice({ ticker: "VOO", manualPrice: 550 }, {}), {
+    price: 550,
+    manual: true,
+  });
+  // auto, nothing available → null
+  assert.deepEqual(effectivePrice({ ticker: "X" }, {}), { price: null, manual: false });
+});
+
+test("portfolioRows + holdingsValueByAccount value a manual holding by its manual price", () => {
+  const holdings = [
+    { id: "f", ticker: "SWPPX", shares: 5, manual: true, manualPrice: 80, accountId: "a" },
+  ];
+  const row = portfolioRows(holdings, { SWPPX: { price: 999 } })[0];
+  assert.equal(row.price, 80); // manual price, not the (irrelevant) synced 999
+  assert.equal(row.value, 400);
+  assert.equal(row.manual, true);
+  assert.deepEqual(holdingsValueByAccount(holdings, {}), { a: 400 });
+});
 
 // 08:00–09:00Z lands on the same LOCAL day (June 15) across the test matrix (UTC, LA,
 // Tokyo, Kiritimati), so "today" bucketing — now local rather than UTC — is unambiguous.

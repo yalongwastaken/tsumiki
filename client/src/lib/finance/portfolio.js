@@ -3,12 +3,32 @@
 import { uid } from "../core/uid.js";
 import { dayKey } from "../core/selectors.js";
 
+/**
+ * The price per share to value a holding with. A holding flagged `manual` (its price
+ * isn't synced — e.g. a mutual fund) always uses its user-entered `manualPrice`; an
+ * auto holding uses the synced price, falling back to `manualPrice` until a sync lands.
+ * @returns {{price:number|null, manual:boolean}} effective price + whether it's manual
+ */
+export function effectivePrice(h = {}, prices = {}) {
+  const synced = prices[String(h.ticker || "").toUpperCase()];
+  const syncedPrice = synced && typeof synced.price === "number" ? synced.price : null;
+  const manualPrice =
+    typeof h.manualPrice === "number" && Number.isFinite(h.manualPrice) && h.manualPrice >= 0
+      ? h.manualPrice
+      : null;
+  if (h.manual) {
+    return { price: manualPrice, manual: true };
+  }
+  // auto: prefer the synced price; before the first sync, fall back to any manual price
+  return { price: syncedPrice ?? manualPrice, manual: syncedPrice == null && manualPrice != null };
+}
+
 /** Per-holding rows enriched with price, market value, and gain vs cost basis. */
 export function portfolioRows(holdings = [], prices = {}) {
   return holdings.map((h) => {
     const ticker = String(h.ticker || "").toUpperCase();
     const q = prices[ticker] || {};
-    const price = typeof q.price === "number" ? q.price : null;
+    const { price, manual } = effectivePrice(h, prices);
     // guard against a non-finite shares count poisoning value (and thus totals) with NaN
     const value = price != null && Number.isFinite(price * h.shares) ? price * h.shares : null;
     const perShareCost = typeof h.costBasis === "number" ? h.costBasis : null;
@@ -28,6 +48,7 @@ export function portfolioRows(holdings = [], prices = {}) {
       cost,
       gain,
       gainPct,
+      manual, // price came from a manual entry (sync off, or not yet synced), not the feed
       changePct: typeof q.changePct === "number" ? q.changePct : null,
       date: q.date || null,
     };
@@ -46,8 +67,9 @@ export function holdingsValueByAccount(holdings = [], prices = {}) {
     if (!h.accountId) {
       continue;
     }
-    const q = prices[String(h.ticker || "").toUpperCase()];
-    const price = q && typeof q.price === "number" ? q.price : null;
+    // use the effective price (manual entry or synced) so a manually-priced holding
+    // still contributes to its account's value
+    const { price } = effectivePrice(h, prices);
     const value = price != null ? price * h.shares : null;
     if (value == null || !Number.isFinite(value)) {
       continue;

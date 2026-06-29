@@ -117,6 +117,30 @@ test("circuit breaker: a given-up symbol recovers on a later probe if the feed r
   );
 });
 
+test("a manual holding's ticker is never requested from the feed", async () => {
+  // SWPPX is user-marked manual (priced by hand); AAPL is auto. Only AAPL should be fetched.
+  db.putState({
+    holdings: [
+      { id: "a", ticker: "AAPL", shares: 1 },
+      { id: "f", ticker: "SWPPX", shares: 5, manual: true, manualPrice: 80 },
+    ],
+  });
+  const asked = [];
+  stub(async (url) => {
+    asked.push(String(url));
+    return {
+      ok: true,
+      headers: { get: () => null },
+      body: null,
+      text: async () => stooq("AAPL", "2026-09-01", 190),
+    };
+  });
+  await prices.refreshPrices();
+  const joined = asked.join(" ").toLowerCase();
+  assert.ok(joined.includes("aapl"), "auto holding AAPL is fetched");
+  assert.ok(!joined.includes("swppx"), "manual holding SWPPX is never requested");
+});
+
 // ── news ────────────────────────────────────────────────────────────────────
 
 test("refreshNews caches headlines and caps to MAX_ITEMS", async () => {

@@ -231,7 +231,15 @@ async function doRefresh() {
     lastSync = { status: "disabled", at: Date.now(), source: null, missing: [], manual: [] };
     return cache;
   }
-  const held = [...new Set((getState().holdings || []).map((h) => String(h.ticker).toUpperCase()))];
+  // only fetch tickers that have at least one AUTO-sync holding; a ticker held only as a
+  // user-marked "manual" holding (e.g. a mutual fund you price by hand) is never requested
+  const held = [
+    ...new Set(
+      (getState().holdings || [])
+        .filter((h) => !h.manual)
+        .map((h) => String(h.ticker).toUpperCase()),
+    ),
+  ];
 
   // no price source configured at all (no TSUMIKI_PRICE_URL, no Finnhub key): report a
   // plain "empty" without penalizing any symbol — a missing config isn't a per-symbol

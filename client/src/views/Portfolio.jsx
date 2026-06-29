@@ -284,6 +284,7 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
                   <>
                     {" · "}
                     <Money n={r.price} />
+                    {r.manual && <span className="text-slate-400"> · manual</span>}
                   </>
                 )}
               </div>
