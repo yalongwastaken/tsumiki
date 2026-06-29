@@ -199,13 +199,23 @@ test("empty ledger → zero daily streak, 14 cells, no crash", () => {
   assert.equal(r.cells.length, 14);
 });
 
-test("a future-dated entry does not hang the longest-run loop", () => {
+test("a future-dated entry does not hang or inflate the longest-run loop", () => {
   const future = new Date(now);
   future.setDate(future.getDate() + 5);
   const tx = [logOn(0), { id: "f", type: "income", amount: 1, date: future.toISOString() }];
   const r = computeDailyStreak(tx, 0); // must return, not spin forever
   assert.equal(r.current, 1); // today logged; future doesn't extend the current run
   assert.ok(r.longest >= 1);
+});
+
+test("a contiguous FUTURE day can't inflate the all-time longest", () => {
+  // today + tomorrow logged: a streak can't run into the future, so longest stays 1
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tx = [logOn(0), { id: "t", type: "income", amount: 1, date: tomorrow.toISOString() }];
+  const r = computeDailyStreak(tx, 0);
+  assert.equal(r.current, 1);
+  assert.equal(r.longest, 1); // not 2
 });
 
 test("DAY constant and WEEK relationship", () => {

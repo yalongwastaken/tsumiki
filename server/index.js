@@ -29,13 +29,31 @@ app.disable("x-powered-by"); // don't advertise the framework
 app.set("case sensitive routing", true); // so /API/state can't reach the /api/state handler
 app.use(express.json({ limit: "5mb" }));
 
+// Optional Host allowlist (defense-in-depth against DNS rebinding, where an attacker
+// controls BOTH Origin and Host so the same-origin check below still passes). Off by
+// default for LAN/Tailscale where the host is just the mini-PC's IP; set
+// TSUMIKI_ALLOWED_HOSTS to a comma-separated list (host[:port]) to pin it.
+const ALLOWED_HOSTS = new Set(
+  (process.env.TSUMIKI_ALLOWED_HOSTS || "")
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean),
+);
+
 // CSRF / DNS-rebinding guard: a browser sends Origin on cross-site writes. If a
 // mutating request carries an Origin whose host isn't ours, reject it — this stops
 // a malicious page on the tailnet from POSTing /api/reset etc. Same-origin app
-// fetches (Origin === Host) and non-browser tools (no Origin) pass through.
+// fetches (Origin === Host) and non-browser tools (no Origin) pass through. When an
+// allowlist is configured, the Host header itself must also be on it.
 app.use((req, res, next) => {
   if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
     return next();
+  }
+  if (ALLOWED_HOSTS.size > 0) {
+    const reqHost = (req.get("host") || "").toLowerCase();
+    if (!ALLOWED_HOSTS.has(reqHost)) {
+      return res.status(403).json({ error: "host not allowed" });
+    }
   }
   const origin = req.get("origin");
   if (origin) {

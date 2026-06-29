@@ -13,6 +13,10 @@ test("progress percent + reached flag", () => {
   assert.equal(p.reached, false);
   assert.equal(p.remaining, 7500);
   assert.equal(goalProgress({ amount: 10000 }, 10000, TODAY).reached, true);
+  // a non-finite metric value is treated as 0, never propagating NaN into pct/remaining
+  const nan = goalProgress({ amount: 10000 }, NaN, TODAY);
+  assert.equal(nan.pct, 0);
+  assert.equal(nan.remaining, 10000);
 });
 
 test("required monthly to hit a target date", () => {

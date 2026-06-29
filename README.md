@@ -86,19 +86,20 @@ make start        # builds the client, then serves everything from :4000
 
 Open `http://<mini-pc-ip>:4000`. Configuration via environment variables:
 
-| Variable              | Default                  | Purpose                                                                                                                          |
-| --------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`                | `4000`                   | port to listen on                                                                                                                |
-| `HOST`                | `0.0.0.0`                | bind address; set to `127.0.0.1` to expose only locally and front with a TLS reverse proxy                                       |
-| `TSUMIKI_DB`          | `server/data/tsumiki.db` | SQLite database file path                                                                                                        |
-| `TSUMIKI_NEWS_FEED`   | _(unset → off)_          | optional public RSS/Atom URL for money headlines                                                                                 |
-| `TSUMIKI_PRICES`      | _(unset → off)_          | set to `1` to sync prices for your stock holdings                                                                                |
-| `TSUMIKI_PRICE_URL`   | _(Stooq CSV)_            | price feed URL(s) (`{SYMBOLS}` placeholder); comma-separate to list fallback feeds tried in order                                |
-| `TSUMIKI_FINNHUB_KEY` | _(unset → off)_          | optional Finnhub API key; when set, Finnhub is tried as a fallback for any symbols the keyless feed(s) couldn't price            |
-| `TSUMIKI_FINNHUB_URL` | _(Finnhub quote API)_    | override the Finnhub quote endpoint (only sends a ticker + your key)                                                             |
-| `TSUMIKI_TRUST_PROXY` | _(unset → off)_          | set to `1` only when behind a TLS-terminating proxy (Tailscale serve / nginx) so `x-forwarded-proto` is trusted for the app lock |
-| `TSUMIKI_AUTO_BACKUP` | _(unset → off)_          | set to `1` for a daily local JSON backup (keeps the newest 30); off by default, never leaves the device                          |
-| `TSUMIKI_BACKUP_DIR`  | _(`backups/` by the DB)_ | where pre-import snapshots and auto-backups are written                                                                          |
+| Variable                | Default                  | Purpose                                                                                                                               |
+| ----------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                  | `4000`                   | port to listen on                                                                                                                     |
+| `HOST`                  | `0.0.0.0`                | bind address; set to `127.0.0.1` to expose only locally and front with a TLS reverse proxy                                            |
+| `TSUMIKI_DB`            | `server/data/tsumiki.db` | SQLite database file path                                                                                                             |
+| `TSUMIKI_NEWS_FEED`     | _(unset → off)_          | optional public RSS/Atom URL for money headlines                                                                                      |
+| `TSUMIKI_PRICES`        | _(unset → off)_          | set to `1` to sync prices for your stock holdings                                                                                     |
+| `TSUMIKI_PRICE_URL`     | _(Stooq CSV)_            | price feed URL(s) (`{SYMBOLS}` placeholder); comma-separate to list fallback feeds tried in order                                     |
+| `TSUMIKI_FINNHUB_KEY`   | _(unset → off)_          | optional Finnhub API key; when set, Finnhub is tried as a fallback for any symbols the keyless feed(s) couldn't price                 |
+| `TSUMIKI_FINNHUB_URL`   | _(Finnhub quote API)_    | override the Finnhub quote endpoint (only sends a ticker + your key)                                                                  |
+| `TSUMIKI_TRUST_PROXY`   | _(unset → off)_          | set to `1` only when behind a TLS-terminating proxy (Tailscale serve / nginx) so `x-forwarded-proto` is trusted for the app lock      |
+| `TSUMIKI_AUTO_BACKUP`   | _(unset → off)_          | set to `1` for a daily local JSON backup (keeps the newest 30); off by default, never leaves the device                               |
+| `TSUMIKI_BACKUP_DIR`    | _(`backups/` by the DB)_ | where pre-import snapshots and auto-backups are written                                                                               |
+| `TSUMIKI_ALLOWED_HOSTS` | _(unset → off)_          | comma-separated `host[:port]` allowlist for mutating requests (defense-in-depth vs DNS rebinding); leave unset on a plain LAN/tailnet |
 
 The money-news card and price sync are both **off by default** — the server makes
 no outbound calls unless you opt in. With `TSUMIKI_NEWS_FEED` set it fetches that

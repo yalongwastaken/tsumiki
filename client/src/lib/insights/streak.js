@@ -62,17 +62,16 @@ export function computeDailyStreak(transactions = [], freezes = 0, now = Date.no
     }
   }
 
-  // longest run ever (no freezes): walk calendar days from the first logged day to
-  // the later of today / the last logged day. Bounding by the last logged day (not
-  // just today) means a stray FUTURE-dated entry can't make this loop run forever.
+  // longest run ever (no freezes): walk calendar days from the first logged day up to
+  // TODAY. Capping at today (not the last logged day) terminates the loop AND means a
+  // stray FUTURE-dated entry can't inflate the all-time longest — a streak can't run
+  // into the future.
   let longest = 0;
   if (active.size) {
     const sorted = [...active].sort();
     const d = new Date(`${sorted[0]}T00:00:00`); // local parse
-    const lastActive = new Date(`${sorted[sorted.length - 1]}T00:00:00`);
-    const end = lastActive > today ? lastActive : today;
     let run = 0;
-    while (d <= end) {
+    while (d <= today) {
       run = active.has(dayKey(d)) ? run + 1 : 0;
       longest = Math.max(longest, run);
       d.setDate(d.getDate() + 1);

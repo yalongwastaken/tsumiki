@@ -52,6 +52,23 @@ test("pruneAutoBackups keeps the newest N auto files and spares pre-import snaps
   assert.ok(left.includes("tsumiki-auto-2026-06-01T00-34-00-000Z.json"));
 });
 
+test("a corrupt meta blob falls back to defaults instead of crashing getState", () => {
+  putState({
+    accounts: [{ id: "a", name: "Checking", type: "checking" }],
+    transactions: [],
+    settings: { theme: "dark" },
+  });
+  // simulate disk corruption / an external edit: garbage in the settings + rev blobs
+  db.prepare("UPDATE meta SET value = ' not json ' WHERE key = 'settings'").run();
+  db.prepare("UPDATE meta SET value = '{{' WHERE key = 'rev'").run();
+  // getState must not throw — it serves the default settings instead
+  const s = getState();
+  assert.equal(s.settings.theme, "light"); // DEFAULT_SETTINGS
+  assert.equal(s.accounts.length, 1); // the normalized tables are unaffected
+  // and recovery still works: a write doesn't throw on the corrupt rev
+  assert.doesNotThrow(() => resetAll());
+});
+
 test("schema migrations stamp user_version (idempotent on a fresh DB)", () => {
   const v = db.prepare("PRAGMA user_version").get().user_version;
   assert.ok(v >= 1, "user_version should be set after migrations run");

@@ -118,7 +118,7 @@ export function scheduleLabel(bill) {
   }
   switch (due.kind) {
     case "day":
-      return ordinal(Number(due.day));
+      return Number.isFinite(Number(due.day)) ? ordinal(Number(due.day)) : "";
     case "lastDay":
       return "last day";
     case "lastBusinessDay":

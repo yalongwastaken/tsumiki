@@ -47,12 +47,26 @@ Backward-compatible — no changes to your data or API shape.
 
 ### Fixed
 
+- **Corrupt-data resilience.** A damaged `meta` JSON blob (disk corruption / an external
+  edit) now falls back to its default instead of throwing — one bad byte can no longer
+  brick `GET /api/state` or block a reset/recovery.
+- **Negative state-tax rate.** A bad/negative state tax rate is clamped to 0, so the
+  estimate can never show a negative tax or total; the settings input now also enforces a
+  floor. (`goalProgress` likewise guards a non-finite metric value.)
+- **Streak longest run** no longer counts a future-dated entry — a streak can't run into
+  the future.
 - **Timezone-consistent day bucketing.** Portfolio auto-valuation, CSV-import dedup,
   income-schedule detection, and the server's portfolio-history points now all bucket the
   day on the local calendar (matching the streak/insights/forecast logic), so a day flips
   at your midnight rather than UTC's. (Corrected a stale "UTC slice" comment too.)
 - **Stricter date validation.** The server now rejects roll-over-invalid calendar dates
   (e.g. `2024-02-30`) instead of letting them silently shift to the next month.
+
+### Security
+
+- **Optional Host allowlist** (`TSUMIKI_ALLOWED_HOSTS`) for mutating requests — closes the
+  DNS-rebinding edge where an attacker controls both Origin and Host. Off by default for
+  plain LAN/Tailscale; reads are never affected.
 
 ### Internal
 

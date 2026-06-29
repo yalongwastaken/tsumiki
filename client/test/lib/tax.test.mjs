@@ -44,6 +44,11 @@ test("state income tax applies in a taxing state (default ~5%)", () => {
   assert.equal(t.state, 4195);
   const override = estimateTax({ income: 100000, state: "CA", stateRate: 0.09 });
   assert.equal(override.state, Math.round(83900 * 0.09));
+  // a bad (negative / non-finite) rate clamps to 0 — never a negative tax or total
+  const neg = estimateTax({ income: 100000, state: "CA", stateRate: -1 });
+  assert.equal(neg.state, 0);
+  assert.ok(neg.total >= 0);
+  assert.equal(estimateTax({ income: 100000, state: "CA", stateRate: NaN }).state, 0);
 });
 
 test("self-employed: SE tax replaces FICA (~2×) and half is deducted from taxable", () => {

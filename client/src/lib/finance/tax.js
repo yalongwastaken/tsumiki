@@ -155,7 +155,10 @@ export function estimateTax({
   }
 
   const stateNoTax = NO_INCOME_TAX_STATES.has((state || "").toUpperCase());
-  const sRate = stateNoTax ? 0 : stateRate != null ? stateRate : DEFAULT_STATE_RATE;
+  // clamp to ≥0 so a stray negative rate (a bad settings value) can't produce a
+  // negative tax / negative total
+  const rawRate = stateRate != null ? stateRate : DEFAULT_STATE_RATE;
+  const sRate = stateNoTax ? 0 : Math.max(0, Number.isFinite(rawRate) ? rawRate : 0);
   const stateTax = taxable * sRate;
 
   const total = federal + fica + stateTax;

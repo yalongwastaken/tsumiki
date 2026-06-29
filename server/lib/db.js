@@ -145,10 +145,20 @@ const DEFAULT_SETTINGS = {
   theme: "light",
 };
 
-/** Read a JSON blob from the meta table, or `fallback` if absent. */
+/** Read a JSON blob from the meta table, or `fallback` if absent. A corrupt/unparseable
+ * blob (disk corruption, an external edit) falls back to the default instead of throwing
+ * — one bad byte must not brick GET /api/state or block resetAll/recovery. */
 function getMeta(key, fallback) {
   const row = db.prepare("SELECT value FROM meta WHERE key = ?").get(key);
-  return row ? JSON.parse(row.value) : fallback;
+  if (!row) {
+    return fallback;
+  }
+  try {
+    return JSON.parse(row.value);
+  } catch {
+    console.warn(`meta blob "${key}" is corrupt — falling back to default`);
+    return fallback;
+  }
 }
 
 /** Upsert a JSON blob into the meta table. */
