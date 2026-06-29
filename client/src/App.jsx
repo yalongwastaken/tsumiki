@@ -371,6 +371,8 @@ export default function App() {
     bucket = null,
     goalId = null,
     note = null,
+    fromId = null,
+    toId = null,
   }) {
     const tx = {
       id: uid(),
@@ -382,6 +384,8 @@ export default function App() {
       sourceId,
       bucket,
       note,
+      fromId,
+      toId,
     };
     // functional update so rapid successive logs compose (no stale-closure drop)
     setData((d) => ({ ...d, transactions: [...d.transactions, tx] })); // optimistic
