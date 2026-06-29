@@ -39,6 +39,8 @@ export default function Activity({ transactions, profile, sources, onDelete, onL
             key={v}
             onClick={() => setView(v)}
             role="tab"
+            id={`activity-tab-${v}`}
+            aria-controls="activity-panel"
             aria-selected={view === v}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-sm font-medium rounded-lg transition-colors ${view === v ? "bg-brand-100 text-brand-700" : "text-slate-500"}`}
           >
@@ -47,16 +49,18 @@ export default function Activity({ transactions, profile, sources, onDelete, onL
           </button>
         ))}
       </div>
-      {view === "calendar" ? (
-        <Calendar transactions={transactions} profile={profile} />
-      ) : (
-        <Ledger
-          transactions={transactions}
-          sources={sources}
-          onDelete={onDelete}
-          onUpdate={onUpdate}
-        />
-      )}
+      <div role="tabpanel" id="activity-panel" aria-labelledby={`activity-tab-${view}`}>
+        {view === "calendar" ? (
+          <Calendar transactions={transactions} profile={profile} />
+        ) : (
+          <Ledger
+            transactions={transactions}
+            sources={sources}
+            onDelete={onDelete}
+            onUpdate={onUpdate}
+          />
+        )}
+      </div>
     </>
   );
 }
