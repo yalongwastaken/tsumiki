@@ -8,6 +8,17 @@ export const monthKey = monthOf;
 export const thisMonth = () => monthOf(new Date());
 
 /**
+ * Turn a bare "YYYY-MM-DD" (e.g. from a <input type="date">) into a full ISO stamp
+ * anchored to LOCAL noon, so the day survives display in any timezone — a bare date
+ * parses as UTC midnight and renders a day early in the western hemisphere. Anything
+ * that isn't a bare date is returned unchanged.
+ */
+export function localNoonIso(date) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date));
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], 12).toISOString() : date;
+}
+
+/**
  * Most recent snapshot per account.
  * @returns {Object} map of accountId → snapshot
  */

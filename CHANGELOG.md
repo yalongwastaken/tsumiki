@@ -10,6 +10,17 @@ Post-2.0 improvements (a code-audit + UX/polish pass).
 
 ### Added
 
+- **Edit a logged transaction.** Each ledger row has a pencil to fix the amount, date, and
+  note (and category, for spending) in place, instead of delete-and-re-add. The edited date
+  is normalized to local noon so it never drifts a day in other timezones.
+- **Flexible bill schedules.** Bills can now be due on the last day, the last business day,
+  or an Nth/last weekday (e.g. "first Monday", "last Friday") — not just a fixed day of the
+  month. Reminders, the cash-flow forecast, and the calendar all resolve these dates, and
+  existing fixed-day bills keep working unchanged.
+- **Import safety net.** Restoring from a JSON backup now snapshots your current data to a
+  timestamped file first (returned as `backedUpTo`), so a bad import is always recoverable.
+  An opt-in daily local backup (`TSUMIKI_AUTO_BACKUP=1`) keeps the newest 30 and prunes the
+  rest. Backups are local-disk only — nothing leaves the device.
 - **Account transfers.** A new "transfer" ledger type to record moving money between your
   own accounts (Quick Add → Transfer, with from→to pickers). Transfers show neutrally in
   the ledger/calendar and are excluded from income/spending/budget/Sankey math, so they

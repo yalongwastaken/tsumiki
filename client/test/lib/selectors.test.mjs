@@ -9,7 +9,19 @@ import {
   sumLatestByType,
   annualSpend,
   monthTotals,
+  localNoonIso,
 } from "../../src/lib/core/selectors.js";
+
+test("localNoonIso keeps the calendar day in every timezone (no UTC-midnight drift)", () => {
+  const d = new Date(localNoonIso("2026-06-15"));
+  // the local calendar day must still be the 15th — the bug class is rendering the 14th
+  assert.equal(d.getFullYear(), 2026);
+  assert.equal(d.getMonth(), 5);
+  assert.equal(d.getDate(), 15);
+  // already-full timestamps and junk pass through untouched
+  assert.equal(localNoonIso("2026-06-15T08:30:00.000Z"), "2026-06-15T08:30:00.000Z");
+  assert.equal(localNoonIso(""), "");
+});
 
 test("monthKey is safe on an invalid date (no throw) + correct on a good one", () => {
   assert.equal(monthKey("2026-06-15"), "2026-06");

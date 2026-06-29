@@ -4,7 +4,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = process.env.TSUMIKI_DB || join(__dirname, "data", "tsumiki.db");
@@ -615,13 +615,32 @@ export function backupStateToFile(label = "backup") {
   }
 }
 
+/** Keep only the newest `keep` auto-backups so the daily scheduler can't fill the
+ * disk over time. Pre-import snapshots are left untouched. Never throws. */
+export function pruneAutoBackups(keep = 30) {
+  try {
+    const files = readdirSync(BACKUP_DIR)
+      .filter((f) => f.startsWith("tsumiki-auto-") && f.endsWith(".json"))
+      .sort(); // ISO timestamps sort chronologically
+    for (const f of files.slice(0, Math.max(0, files.length - keep))) {
+      rmSync(join(BACKUP_DIR, f), { force: true });
+    }
+  } catch {
+    // best-effort: a missing dir or a transient FS error shouldn't break backups
+  }
+}
+
 /** Opt-in (TSUMIKI_AUTO_BACKUP=1) daily local backup. No-op otherwise. */
 export function scheduleBackup() {
   if (!["1", "true", "yes"].includes((process.env.TSUMIKI_AUTO_BACKUP || "").toLowerCase())) {
     return null;
   }
-  backupStateToFile("auto");
-  return setInterval(() => backupStateToFile("auto"), 24 * 60 * 60 * 1000);
+  const run = () => {
+    backupStateToFile("auto");
+    pruneAutoBackups();
+  };
+  run();
+  return setInterval(run, 24 * 60 * 60 * 1000);
 }
 
 export { DEFAULT_PROFILE, DEFAULT_SETTINGS };

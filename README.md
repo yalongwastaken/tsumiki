@@ -97,6 +97,8 @@ Open `http://<mini-pc-ip>:4000`. Configuration via environment variables:
 | `TSUMIKI_FINNHUB_KEY` | _(unset → off)_          | optional Finnhub API key; when set, Finnhub is tried as a fallback for any symbols the keyless feed(s) couldn't price            |
 | `TSUMIKI_FINNHUB_URL` | _(Finnhub quote API)_    | override the Finnhub quote endpoint (only sends a ticker + your key)                                                             |
 | `TSUMIKI_TRUST_PROXY` | _(unset → off)_          | set to `1` only when behind a TLS-terminating proxy (Tailscale serve / nginx) so `x-forwarded-proto` is trusted for the app lock |
+| `TSUMIKI_AUTO_BACKUP`  | _(unset → off)_          | set to `1` for a daily local JSON backup (keeps the newest 30); off by default, never leaves the device                          |
+| `TSUMIKI_BACKUP_DIR`   | _(`backups/` by the DB)_ | where pre-import snapshots and auto-backups are written                                                                          |
 
 The money-news card and price sync are both **off by default** — the server makes
 no outbound calls unless you opt in. With `TSUMIKI_NEWS_FEED` set it fetches that

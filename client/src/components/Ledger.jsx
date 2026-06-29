@@ -5,6 +5,7 @@ import Money from "./Money.jsx";
 import { X, Check, Pencil } from "lucide-react";
 import { bucketLabel } from "../lib/plan/buckets.js";
 import { allCategories } from "../lib/core/categories.js";
+import { localNoonIso } from "../lib/core/selectors.js";
 
 /** Read-only ledger with filter/search/delete + bulk recategorize of spending. */
 export default function Ledger({ transactions, sources, accounts = [], onDelete, onUpdate }) {
@@ -29,7 +30,10 @@ export default function Ledger({ transactions, sources, accounts = [], onDelete,
     if (!Number.isFinite(amount) || amount < 0 || !editForm.date || !onUpdate) {
       return; // basic guard; the date input + number input keep this rare
     }
-    const patch = { amount, date: editForm.date, note: editForm.note.trim() || null };
+    // normalize the date input to a full LOCAL-noon ISO stamp — a bare YYYY-MM-DD
+    // parses as UTC midnight and would render a day early in western timezones (and
+    // shift the calendar cell), unlike the full ISO stamps the rest of the app stores.
+    const patch = { amount, date: localNoonIso(editForm.date), note: editForm.note.trim() || null };
     if (t.type === "spending") {
       patch.cat = editForm.cat.trim() || t.cat || "Other";
     }

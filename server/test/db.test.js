@@ -16,9 +16,11 @@ const {
   putMeta,
   validateMeta,
   backupStateToFile,
+  pruneAutoBackups,
   db,
 } = await import("../lib/db.js");
-const { readFileSync } = await import("node:fs");
+const { readFileSync, readdirSync, writeFileSync, mkdirSync } = await import("node:fs");
+const { join: joinPath } = await import("node:path");
 
 test("backupStateToFile writes the current state to a JSON file", () => {
   putState({
@@ -30,6 +32,24 @@ test("backupStateToFile writes the current state to a JSON file", () => {
   const saved = JSON.parse(readFileSync(file, "utf8"));
   assert.equal(saved.accounts[0].name, "Checking");
   assert.equal(saved.transactions[0].id, "t");
+});
+
+test("pruneAutoBackups keeps the newest N auto files and spares pre-import snapshots", () => {
+  // backups live beside the DB, under a "backups" dir (mirrors BACKUP_DIR default)
+  const dir = joinPath(process.env.TSUMIKI_DB, "..", "backups");
+  mkdirSync(dir, { recursive: true });
+  for (let i = 0; i < 35; i++) {
+    const stamp = `2026-06-01T00-${String(i).padStart(2, "0")}-00-000Z`;
+    writeFileSync(joinPath(dir, `tsumiki-auto-${stamp}.json`), "{}");
+  }
+  writeFileSync(joinPath(dir, "tsumiki-preimport-2026-06-01T09-00-00-000Z.json"), "{}");
+  pruneAutoBackups(30);
+  const left = readdirSync(dir);
+  assert.equal(left.filter((f) => f.startsWith("tsumiki-auto-")).length, 30); // capped
+  assert.ok(left.some((f) => f.startsWith("tsumiki-preimport-"))); // safety snapshot kept
+  // the oldest auto files are the ones removed
+  assert.ok(!left.includes("tsumiki-auto-2026-06-01T00-00-00-000Z.json"));
+  assert.ok(left.includes("tsumiki-auto-2026-06-01T00-34-00-000Z.json"));
 });
 
 test("schema migrations stamp user_version (idempotent on a fresh DB)", () => {
