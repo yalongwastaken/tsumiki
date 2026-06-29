@@ -4,6 +4,14 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] — 2026-06-29
+
+### Fixed
+
+- **Smoother privacy-blur toggle.** The blur transition was declared only on the blurred
+  state, so toggling the eye (near the net-worth readout) animated _into_ blur but snapped
+  back out. Moved the transition to the base `.money` so it eases both ways.
+
 ## [2.2.0] — 2026-06-29
 
 Price-sync reliability + holdings editing, after Stooq put its keyless feed behind a

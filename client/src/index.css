@@ -267,9 +267,14 @@ body {
    <Money> component and to chart amount labels) is blurred so balances aren't
    exposed on a glanced-at screen. Hovering or focusing one amount reveals just it.
    Works on HTML spans and SVG <text>. */
+/* the transition lives on the BASE .money (not .blur-money .money) so toggling animates
+   BOTH ways — into blur and back out. Declaring it only on the blurred state makes the
+   un-blur snap, since the element stops matching that rule the instant the class drops. */
+.money {
+  transition: filter 0.2s ease;
+}
 .blur-money .money {
   filter: blur(7px);
-  transition: filter 0.12s ease;
   cursor: default;
   /* keep the blurred text unselectable so it can't be copied/revealed by dragging */
   user-select: none;
@@ -285,7 +290,7 @@ body {
   user-select: auto;
 }
 @media (prefers-reduced-motion: reduce) {
-  .blur-money .money {
+  .money {
     transition: none;
   }
 }
