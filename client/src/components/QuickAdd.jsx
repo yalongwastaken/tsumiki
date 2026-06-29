@@ -297,11 +297,18 @@ export default function QuickAdd({
                 ))}
               </select>
             </div>
-          ) : (
-            <div className="text-xs text-slate-500 mb-4">
-              Add at least two accounts in Accounts to record a transfer between them.
-            </div>
-          ))}
+          ) : null)}
+        {type === "transfer" && accounts.length >= 2 && (
+          <div className="text-xs text-slate-500 mb-4">
+            Recorded for your history — it won't count as income or spending. Update the account
+            balances themselves in Accounts.
+          </div>
+        )}
+        {type === "transfer" && accounts.length < 2 && (
+          <div className="text-xs text-slate-500 mb-4">
+            Add at least two accounts in Accounts to record a transfer between them.
+          </div>
+        )}
 
         <input
           type="text"

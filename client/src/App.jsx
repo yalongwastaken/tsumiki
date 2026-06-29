@@ -519,7 +519,10 @@ export default function App() {
           </button>
         )}
         {error && (
-          <div className="bg-rose-50 border-b border-rose-200 text-rose-600 text-xs px-5 py-2">
+          <div
+            role="alert"
+            className="bg-rose-50 border-b border-rose-200 text-rose-600 text-xs px-5 py-2"
+          >
             {error}
           </div>
         )}
@@ -535,7 +538,9 @@ export default function App() {
           <div className="font-semibold text-slate-800">{sectionLabel}</div>
           <div className="ml-auto flex items-center gap-2">
             {toast ? (
-              <span className="anim-fade text-xs text-emerald-500">{toast}</span>
+              <span role="status" aria-live="polite" className="anim-fade text-xs text-emerald-500">
+                {toast}
+              </span>
             ) : (
               <span className="text-sm font-mono font-bold text-slate-700">
                 <Money n={netWorthDisplay} />{" "}
