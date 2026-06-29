@@ -19,7 +19,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS accounts (
     id    TEXT PRIMARY KEY,
     name  TEXT NOT NULL,
-    type  TEXT NOT NULL,            -- checking | savings | brokerage | ira | roth | 401k | other
+    type  TEXT NOT NULL,            -- checking | savings | credit | brokerage | ira | roth | 401k | other
     color TEXT,
     cash  REAL                      -- uninvested cash in an investment account (null otherwise)
   );

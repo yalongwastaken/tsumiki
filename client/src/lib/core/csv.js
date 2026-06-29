@@ -7,7 +7,12 @@ import { categorize } from "./categories.js";
  * human/spreadsheet-friendly export alongside the full JSON backup. */
 export function transactionsToCsv(transactions = []) {
   const esc = (v) => {
-    const s = v == null ? "" : String(v);
+    let s = v == null ? "" : String(v);
+    // neutralize spreadsheet formula injection: a field starting with = + - @ can be
+    // executed as a formula when the CSV is opened in Excel/Sheets — prefix with a quote
+    if (/^[=+\-@]/.test(s)) {
+      s = "'" + s;
+    }
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const cols = ["date", "type", "amount", "category", "bucket", "goalId", "from", "to", "note"];
