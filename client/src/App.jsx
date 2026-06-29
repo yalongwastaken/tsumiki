@@ -26,14 +26,14 @@ import { computeReminders } from "./lib/reminders.js";
 import { earmarkedByGoal } from "./lib/goals.js";
 import { allCategories } from "./lib/categories.js";
 import { uid } from "./lib/uid.js";
-import Setup from "./Setup.jsx";
-import Plan from "./Plan.jsx";
-import QuickAdd from "./QuickAdd.jsx";
-import Activity from "./Activity.jsx";
-import Onboarding from "./Onboarding.jsx";
-import Login from "./Login.jsx";
-import Home from "./Home.jsx";
-import NetWorthCard from "./NetWorthCard.jsx";
+import Setup from "./views/Setup.jsx";
+import Plan from "./views/Plan.jsx";
+import QuickAdd from "./components/QuickAdd.jsx";
+import Activity from "./views/Activity.jsx";
+import Onboarding from "./views/Onboarding.jsx";
+import Login from "./views/Login.jsx";
+import Home from "./views/Home.jsx";
+import NetWorthCard from "./components/NetWorthCard.jsx";
 import {
   Home as HomeIcon,
   Target,
@@ -53,17 +53,17 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import Money, { BlurAmounts } from "./Money.jsx";
-import MilestoneIcon from "./MilestoneIcon.jsx";
-import Milestones from "./Milestones.jsx";
-import MoneyTargets from "./MoneyTargets.jsx";
+import Money, { BlurAmounts } from "./components/Money.jsx";
+import MilestoneIcon from "./components/MilestoneIcon.jsx";
+import Milestones from "./views/Milestones.jsx";
+import MoneyTargets from "./views/MoneyTargets.jsx";
 import { computeMilestones } from "./lib/milestones.js";
 
-import Fire from "./Fire.jsx";
-import ErrorBoundary from "./ErrorBoundary.jsx";
-import Projection from "./Projection.jsx";
-import NetWorthHistory from "./NetWorthHistory.jsx";
-import Portfolio from "./Portfolio.jsx";
+import Fire from "./views/Fire.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import Projection from "./views/Projection.jsx";
+import NetWorthHistory from "./charts/NetWorthHistory.jsx";
+import Portfolio from "./views/Portfolio.jsx";
 
 // Data model is the unified shape from the server: components read the single
 // `transactions` ledger; contributions are bucketed.

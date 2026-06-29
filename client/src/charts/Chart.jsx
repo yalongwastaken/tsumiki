@@ -1,7 +1,7 @@
 // Chart.jsx — tiny dependency-free area chart (replaces recharts, ~374kB).
 // Hand-drawn SVG: filled area + line, min/max y-labels, first/last x-labels.
 import { useId } from "react";
-import { fmtK } from "./lib/format.js";
+import { fmtK } from "../lib/format.js";
 
 /**
  * A single-series area chart.

@@ -6,13 +6,13 @@ import assert from "node:assert/strict";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import NetWorthCard from "../../src/NetWorthCard.jsx";
-import AreaChart from "../../src/Chart.jsx";
-import MoneyTargets from "../../src/MoneyTargets.jsx";
-import QuickAdd from "../../src/QuickAdd.jsx";
-import Portfolio, { syncProblem } from "../../src/Portfolio.jsx";
-import StocksSankey from "../../src/StocksSankey.jsx";
-import Money, { BlurAmounts } from "../../src/Money.jsx";
+import NetWorthCard from "../../src/components/NetWorthCard.jsx";
+import AreaChart from "../../src/charts/Chart.jsx";
+import MoneyTargets from "../../src/views/MoneyTargets.jsx";
+import QuickAdd from "../../src/components/QuickAdd.jsx";
+import Portfolio, { syncProblem } from "../../src/views/Portfolio.jsx";
+import StocksSankey from "../../src/charts/StocksSankey.jsx";
+import Money, { BlurAmounts } from "../../src/components/Money.jsx";
 import AccountsSection from "../../src/setup/AccountsSection.jsx";
 import { netWorthFromSnapshots } from "../../src/lib/selectors.js";
 

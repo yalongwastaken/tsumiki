@@ -2,9 +2,9 @@
 import { useState, useMemo } from "react";
 import Money from "./Money.jsx";
 import { Flame, ChevronLeft, ChevronRight } from "lucide-react";
-import { fmt } from "./lib/format.js";
-import { weekKey, objectiveForWeek } from "./lib/streak.js";
-import { paydaysInMonth } from "./lib/paydays.js";
+import { fmt } from "../lib/format.js";
+import { weekKey, objectiveForWeek } from "../lib/streak.js";
+import { paydaysInMonth } from "../lib/paydays.js";
 
 const DOW = ["M", "T", "W", "T", "F", "S", "S"];
 

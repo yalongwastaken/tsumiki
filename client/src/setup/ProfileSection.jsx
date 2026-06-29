@@ -1,7 +1,7 @@
 // ProfileSection.jsx — the profile/strategy/tax form. Self-contained: holds a local
 // draft committed with a Save button, with emergency/floor suggestions from spending.
 import { useState, useMemo } from "react";
-import Cash from "../Money.jsx";
+import Cash from "../components/Money.jsx";
 import { annualSpend } from "../lib/selectors.js";
 import { FILING_STATUSES } from "../lib/tax.js";
 import { card, label, field, Money } from "./ui.jsx";

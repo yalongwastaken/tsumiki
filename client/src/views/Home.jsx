@@ -1,19 +1,25 @@
 // Home.jsx — landing screen: the valuable stuff at a glance, tap-through to detail.
 import { useState, useEffect, useMemo } from "react";
-import Money, { BlurAmounts } from "./Money.jsx";
-import { fmt } from "./lib/format.js";
-import { getPlan, getNews } from "./lib/api.js";
-import { thisMonth, monthKey, annualSpend, sumLatestByType, monthTotals } from "./lib/selectors.js";
-import { computeDailyStreak } from "./lib/streak.js";
-import { nextMilestone } from "./lib/milestones.js";
-import { nextPaydays } from "./lib/paydays.js";
-import { cashflowForecast, spendingTrends, coachNudges } from "./lib/insights.js";
-import { budgetStatus, budgetAlert } from "./lib/budgets.js";
-import { learnFeed } from "./lib/learn.js";
+import Money, { BlurAmounts } from "../components/Money.jsx";
+import { fmt } from "../lib/format.js";
+import { getPlan, getNews } from "../lib/api.js";
+import {
+  thisMonth,
+  monthKey,
+  annualSpend,
+  sumLatestByType,
+  monthTotals,
+} from "../lib/selectors.js";
+import { computeDailyStreak } from "../lib/streak.js";
+import { nextMilestone } from "../lib/milestones.js";
+import { nextPaydays } from "../lib/paydays.js";
+import { cashflowForecast, spendingTrends, coachNudges } from "../lib/insights.js";
+import { budgetStatus, budgetAlert } from "../lib/budgets.js";
+import { learnFeed } from "../lib/learn.js";
 import { Flame, Check, TrendingUp, TrendingDown, ArrowRight, Bell, X } from "lucide-react";
-import SankeyFlow from "./Sankey.jsx";
-import Calendar from "./Calendar.jsx";
-import MilestoneIcon from "./MilestoneIcon.jsx";
+import SankeyFlow from "../charts/Sankey.jsx";
+import Calendar from "../components/Calendar.jsx";
+import MilestoneIcon from "../components/MilestoneIcon.jsx";
 const greeting = () => {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";

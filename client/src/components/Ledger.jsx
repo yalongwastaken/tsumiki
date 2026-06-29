@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Money from "./Money.jsx";
 import { X, Check } from "lucide-react";
-import { bucketLabel } from "./lib/buckets.js";
-import { allCategories } from "./lib/categories.js";
+import { bucketLabel } from "../lib/buckets.js";
+import { allCategories } from "../lib/categories.js";
 
 /** Read-only ledger with filter/search/delete + bulk recategorize of spending. */
 export default function Ledger({ transactions, sources, onDelete, onUpdate }) {

@@ -2,7 +2,7 @@
 // owns its add/edit form state, commits via onSave (keeping profile.typicalIncome
 // as the derived monthly sum), and can fill cadence/payday from logged history.
 import { useState } from "react";
-import Cash from "../Money.jsx";
+import Cash from "../components/Money.jsx";
 import { X, Pencil } from "lucide-react";
 import { detectIncomeSchedule } from "../lib/insights.js";
 import { CADENCE_LABEL } from "../lib/cadence.js";

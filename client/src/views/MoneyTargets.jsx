@@ -1,10 +1,10 @@
 // MoneyTargets.jsx — manage user-defined "save $X" goals with optional deadlines.
 import { useState } from "react";
-import Money, { BlurAmounts } from "./Money.jsx";
+import Money, { BlurAmounts } from "../components/Money.jsx";
 import { X } from "lucide-react";
-import { fmt } from "./lib/format.js";
-import { goalProgress } from "./lib/goals.js";
-import { uid } from "./lib/uid.js";
+import { fmt } from "../lib/format.js";
+import { goalProgress } from "../lib/goals.js";
+import { uid } from "../lib/uid.js";
 
 const METRICS = [
   ["earmarked", "Earmarked savings"],

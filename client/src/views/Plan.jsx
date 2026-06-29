@@ -1,16 +1,16 @@
 // Plan.jsx — the living monthly plan: targets vs actuals, recurring transfers, chart.
 import { useState, useEffect, useMemo } from "react";
-import Money from "./Money.jsx";
+import Money from "../components/Money.jsx";
 import { Check } from "lucide-react";
-import { getPlan } from "./lib/api.js";
-import { typicalIncome } from "./lib/income.js";
-import { nonTaxableMonthly, taxableShare } from "./lib/finance.js";
-import { BUCKETS, bucketOf } from "./lib/buckets.js";
-import { thisMonth, monthKey, sumLatestByType, monthTotals } from "./lib/selectors.js";
-import { estimateTax, nextQuarterlyDue } from "./lib/tax.js";
-import { payoffPlan } from "./lib/debt.js";
-import PlanSplitChart from "./PlanSplitChart.jsx";
-import Recurring from "./Recurring.jsx";
+import { getPlan } from "../lib/api.js";
+import { typicalIncome } from "../lib/income.js";
+import { nonTaxableMonthly, taxableShare } from "../lib/finance.js";
+import { BUCKETS, bucketOf } from "../lib/buckets.js";
+import { thisMonth, monthKey, sumLatestByType, monthTotals } from "../lib/selectors.js";
+import { estimateTax, nextQuarterlyDue } from "../lib/tax.js";
+import { payoffPlan } from "../lib/debt.js";
+import PlanSplitChart from "../charts/PlanSplitChart.jsx";
+import Recurring from "../components/Recurring.jsx";
 
 const fmtMonths = (m) => (m >= 12 ? `${Math.floor(m / 12)}y ${m % 12}mo` : `${m}mo`);
 const monthYear = (d) => d.toLocaleDateString(undefined, { month: "short", year: "numeric" });

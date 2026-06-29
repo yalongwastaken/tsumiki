@@ -2,7 +2,7 @@
 // allocates). Self-contained: owns its form state, commits via onSave, and offers
 // to add charges that look recurring in the ledger.
 import { useState } from "react";
-import Cash from "../Money.jsx";
+import Cash from "../components/Money.jsx";
 import { X } from "lucide-react";
 import { detectRecurring } from "../lib/insights.js";
 import { uid, field, Money } from "./ui.jsx";

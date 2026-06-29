@@ -1,6 +1,6 @@
 // PlanSplitChart.jsx — donut of the paycheck split + alternative strategy bars.
-import { fmt } from "./lib/format.js";
-import Money from "./Money.jsx";
+import { fmt } from "../lib/format.js";
+import Money from "../components/Money.jsx";
 
 // deliberately not a sankey — a different shape so the two don't get confused
 const GROUPS = [

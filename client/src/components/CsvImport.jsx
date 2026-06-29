@@ -2,8 +2,8 @@
 // as transactions. Uses the pure parser in csv.js; nothing leaves the device.
 import { useState, useMemo } from "react";
 import Money from "./Money.jsx";
-import { parseCsv, guessMapping, rowsToTransactions, dedupeAgainst } from "./lib/csv.js";
-import { uid } from "./lib/uid.js";
+import { parseCsv, guessMapping, rowsToTransactions, dedupeAgainst } from "../lib/csv.js";
+import { uid } from "../lib/uid.js";
 
 const field =
   "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700";

@@ -2,7 +2,7 @@
 // form state, commits caps to profile.budgets and per-category options (rollover /
 // annual period) to profile.budgetOpts via onSave, and can seed caps from spending.
 import { useState } from "react";
-import Cash from "../Money.jsx";
+import Cash from "../components/Money.jsx";
 import { X } from "lucide-react";
 import { allCategories } from "../lib/categories.js";
 import { categoryAverages } from "../lib/budgets.js";

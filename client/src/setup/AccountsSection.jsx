@@ -2,7 +2,7 @@
 // other) keep a manually-entered balance; investment accounts (brokerage/IRA/Roth/401k)
 // hold their shares inline and auto-value from synced prices + optional uninvested cash.
 import { useState, useMemo } from "react";
-import Cash from "../Money.jsx";
+import Cash from "../components/Money.jsx";
 import { X, Pencil, ChevronDown } from "lucide-react";
 import { INVESTMENT_TYPES, TAX_TAG_FOR_TYPE, holdingsValueByAccount } from "../lib/portfolio.js";
 import { uid, field, Money } from "./ui.jsx";

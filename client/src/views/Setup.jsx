@@ -1,18 +1,18 @@
 // Setup.jsx — profile + accounts/debts the engine runs on (accounts vs settings section).
 import { useState, useMemo, useRef } from "react";
 import { ChevronDown } from "lucide-react";
-import { importData, exportUrl } from "./lib/api.js";
-import Money from "./Money.jsx";
-import { card, label } from "./setup/ui.jsx";
-import { INVESTMENT_TYPES, holdingsValueByAccount } from "./lib/portfolio.js";
-import IncomeSection from "./setup/IncomeSection.jsx";
-import AccountsSection from "./setup/AccountsSection.jsx";
-import BillsSection from "./setup/BillsSection.jsx";
-import DebtsSection from "./setup/DebtsSection.jsx";
-import BudgetsSection from "./setup/BudgetsSection.jsx";
-import ProfileSection from "./setup/ProfileSection.jsx";
-import AppLock from "./setup/AppLock.jsx";
-import CsvImport from "./CsvImport.jsx";
+import { importData, exportUrl } from "../lib/api.js";
+import Money from "../components/Money.jsx";
+import { card, label } from "../setup/ui.jsx";
+import { INVESTMENT_TYPES, holdingsValueByAccount } from "../lib/portfolio.js";
+import IncomeSection from "../setup/IncomeSection.jsx";
+import AccountsSection from "../setup/AccountsSection.jsx";
+import BillsSection from "../setup/BillsSection.jsx";
+import DebtsSection from "../setup/DebtsSection.jsx";
+import BudgetsSection from "../setup/BudgetsSection.jsx";
+import ProfileSection from "../setup/ProfileSection.jsx";
+import AppLock from "../setup/AppLock.jsx";
+import CsvImport from "../components/CsvImport.jsx";
 
 /** Collapsible card: title + one-line summary collapsed, full form when open. */
 function Section({ title, summary, open, onToggle, children }) {

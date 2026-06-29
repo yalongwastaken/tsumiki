@@ -1,7 +1,7 @@
 // DebtsSection.jsx — debts the engine prioritizes (balance, APR, min payment).
 // Self-contained: owns its form state, commits via onSave.
 import { useState } from "react";
-import Cash from "../Money.jsx";
+import Cash from "../components/Money.jsx";
 import { X } from "lucide-react";
 import { uid, field, Money } from "./ui.jsx";
 

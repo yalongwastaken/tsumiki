@@ -1,7 +1,7 @@
 // Sankey.jsx — this month's real money flow (income → spending/contributions/leftover).
-import { fmt } from "./lib/format.js";
-import { CAT_COLORS, bucketLabel, bucketColor, bucketOf } from "./lib/buckets.js";
-import { thisMonth, monthKey } from "./lib/selectors.js";
+import { fmt } from "../lib/format.js";
+import { CAT_COLORS, bucketLabel, bucketColor, bucketOf } from "../lib/buckets.js";
+import { thisMonth, monthKey } from "../lib/selectors.js";
 
 const clip = (s) => (s.length > 16 ? s.slice(0, 15) + "…" : s);
 
