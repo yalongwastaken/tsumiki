@@ -1,5 +1,6 @@
 // portfolio.js — pure derivations over manually-entered holdings + synced prices.
 // prices is a map: { TICKER: { price, date, changePct } }. All explainable, tested.
+import { uid } from "../core/uid.js";
 
 /** Per-holding rows enriched with price, market value, and gain vs cost basis. */
 export function portfolioRows(holdings = [], prices = {}) {
@@ -156,6 +157,62 @@ export function portfolioInsights(rows = [], totals = {}) {
   }
 
   return out.slice(0, 3);
+}
+
+/**
+ * Auto-value investment accounts: for each brokerage/IRA/Roth/401k account, ensure
+ * today's snapshot equals its holdings' market value + uninvested cash. Pure + idempotent:
+ * - never writes a spurious $0 (skips accounts with nothing to value yet),
+ * - when shares can't be priced right now, keeps the last synced "holdings" snapshot,
+ * - never clobbers a MANUAL same-day edit (only touches its own source:"holdings" snapshot).
+ * @returns {{snapshots: Array, changed: boolean}} the (possibly new) snapshots + whether it changed
+ */
+export function reconcileInvestmentSnapshots(
+  { accounts = [], holdings = [], snapshots = [] },
+  priceMap = {},
+  now = new Date(),
+) {
+  const byAcct = holdingsValueByAccount(holdings, priceMap);
+  const todayKey = now.toISOString().slice(0, 10);
+  const isToday = (s, accId) => s.accountId === accId && String(s.date).slice(0, 10) === todayKey;
+  let snaps = snapshots;
+  let changed = false;
+  for (const a of accounts) {
+    if (!INVESTMENT_TYPES.has(a.type)) {
+      continue;
+    }
+    const hasHoldings = holdings.some((h) => h.accountId === a.id);
+    const market = byAcct[a.id] || 0;
+    const cash = Number(a.cash) || 0;
+    if (!hasHoldings && cash <= 0) {
+      continue; // nothing to value yet — don't write a spurious $0 snapshot
+    }
+    if (hasHoldings && market <= 0) {
+      // can't price the shares right now: keep the last synced "holdings" snapshot if we
+      // have one; only when there's none do we still record the cash floor.
+      const hasPrior = snaps.some((s) => s.accountId === a.id && s.source === "holdings");
+      if (hasPrior || cash <= 0) {
+        continue;
+      }
+    }
+    const val = Math.round(market + cash);
+    const ours = snaps.find((s) => isToday(s, a.id) && s.source === "holdings");
+    if (ours) {
+      if (Math.round(ours.balance) !== val) {
+        snaps = snaps.map((s) => (s === ours ? { ...s, balance: val } : s));
+        changed = true;
+      }
+    } else if (snaps.some((s) => isToday(s, a.id))) {
+      continue; // a manual snapshot already exists for today — respect it
+    } else {
+      snaps = [
+        ...snaps,
+        { id: uid(), accountId: a.id, date: now.toISOString(), balance: val, source: "holdings" },
+      ];
+      changed = true;
+    }
+  }
+  return { snapshots: snaps, changed };
 }
 
 /** Display order + colors for the account-type (tax) buckets in the stocks flow. */

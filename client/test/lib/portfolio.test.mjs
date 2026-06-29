@@ -9,7 +9,52 @@ import {
   holdingsValueByAccount,
   investmentAccountValue,
   portfolioFlow,
+  reconcileInvestmentSnapshots,
 } from "../../src/lib/finance/portfolio.js";
+
+const NOW = new Date("2026-06-15T12:00:00Z");
+
+test("reconcileInvestmentSnapshots writes today's holdings snapshot = market + cash", () => {
+  const state = {
+    accounts: [{ id: "brk", type: "brokerage", cash: 100 }],
+    holdings: [{ id: "h", ticker: "AAPL", shares: 10, accountId: "brk" }],
+    snapshots: [],
+  };
+  const { snapshots, changed } = reconcileInvestmentSnapshots(state, { AAPL: { price: 50 } }, NOW);
+  assert.equal(changed, true);
+  const snap = snapshots.find((s) => s.accountId === "brk");
+  assert.equal(snap.balance, 600); // 10×50 + 100 cash
+  assert.equal(snap.source, "holdings");
+});
+
+test("reconcileInvestmentSnapshots is idempotent + respects a manual same-day snapshot", () => {
+  const state = {
+    accounts: [{ id: "brk", type: "brokerage", cash: 0 }],
+    holdings: [{ id: "h", ticker: "AAPL", shares: 10, accountId: "brk" }],
+    snapshots: [{ id: "m", accountId: "brk", date: "2026-06-15T08:00:00Z", balance: 999 }],
+  };
+  const r = reconcileInvestmentSnapshots(state, { AAPL: { price: 50 } }, NOW);
+  assert.equal(r.changed, false); // a manual same-day snapshot is left alone
+  assert.equal(r.snapshots, state.snapshots);
+});
+
+test("reconcileInvestmentSnapshots keeps the last synced value when prices are missing", () => {
+  const state = {
+    accounts: [{ id: "brk", type: "brokerage", cash: 0 }],
+    holdings: [{ id: "h", ticker: "AAPL", shares: 10, accountId: "brk" }],
+    snapshots: [
+      {
+        id: "h1",
+        accountId: "brk",
+        date: "2026-06-10T00:00:00Z",
+        balance: 500,
+        source: "holdings",
+      },
+    ],
+  };
+  const { changed } = reconcileInvestmentSnapshots(state, {}, NOW); // unpriced → can't value
+  assert.equal(changed, false);
+});
 
 const holdings = [
   { id: "1", ticker: "aapl", shares: 10, costBasis: 150 },

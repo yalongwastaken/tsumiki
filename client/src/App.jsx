@@ -22,7 +22,7 @@ import {
   avgMonthlyContribution,
 } from "./lib/core/selectors.js";
 import { computeDailyStreak } from "./lib/insights/streak.js";
-import { holdingsValueByAccount, INVESTMENT_TYPES } from "./lib/finance/portfolio.js";
+import { reconcileInvestmentSnapshots } from "./lib/finance/portfolio.js";
 import { computeReminders } from "./lib/insights/reminders.js";
 import { earmarkedByGoal } from "./lib/finance/goals.js";
 import { allCategories } from "./lib/core/categories.js";
@@ -162,56 +162,9 @@ export default function App() {
     if (loading || !prices) {
       return;
     }
-    const byAcct = holdingsValueByAccount(data.holdings, prices.prices || {});
-    const todayKey = new Date().toISOString().slice(0, 10);
-    const isToday = (s, accId) => s.accountId === accId && String(s.date).slice(0, 10) === todayKey;
-    let snaps = data.snapshots;
-    let changed = false;
-    for (const a of data.accounts) {
-      if (!INVESTMENT_TYPES.has(a.type)) {
-        continue;
-      }
-      const hasHoldings = data.holdings.some((h) => h.accountId === a.id);
-      const market = byAcct[a.id] || 0;
-      const cash = Number(a.cash) || 0;
-      if (!hasHoldings && cash <= 0) {
-        continue; // nothing to value yet — don't write a spurious $0 snapshot
-      }
-      if (hasHoldings && market <= 0) {
-        // can't price the shares right now. Keep the last synced "holdings" snapshot if
-        // we have one; only when there's none (brand-new, never synced) do we still
-        // record the cash floor so it isn't invisible to net worth.
-        const hasPrior = snaps.some((s) => s.accountId === a.id && s.source === "holdings");
-        if (hasPrior || cash <= 0) {
-          continue;
-        }
-      }
-      const val = Math.round(market + cash);
-      // only ever touch our own auto-valued snapshot — never clobber a manual same-day edit
-      const ours = snaps.find((s) => isToday(s, a.id) && s.source === "holdings");
-      if (ours) {
-        if (Math.round(ours.balance) !== val) {
-          snaps = snaps.map((s) => (s === ours ? { ...s, balance: val } : s));
-          changed = true;
-        }
-      } else if (snaps.some((s) => isToday(s, a.id))) {
-        continue; // a manual snapshot already exists for today — respect it
-      } else {
-        snaps = [
-          ...snaps,
-          {
-            id: uid(),
-            accountId: a.id,
-            date: new Date().toISOString(),
-            balance: val,
-            source: "holdings",
-          },
-        ];
-        changed = true;
-      }
-    }
+    const { snapshots, changed } = reconcileInvestmentSnapshots(data, prices.prices || {});
     if (changed) {
-      save({ ...data, snapshots: snaps });
+      save({ ...data, snapshots });
     }
   }, [prices, data.holdings, data.accounts, data.snapshots]); // eslint-disable-line
 
