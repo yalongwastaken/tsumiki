@@ -372,11 +372,15 @@ export default function App() {
     const sorted = [...snapshots].sort((a, b) => new Date(a.date) - new Date(b.date));
     const bal = {},
       out = [];
+    // running total adjusted by each account's delta — O(N) instead of re-summing all
+    // accounts per snapshot (which is O(N·accounts) and bites at years of daily history)
+    let total = 0;
     for (const s of sorted) {
+      total += s.balance - (bal[s.accountId] ?? 0);
       bal[s.accountId] = s.balance;
       out.push({
         label: new Date(s.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-        value: Math.round(Object.values(bal).reduce((x, y) => x + y, 0)),
+        value: Math.round(total),
       });
     }
     return out;

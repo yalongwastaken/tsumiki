@@ -43,7 +43,8 @@ Backward-compatible — no changes to your data or API shape.
 - **Forms:** the net-worth and goal forms now show inline validation errors (and a
   success note) instead of silently doing nothing.
 - **Performance:** memoized the Portfolio holdings derivations and the income-schedule
-  detection so they don't re-walk on every render/keystroke.
+  detection so they don't re-walk on every render/keystroke; the net-worth history series
+  now builds in O(N) via a running total instead of re-summing all accounts per snapshot.
 
 ### Fixed
 
