@@ -76,6 +76,10 @@ smoke test).
   UTC+14) plus 18 component tests. The blur-money mode is a stateless `<Money>` /
   `BlurAmounts` layer toggled by a single root `.blur-money` class. Credit cards reuse
   the snapshot model with a negative balance, so net worth needs no special-casing.
+- Project layout: `client/src` is grouped into `views/`, `charts/`, and `components/`
+  (with `StreakPanel`/`NavRail` extracted from `App.jsx`); `lib/` into
+  `core/finance/plan/insights/`; the server into `server/lib/` + `server/test/`; and
+  client tests into `test/lib/`. No behavior change.
 
 ## [1.5.0] — 2026-06-23
 
