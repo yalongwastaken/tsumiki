@@ -4,6 +4,32 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Post-2.0 improvements (a code-audit + UX/polish pass).
+
+### Added
+
+- **CSV export of the ledger** (Settings → Backup → Export CSV) — a human/spreadsheet-
+  friendly export alongside the full JSON backup.
+- **Tax-year guard.** The Plan tax card shows the tax year (`TAX_YEAR`) the estimate is
+  based on and warns once the calendar year passes it, so figures don't silently go stale.
+
+### Changed
+
+- **Accessibility:** `aria-current` on the active nav tab, labels + `aria-valuetext` on
+  the projection sliders, `role="alert"` on the error boundary, and a proper
+  `tablist`/`tab` for the Activity calendar/list toggle.
+- **Forms:** the net-worth and goal forms now show inline validation errors (and a
+  success note) instead of silently doing nothing.
+- **Performance:** memoized the Portfolio holdings derivations and the income-schedule
+  detection so they don't re-walk on every render/keystroke.
+
+### Internal
+
+- Sample fixtures moved to `samples/` (git-ignored); the stray tracked `sample-data.json`
+  is untracked.
+
 ## [2.0.0] — 2026-06-23
 
 This release makes the opt-in price sync **reliable and honest**: it no longer fails
