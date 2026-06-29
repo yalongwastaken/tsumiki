@@ -67,6 +67,7 @@ export default function Ledger({ transactions, sources, accounts = [], onDelete,
           ["income", "Income"],
           ["spending", "Spending"],
           ["contribution", "Saved"],
+          ["transfer", "Transfers"],
         ].map(([v, l]) => (
           <button
             key={v}

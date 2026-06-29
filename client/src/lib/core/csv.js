@@ -10,11 +10,21 @@ export function transactionsToCsv(transactions = []) {
     const s = v == null ? "" : String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const cols = ["date", "type", "amount", "category", "bucket", "goalId", "note"];
+  const cols = ["date", "type", "amount", "category", "bucket", "goalId", "from", "to", "note"];
   const lines = [cols.join(",")];
   for (const t of transactions) {
     lines.push(
-      [t.date, t.type, t.amount, t.cat || "", t.bucket || "", t.goalId || "", t.note || ""]
+      [
+        t.date,
+        t.type,
+        t.amount,
+        t.cat || "",
+        t.bucket || "",
+        t.goalId || "",
+        t.fromId || "",
+        t.toId || "",
+        t.note || "",
+      ]
         .map(esc)
         .join(","),
     );

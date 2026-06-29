@@ -16,10 +16,15 @@ test("transactionsToCsv writes a header + a row per txn, escaping commas/quotes"
     { date: "2026-06-02", type: "contribution", amount: 100, bucket: "invest", goalId: "g1" },
   ]);
   const lines = csv.split("\n");
-  assert.equal(lines[0], "date,type,amount,category,bucket,goalId,note");
-  assert.equal(lines[1], '2026-06-01,spending,12.5,"Dining, Out",,,"say ""hi"""');
-  assert.equal(lines[2], "2026-06-02,contribution,100,,invest,g1,");
-  assert.equal(transactionsToCsv([]), "date,type,amount,category,bucket,goalId,note");
+  assert.equal(lines[0], "date,type,amount,category,bucket,goalId,from,to,note");
+  assert.equal(lines[1], '2026-06-01,spending,12.5,"Dining, Out",,,,,"say ""hi"""');
+  assert.equal(lines[2], "2026-06-02,contribution,100,,invest,g1,,,");
+  assert.equal(transactionsToCsv([]), "date,type,amount,category,bucket,goalId,from,to,note");
+  // a transfer carries its from/to accounts
+  const tr = transactionsToCsv([
+    { date: "2026-06-03", type: "transfer", amount: 500, fromId: "chk", toId: "sav" },
+  ]);
+  assert.equal(tr.split("\n")[1], "2026-06-03,transfer,500,,,,chk,sav,");
 });
 
 test("parseCsv handles quotes, escaped quotes, and commas in fields", () => {
