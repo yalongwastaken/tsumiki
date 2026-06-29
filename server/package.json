@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node --experimental-sqlite index.js",
     "dev": "node --experimental-sqlite --watch index.js",
-    "test": "node --experimental-sqlite --test"
+    "test": "node --experimental-sqlite --test test/*.test.js"
   },
   "engines": {
     "node": ">=22.12"

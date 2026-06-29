@@ -1,7 +1,7 @@
 // Milestones.jsx — achievements panel (earned badges + next to chase).
 import { useState } from "react";
 import Money, { BlurAmounts } from "../components/Money.jsx";
-import { nextMilestone } from "../lib/milestones.js";
+import { nextMilestone } from "../lib/insights/milestones.js";
 import MilestoneIcon from "../components/MilestoneIcon.jsx";
 
 const COLLAPSED_COUNT = 10; // cap earned chips so a long-term user isn't buried

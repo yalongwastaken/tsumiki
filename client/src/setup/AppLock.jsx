@@ -2,7 +2,7 @@
 // Self-contained: reads /api/auth/status, and (per the threat model) only lets you set
 // a password over a secure origin — over plain-LAN http it explains why it's disabled.
 import { useState, useEffect, useCallback } from "react";
-import { authStatus, authSetPassword, authLogout } from "../lib/api.js";
+import { authStatus, authSetPassword, authLogout } from "../lib/core/api.js";
 import { card, label, field } from "./ui.jsx";
 
 export default function AppLock() {

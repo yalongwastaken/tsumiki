@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Money from "../components/Money.jsx";
 import { CalendarDays, List, Plus } from "lucide-react";
-import { pendingPaychecks } from "../lib/recurring.js";
+import { pendingPaychecks } from "../lib/plan/recurring.js";
 import Calendar from "../components/Calendar.jsx";
 import Ledger from "../components/Ledger.jsx";
 

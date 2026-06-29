@@ -12,12 +12,12 @@ import {
   addTransaction,
   resetAll,
   ConflictError,
-} from "./db.js";
-import { migrateLegacy } from "./migrate.js";
-import { buildPlan, typicalIncome } from "./engine.js";
-import { getNews, scheduleNews } from "./news.js";
-import { getPrices, refreshPrices, schedulePrices } from "./prices.js";
-import { authGate, authStatus, authLogin, authLogout, authSet } from "./auth.js";
+} from "./lib/db.js";
+import { migrateLegacy } from "./lib/migrate.js";
+import { buildPlan, typicalIncome } from "./lib/engine.js";
+import { getNews, scheduleNews } from "./lib/news.js";
+import { getPrices, refreshPrices, schedulePrices } from "./lib/prices.js";
+import { authGate, authStatus, authLogin, authLogout, authSet } from "./lib/auth.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();

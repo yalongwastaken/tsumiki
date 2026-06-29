@@ -2,7 +2,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import Money, { BlurAmounts } from "./Money.jsx";
 import { Ban } from "lucide-react";
-import { bucketLabel } from "../lib/buckets.js";
+import { bucketLabel } from "../lib/plan/buckets.js";
 import { useFocusTrap } from "../useFocusTrap.js";
 
 export const NO_SPEND_CAT = "No-spend day";

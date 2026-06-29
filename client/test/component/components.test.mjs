@@ -14,7 +14,7 @@ import Portfolio, { syncProblem } from "../../src/views/Portfolio.jsx";
 import StocksSankey from "../../src/charts/StocksSankey.jsx";
 import Money, { BlurAmounts } from "../../src/components/Money.jsx";
 import AccountsSection from "../../src/setup/AccountsSection.jsx";
-import { netWorthFromSnapshots } from "../../src/lib/selectors.js";
+import { netWorthFromSnapshots } from "../../src/lib/core/selectors.js";
 
 const html = (el) => renderToStaticMarkup(el);
 

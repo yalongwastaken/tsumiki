@@ -4,8 +4,8 @@
 import { useState } from "react";
 import Money from "../components/Money.jsx";
 import { X } from "lucide-react";
-import { allCategories } from "../lib/categories.js";
-import { categoryAverages } from "../lib/budgets.js";
+import { allCategories } from "../lib/core/categories.js";
+import { categoryAverages } from "../lib/finance/budgets.js";
 import { card, label, field, AmountInput } from "./ui.jsx";
 
 /** Category budgets card (lives in the Settings section). */

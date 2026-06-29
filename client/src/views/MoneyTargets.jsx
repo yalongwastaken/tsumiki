@@ -2,9 +2,9 @@
 import { useState } from "react";
 import Money, { BlurAmounts } from "../components/Money.jsx";
 import { X } from "lucide-react";
-import { fmt } from "../lib/format.js";
-import { goalProgress } from "../lib/goals.js";
-import { uid } from "../lib/uid.js";
+import { fmt } from "../lib/core/format.js";
+import { goalProgress } from "../lib/finance/goals.js";
+import { uid } from "../lib/core/uid.js";
 
 const METRICS = [
   ["earmarked", "Earmarked savings"],

@@ -1,7 +1,7 @@
 // Onboarding.jsx — first-run guided setup + explainer (replayable from Setup).
 import { useState } from "react";
 import { useFocusTrap } from "../useFocusTrap.js";
-import { uid } from "../lib/uid.js";
+import { uid } from "../lib/core/uid.js";
 import Money from "../components/Money.jsx";
 const STRATEGIES = [
   ["short_term", "Safety first", "Kill debt & build a cash cushion before investing."],

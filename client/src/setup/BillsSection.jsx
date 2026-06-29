@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Money from "../components/Money.jsx";
 import { X } from "lucide-react";
-import { detectRecurring } from "../lib/insights.js";
+import { detectRecurring } from "../lib/insights/insights.js";
 import { uid, field, AmountInput } from "./ui.jsx";
 
 const ordinal = (n) =>

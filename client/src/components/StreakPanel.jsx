@@ -1,6 +1,6 @@
 // StreakPanel.jsx — daily logging streak (headline) + weekly rotating challenge.
 import { Snowflake, Flame, Check } from "lucide-react";
-import { computeAdherence } from "../lib/streak.js";
+import { computeAdherence } from "../lib/insights/streak.js";
 
 export default function StreakPanel({ streak, transactions, freezes = 2 }) {
   const { current, longest, freezesUsed, loggedToday, cells } = streak;

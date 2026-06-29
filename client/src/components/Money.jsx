@@ -2,7 +2,7 @@
 // Always emits a <span class="money">; the actual blur is applied by CSS only when an
 // ancestor carries .blur-money (see index.css + the header eye toggle in App.jsx), so
 // this component stays stateless and the toggle is a single class flip at the root.
-import { fmt, fmtK } from "../lib/format.js";
+import { fmt, fmtK } from "../lib/core/format.js";
 
 /**
  * @param {number} n amount in dollars

@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import Money, { BlurAmounts } from "../components/Money.jsx";
 import AreaChart from "../charts/Chart.jsx";
-import { fmt } from "../lib/format.js";
+import { fmt } from "../lib/core/format.js";
 
 /** Yearly balance + contributed series from compounding `monthly` at annual `rate`. */
 function projectSeries(start, monthly, rate, years) {

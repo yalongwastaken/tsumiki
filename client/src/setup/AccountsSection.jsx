@@ -4,7 +4,11 @@
 import { useState, useMemo } from "react";
 import Money from "../components/Money.jsx";
 import { X, Pencil, ChevronDown } from "lucide-react";
-import { INVESTMENT_TYPES, TAX_TAG_FOR_TYPE, holdingsValueByAccount } from "../lib/portfolio.js";
+import {
+  INVESTMENT_TYPES,
+  TAX_TAG_FOR_TYPE,
+  holdingsValueByAccount,
+} from "../lib/finance/portfolio.js";
 import { uid, field, AmountInput } from "./ui.jsx";
 
 const ACCOUNT_TYPES = [

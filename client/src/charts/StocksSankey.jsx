@@ -1,8 +1,8 @@
 // StocksSankey.jsx — a 3-column Sankey of the portfolio: total → account-type bucket
 // (Taxable / 401(k) / IRA / Roth) → individual tickers. It separates the total so you
 // can see where your stocks actually sit. Pure render over portfolioFlow(); no network.
-import { fmt } from "../lib/format.js";
-import { portfolioFlow } from "../lib/portfolio.js";
+import { fmt } from "../lib/core/format.js";
+import { portfolioFlow } from "../lib/finance/portfolio.js";
 
 const clip = (s) => (s.length > 14 ? s.slice(0, 13) + "…" : s);
 

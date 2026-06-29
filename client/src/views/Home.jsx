@@ -1,21 +1,21 @@
 // Home.jsx — landing screen: the valuable stuff at a glance, tap-through to detail.
 import { useState, useEffect, useMemo } from "react";
 import Money, { BlurAmounts } from "../components/Money.jsx";
-import { fmt } from "../lib/format.js";
-import { getPlan, getNews } from "../lib/api.js";
+import { fmt } from "../lib/core/format.js";
+import { getPlan, getNews } from "../lib/core/api.js";
 import {
   thisMonth,
   monthKey,
   annualSpend,
   sumLatestByType,
   monthTotals,
-} from "../lib/selectors.js";
-import { computeDailyStreak } from "../lib/streak.js";
-import { nextMilestone } from "../lib/milestones.js";
-import { nextPaydays } from "../lib/paydays.js";
-import { cashflowForecast, spendingTrends, coachNudges } from "../lib/insights.js";
-import { budgetStatus, budgetAlert } from "../lib/budgets.js";
-import { learnFeed } from "../lib/learn.js";
+} from "../lib/core/selectors.js";
+import { computeDailyStreak } from "../lib/insights/streak.js";
+import { nextMilestone } from "../lib/insights/milestones.js";
+import { nextPaydays } from "../lib/plan/paydays.js";
+import { cashflowForecast, spendingTrends, coachNudges } from "../lib/insights/insights.js";
+import { budgetStatus, budgetAlert } from "../lib/finance/budgets.js";
+import { learnFeed } from "../lib/insights/learn.js";
 import { Flame, Check, TrendingUp, TrendingDown, ArrowRight, Bell, X } from "lucide-react";
 import SankeyFlow from "../charts/Sankey.jsx";
 import Calendar from "../components/Calendar.jsx";

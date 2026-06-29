@@ -2,13 +2,13 @@
 import { useState, useEffect, useMemo } from "react";
 import Money from "../components/Money.jsx";
 import { Check } from "lucide-react";
-import { getPlan } from "../lib/api.js";
-import { typicalIncome } from "../lib/income.js";
-import { nonTaxableMonthly, taxableShare } from "../lib/finance.js";
-import { BUCKETS, bucketOf } from "../lib/buckets.js";
-import { thisMonth, monthKey, sumLatestByType, monthTotals } from "../lib/selectors.js";
-import { estimateTax, nextQuarterlyDue } from "../lib/tax.js";
-import { payoffPlan } from "../lib/debt.js";
+import { getPlan } from "../lib/core/api.js";
+import { typicalIncome } from "../lib/finance/income.js";
+import { nonTaxableMonthly, taxableShare } from "../lib/finance/finance.js";
+import { BUCKETS, bucketOf } from "../lib/plan/buckets.js";
+import { thisMonth, monthKey, sumLatestByType, monthTotals } from "../lib/core/selectors.js";
+import { estimateTax, nextQuarterlyDue } from "../lib/finance/tax.js";
+import { payoffPlan } from "../lib/finance/debt.js";
 import PlanSplitChart from "../charts/PlanSplitChart.jsx";
 import Recurring from "../components/Recurring.jsx";
 

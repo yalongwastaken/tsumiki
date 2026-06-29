@@ -2,7 +2,7 @@
 // deterministic portfolio-health recommendations (never buy/sell picks).
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { fmt } from "../lib/format.js";
+import { fmt } from "../lib/core/format.js";
 import AreaChart from "../charts/Chart.jsx";
 import StocksSankey from "../charts/StocksSankey.jsx";
 import Money from "../components/Money.jsx";
@@ -12,7 +12,7 @@ import {
   portfolioInsights,
   retirementValue,
   portfolioFlow,
-} from "../lib/portfolio.js";
+} from "../lib/finance/portfolio.js";
 
 const ACCT_LABEL = { taxable: "Taxable", "401k": "401(k)", ira: "IRA", roth: "Roth IRA" };
 // stable-ish palette for the allocation donut (cycled by holding rank)

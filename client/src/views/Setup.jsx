@@ -1,10 +1,10 @@
 // Setup.jsx — profile + accounts/debts the engine runs on (accounts vs settings section).
 import { useState, useMemo, useRef } from "react";
 import { ChevronDown } from "lucide-react";
-import { importData, exportUrl } from "../lib/api.js";
+import { importData, exportUrl } from "../lib/core/api.js";
 import Money from "../components/Money.jsx";
 import { card, label } from "../setup/ui.jsx";
-import { INVESTMENT_TYPES, holdingsValueByAccount } from "../lib/portfolio.js";
+import { INVESTMENT_TYPES, holdingsValueByAccount } from "../lib/finance/portfolio.js";
 import IncomeSection from "../setup/IncomeSection.jsx";
 import AccountsSection from "../setup/AccountsSection.jsx";
 import BillsSection from "../setup/BillsSection.jsx";

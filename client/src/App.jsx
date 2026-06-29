@@ -10,22 +10,22 @@ import {
   refreshPrices,
   authStatus,
   setOnLocked,
-} from "./lib/api.js";
-import { fmt } from "./lib/format.js";
-import { typicalIncome } from "./lib/income.js";
+} from "./lib/core/api.js";
+import { fmt } from "./lib/core/format.js";
+import { typicalIncome } from "./lib/finance/income.js";
 import {
   netWorthFromSnapshots,
   sumLatestByType,
   annualSpend,
   thisMonth,
   avgMonthlyContribution,
-} from "./lib/selectors.js";
-import { computeDailyStreak } from "./lib/streak.js";
-import { holdingsValueByAccount, INVESTMENT_TYPES } from "./lib/portfolio.js";
-import { computeReminders } from "./lib/reminders.js";
-import { earmarkedByGoal } from "./lib/goals.js";
-import { allCategories } from "./lib/categories.js";
-import { uid } from "./lib/uid.js";
+} from "./lib/core/selectors.js";
+import { computeDailyStreak } from "./lib/insights/streak.js";
+import { holdingsValueByAccount, INVESTMENT_TYPES } from "./lib/finance/portfolio.js";
+import { computeReminders } from "./lib/insights/reminders.js";
+import { earmarkedByGoal } from "./lib/finance/goals.js";
+import { allCategories } from "./lib/core/categories.js";
+import { uid } from "./lib/core/uid.js";
 import Setup from "./views/Setup.jsx";
 import Plan from "./views/Plan.jsx";
 import QuickAdd from "./components/QuickAdd.jsx";
@@ -41,7 +41,7 @@ import NavRail, { NAV } from "./components/NavRail.jsx";
 import MilestoneIcon from "./components/MilestoneIcon.jsx";
 import Milestones from "./views/Milestones.jsx";
 import MoneyTargets from "./views/MoneyTargets.jsx";
-import { computeMilestones } from "./lib/milestones.js";
+import { computeMilestones } from "./lib/insights/milestones.js";
 
 import Fire from "./views/Fire.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";

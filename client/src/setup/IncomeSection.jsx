@@ -4,9 +4,9 @@
 import { useState } from "react";
 import Money from "../components/Money.jsx";
 import { X, Pencil } from "lucide-react";
-import { detectIncomeSchedule } from "../lib/insights.js";
-import { CADENCE_LABEL } from "../lib/cadence.js";
-import { nextPaydays } from "../lib/paydays.js";
+import { detectIncomeSchedule } from "../lib/insights/insights.js";
+import { CADENCE_LABEL } from "../lib/plan/cadence.js";
+import { nextPaydays } from "../lib/plan/paydays.js";
 import { uid, field, AmountInput } from "./ui.jsx";
 
 const SOURCE_TYPES = ["salary", "hourly", "self_employed", "passive", "other"];

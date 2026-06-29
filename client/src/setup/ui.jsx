@@ -1,6 +1,6 @@
 // ui.jsx — shared primitives for the Setup section components (form field styles,
 // a money input, and a uid helper) so each extracted section stays self-contained.
-export { uid } from "../lib/uid.js";
+export { uid } from "../lib/core/uid.js";
 
 export const card = "bg-white rounded-xl border border-slate-200 p-4";
 export const label = "text-xs font-semibold text-slate-500 uppercase tracking-wider";

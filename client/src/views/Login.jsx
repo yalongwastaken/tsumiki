@@ -3,7 +3,7 @@
 // http) sign-in is refused server-side, so we explain that instead of a password box.
 import { useState, useRef, useEffect } from "react";
 import { Lock } from "lucide-react";
-import { authLogin } from "../lib/api.js";
+import { authLogin } from "../lib/core/api.js";
 
 /** @param {{secure:boolean, onSuccess:()=>void}} props */
 export default function Login({ secure = true, onSuccess }) {

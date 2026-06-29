@@ -2,8 +2,8 @@
 // draft committed with a Save button, with emergency/floor suggestions from spending.
 import { useState, useMemo } from "react";
 import Money from "../components/Money.jsx";
-import { annualSpend } from "../lib/selectors.js";
-import { FILING_STATUSES } from "../lib/tax.js";
+import { annualSpend } from "../lib/core/selectors.js";
+import { FILING_STATUSES } from "../lib/finance/tax.js";
 import { card, label, field, AmountInput } from "./ui.jsx";
 
 const STRATEGIES = [
