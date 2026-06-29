@@ -15,8 +15,22 @@ const {
   resetAll,
   putMeta,
   validateMeta,
+  backupStateToFile,
   db,
 } = await import("../lib/db.js");
+const { readFileSync } = await import("node:fs");
+
+test("backupStateToFile writes the current state to a JSON file", () => {
+  putState({
+    accounts: [{ id: "a", name: "Checking", type: "checking" }],
+    transactions: [{ id: "t", type: "spending", amount: 9, date: "2026-06-01" }],
+  });
+  const file = backupStateToFile("preimport");
+  assert.ok(file && file.endsWith(".json"));
+  const saved = JSON.parse(readFileSync(file, "utf8"));
+  assert.equal(saved.accounts[0].name, "Checking");
+  assert.equal(saved.transactions[0].id, "t");
+});
 
 test("schema migrations stamp user_version (idempotent on a fresh DB)", () => {
   const v = db.prepare("PRAGMA user_version").get().user_version;

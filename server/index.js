@@ -14,6 +14,8 @@ import {
   ConflictError,
   putMeta,
   validateMeta,
+  backupStateToFile,
+  scheduleBackup,
 } from "./lib/db.js";
 import { migrateLegacy } from "./lib/migrate.js";
 import { buildPlan, typicalIncome } from "./lib/engine.js";
@@ -170,7 +172,11 @@ app.post("/api/import", (req, res) => {
     return res.status(400).json({ error: bad });
   }
   try {
-    res.json(putState(body)); // no rev check — deliberate replace
+    // safety net: snapshot the current data to a local file before the destructive replace,
+    // so a bad import can't silently wipe the user's only copy
+    const backup = backupStateToFile("preimport");
+    const out = putState(body); // no rev check — deliberate replace
+    res.json(backup ? { ...out, backedUpTo: backup } : out);
   } catch (e) {
     console.warn("POST /api/import failed:", e.message);
     res.status(400).json({ error: "import failed — file may be malformed" });
@@ -223,3 +229,4 @@ app.listen(PORT, HOST, () => console.log(`tsumiki server on http://${HOST}:${POR
 
 scheduleNews(); // no-op unless TSUMIKI_NEWS_FEED is configured
 schedulePrices(); // no-op unless TSUMIKI_PRICES is enabled
+scheduleBackup(); // no-op unless TSUMIKI_AUTO_BACKUP is enabled

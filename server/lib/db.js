@@ -4,7 +4,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = process.env.TSUMIKI_DB || join(__dirname, "data", "tsumiki.db");
@@ -592,6 +592,36 @@ export function resetAll() {
     throw e;
   }
   return getState();
+}
+
+// ── local backups (safety net for the user's only copy of their data) ─────────
+const BACKUP_DIR = process.env.TSUMIKI_BACKUP_DIR || join(dirname(DB_PATH), "backups");
+
+/**
+ * Write the current full state to a timestamped JSON file under the backups dir.
+ * Used as a safety net before a destructive import, and by the optional scheduler.
+ * @returns {string|null} the file path, or null on failure (never throws)
+ */
+export function backupStateToFile(label = "backup") {
+  try {
+    mkdirSync(BACKUP_DIR, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const file = join(BACKUP_DIR, `tsumiki-${label}-${stamp}.json`);
+    writeFileSync(file, JSON.stringify(getState()));
+    return file;
+  } catch (e) {
+    console.warn("backup failed:", e.message);
+    return null;
+  }
+}
+
+/** Opt-in (TSUMIKI_AUTO_BACKUP=1) daily local backup. No-op otherwise. */
+export function scheduleBackup() {
+  if (!["1", "true", "yes"].includes((process.env.TSUMIKI_AUTO_BACKUP || "").toLowerCase())) {
+    return null;
+  }
+  backupStateToFile("auto");
+  return setInterval(() => backupStateToFile("auto"), 24 * 60 * 60 * 1000);
 }
 
 export { DEFAULT_PROFILE, DEFAULT_SETTINGS };
