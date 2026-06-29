@@ -60,6 +60,8 @@ export const getPrices = () => call("GET", "/api/prices");
 export const refreshPrices = () => call("POST", "/api/prices/refresh");
 export const addTransaction = (tx) => call("POST", "/api/transactions", tx);
 export const putState = (state) => call("PUT", "/api/state", state);
+// granular write of only the profile/settings/holdings blobs (avoids rewriting the ledger)
+export const patchState = (partial) => call("PATCH", "/api/state", partial);
 export const migrateLegacy = (legacy) => call("POST", "/api/migrate", legacy);
 export const resetAll = () => call("POST", "/api/reset");
 export const importData = (state) => call("POST", "/api/import", state);

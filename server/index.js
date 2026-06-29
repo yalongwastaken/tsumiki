@@ -12,6 +12,8 @@ import {
   addTransaction,
   resetAll,
   ConflictError,
+  putMeta,
+  validateMeta,
 } from "./lib/db.js";
 import { migrateLegacy } from "./lib/migrate.js";
 import { buildPlan, typicalIncome } from "./lib/engine.js";
@@ -81,6 +83,25 @@ app.put("/api/state", (req, res) => {
       return res.status(409).json({ error: e.message, state: getState() });
     }
     console.warn("PUT /api/state failed:", e.message);
+    res.status(400).json({ error: "could not save — check your data" });
+  }
+});
+
+// granular write: only the profile/settings/holdings blobs (theme, blur, reminders,
+// budgets, goals, strategy…) — avoids rewriting the whole ledger for a small toggle
+app.patch("/api/state", (req, res) => {
+  const body = req.body || {};
+  const bad = validateMeta(body);
+  if (bad) {
+    return res.status(400).json({ error: bad });
+  }
+  try {
+    res.json(putMeta(body, body.rev));
+  } catch (e) {
+    if (e instanceof ConflictError) {
+      return res.status(409).json({ error: e.message, state: getState() });
+    }
+    console.warn("PATCH /api/state failed:", e.message);
     res.status(400).json({ error: "could not save — check your data" });
   }
 });

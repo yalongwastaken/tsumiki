@@ -6,8 +6,49 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 process.env.TSUMIKI_DB = join(tmpdir(), `tsumiki-test-${Date.now()}.db`);
-const { putState, getState, addTransaction, validateState, validateTransaction, resetAll } =
-  await import("../lib/db.js");
+const {
+  putState,
+  getState,
+  addTransaction,
+  validateState,
+  validateTransaction,
+  resetAll,
+  putMeta,
+  validateMeta,
+  db,
+} = await import("../lib/db.js");
+
+test("schema migrations stamp user_version (idempotent on a fresh DB)", () => {
+  const v = db.prepare("PRAGMA user_version").get().user_version;
+  assert.ok(v >= 1, "user_version should be set after migrations run");
+});
+
+test("putMeta updates only the blob slices and leaves the ledger intact", () => {
+  putState({
+    transactions: [{ id: "keep", type: "spending", amount: 5, date: "2026-06-01" }],
+    accounts: [{ id: "a1", name: "Checking", type: "checking" }],
+    profile: { name: "Old", strategy: "balanced" },
+    settings: { theme: "light" },
+  });
+  const before = getState();
+  const out = putMeta({ settings: { theme: "dark" }, profile: { name: "New" } }, before.rev);
+  assert.equal(out.settings.theme, "dark");
+  assert.equal(out.profile.name, "New");
+  // the normalized tables are untouched and the rev advanced
+  assert.equal(out.transactions.length, 1);
+  assert.equal(out.transactions[0].id, "keep");
+  assert.equal(out.accounts.length, 1);
+  assert.equal(out.rev, before.rev + 1);
+});
+
+test("validateMeta accepts blob slices, rejects junk + bad tickers", () => {
+  assert.equal(validateMeta({ settings: { theme: "dark" } }), null);
+  assert.equal(validateMeta({ profile: { name: "x" }, holdings: [] }), null);
+  assert.ok(validateMeta(null));
+  assert.ok(validateMeta({ settings: "nope" }));
+  assert.ok(validateMeta({ holdings: "nope" }));
+  assert.ok(validateMeta({ holdings: [{ id: "h", ticker: "BAD TICKER!" }] }));
+});
 
 test("validateState rejects malformed bodies", () => {
   assert.ok(validateState({ transactions: [{ id: "x", type: "bogus", amount: 1, date: "d" }] }));

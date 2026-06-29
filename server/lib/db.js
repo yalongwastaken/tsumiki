@@ -71,35 +71,47 @@ db.exec(`
   );
 `);
 
-// migrate older DBs that predate source_id
-{
-  const cols = db
-    .prepare("PRAGMA table_info(transactions)")
+// ── schema migrations (versioned via PRAGMA user_version) ─────────────────────
+// The CREATE TABLE statements above define the latest schema for a FRESH DB; the
+// ordered migrations below bring an OLDER DB up to date (and double as a record of how
+// the schema evolved). Each is idempotent; we run only those past the stored version,
+// each in its own transaction, then stamp user_version.
+function columnsOf(table) {
+  return db
+    .prepare(`PRAGMA table_info(${table})`)
     .all()
     .map((c) => c.name);
-  if (!cols.includes("source_id")) {
-    db.exec("ALTER TABLE transactions ADD COLUMN source_id TEXT");
-  }
-  if (!cols.includes("bucket")) {
-    db.exec("ALTER TABLE transactions ADD COLUMN bucket TEXT");
-  }
-  // migrate older DBs that predate the snapshot source tag (auto-valued vs manual)
-  const snapCols = db
-    .prepare("PRAGMA table_info(snapshots)")
-    .all()
-    .map((c) => c.name);
-  if (!snapCols.includes("source")) {
-    db.exec("ALTER TABLE snapshots ADD COLUMN source TEXT");
-  }
-  // migrate older DBs that predate per-account uninvested cash
-  const acctCols = db
-    .prepare("PRAGMA table_info(accounts)")
-    .all()
-    .map((c) => c.name);
-  if (!acctCols.includes("cash")) {
-    db.exec("ALTER TABLE accounts ADD COLUMN cash REAL");
+}
+function addColumn(table, col, decl) {
+  if (!columnsOf(table).includes(col)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${decl}`);
   }
 }
+const MIGRATIONS = [
+  // 1 → columns accreted across v1.x: transactions.source_id/bucket, snapshots.source,
+  //     accounts.cash. Idempotent so DBs created before user_version was tracked converge.
+  () => {
+    addColumn("transactions", "source_id", "TEXT");
+    addColumn("transactions", "bucket", "TEXT");
+    addColumn("snapshots", "source", "TEXT");
+    addColumn("accounts", "cash", "REAL");
+  },
+];
+function runMigrations() {
+  let v = db.prepare("PRAGMA user_version").get().user_version;
+  for (; v < MIGRATIONS.length; v++) {
+    db.exec("BEGIN");
+    try {
+      MIGRATIONS[v]();
+      db.exec(`PRAGMA user_version = ${v + 1}`);
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+  }
+}
+runMigrations();
 
 // ── defaults ────────────────────────────────────────────────────────────────
 const DEFAULT_PROFILE = {
@@ -449,6 +461,63 @@ export function putState(state, expectedRev) {
   db.exec("BEGIN");
   try {
     replaceAll(state);
+    setMeta("rev", getRev() + 1);
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+  return getState();
+}
+
+/**
+ * Validate a meta-only patch body ({profile?, settings?, holdings?}).
+ * @returns {string|null} an error message, or null when valid
+ */
+export function validateMeta(p) {
+  if (!p || typeof p !== "object") {
+    return "body must be an object";
+  }
+  if (p.profile !== undefined && (typeof p.profile !== "object" || p.profile == null)) {
+    return "profile must be an object";
+  }
+  if (p.settings !== undefined && (typeof p.settings !== "object" || p.settings == null)) {
+    return "settings must be an object";
+  }
+  if (p.holdings !== undefined) {
+    if (!Array.isArray(p.holdings)) {
+      return "holdings must be an array";
+    }
+    const err = validateState({ holdings: p.holdings }); // reuse the holding/ticker checks
+    if (err) {
+      return err;
+    }
+  }
+  return null;
+}
+
+/**
+ * Granular write: update only the JSON-blob slices (profile / settings / holdings)
+ * WITHOUT rewriting the normalized tables — so a settings/profile toggle (theme, blur,
+ * reminders, budgets, goals, strategy…) doesn't re-DELETE+INSERT the whole ledger.
+ * Bumps the rev (optimistic concurrency).
+ * @returns {Object} the fresh full state
+ */
+export function putMeta(partial, expectedRev) {
+  if (expectedRev != null && Number(expectedRev) !== getRev()) {
+    throw new ConflictError("state changed since you loaded it");
+  }
+  db.exec("BEGIN");
+  try {
+    if (partial.profile !== undefined) {
+      setMeta("profile", partial.profile);
+    }
+    if (partial.settings !== undefined) {
+      setMeta("settings", partial.settings);
+    }
+    if (partial.holdings !== undefined) {
+      setMeta("holdings", partial.holdings);
+    }
     setMeta("rev", getRev() + 1);
     db.exec("COMMIT");
   } catch (e) {

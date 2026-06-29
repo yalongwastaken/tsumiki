@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import {
   getState,
   putState,
+  patchState,
   getPlan,
   addTransaction,
   resetAll,
@@ -214,11 +215,13 @@ export default function App() {
     }
   }, [prices, data.holdings, data.accounts, data.snapshots]); // eslint-disable-line
 
-  function save(next) {
-    setData(next); // optimistic UI
+  // shared persistence: optimistic UI, then a rev-checked write serialized through the
+  // saveChain; on failure (409 or otherwise) re-sync from the server.
+  function runSave(optimisticNext, write) {
+    setData(optimisticNext);
     saveChain.current = saveChain.current.then(async () => {
       try {
-        const saved = await putState({ ...next, rev: revRef.current });
+        const saved = await write(revRef.current);
         revRef.current = saved.rev ?? revRef.current;
         setToast("Saved");
         setTimeout(() => setToast(""), 1200);
@@ -237,6 +240,15 @@ export default function App() {
         }
       }
     });
+  }
+  // full-state save (rewrites the normalized tables) — for account/snapshot/debt edits
+  function save(next) {
+    runSave(next, (rev) => putState({ ...next, rev }));
+  }
+  // granular save of only profile/settings/holdings blobs — for the frequent toggles
+  // (theme, blur, goals, strategy…) so they don't rewrite the whole ledger
+  function saveMeta(partial) {
+    runSave({ ...data, ...partial }, (rev) => patchState({ ...partial, rev }));
   }
 
   const { transactions, settings, accounts, snapshots, profile, debts, holdings = [] } = data;
@@ -514,7 +526,7 @@ export default function App() {
   const sectionLabel = NAV.find((n) => n[0] === tab)?.[1] || "";
 
   const blurMoney = !!settings?.blurMoney;
-  const toggleBlur = () => save({ ...data, settings: { ...settings, blurMoney: !blurMoney } });
+  const toggleBlur = () => saveMeta({ settings: { ...settings, blurMoney: !blurMoney } });
 
   return (
     <div className={`min-h-screen bg-slate-50 md:flex${blurMoney ? " blur-money" : ""}`}>
@@ -729,9 +741,7 @@ export default function App() {
                   }}
                   earmarked={earmarked}
                   monthlyPace={monthlyPace}
-                  onChange={(list) =>
-                    save({ ...data, profile: { ...profile, moneyTargets: list } })
-                  }
+                  onChange={(list) => saveMeta({ profile: { ...profile, moneyTargets: list } })}
                 />
               </>
             )}
@@ -748,7 +758,7 @@ export default function App() {
                 onReplayIntro={() => setShowOnboard(true)}
                 onReset={resetEverything}
                 theme={settings?.theme || "light"}
-                onSetTheme={(t) => save({ ...data, settings: { ...settings, theme: t } })}
+                onSetTheme={(t) => saveMeta({ settings: { ...settings, theme: t } })}
               />
             )}
           </main>
