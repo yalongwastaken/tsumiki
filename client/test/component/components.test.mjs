@@ -12,6 +12,7 @@ import MoneyTargets from "../../src/views/MoneyTargets.jsx";
 import QuickAdd from "../../src/components/QuickAdd.jsx";
 import Portfolio, { syncProblem } from "../../src/views/Portfolio.jsx";
 import StocksSankey from "../../src/charts/StocksSankey.jsx";
+import SankeyFlow from "../../src/charts/Sankey.jsx";
 import Money, { BlurAmounts } from "../../src/components/Money.jsx";
 import AccountsSection from "../../src/setup/AccountsSection.jsx";
 import Ledger from "../../src/components/Ledger.jsx";
@@ -194,6 +195,20 @@ test("StocksSankey amount labels carry the .money class (blurrable)", () => {
   ];
   const out = html(h(StocksSankey, { rows }));
   assert.match(out, /class="money"/); // total + ticker value <text> are blurrable
+});
+
+test("SankeyFlow coerces a non-finite amount to 0 — never emits NaN in the SVG", () => {
+  const today = new Date().toISOString();
+  const out = html(
+    h(SankeyFlow, {
+      transactions: [
+        { id: "i", type: "income", amount: Infinity, date: today }, // hostile (e.g. a 1e999 entry)
+        { id: "s", type: "spending", amount: 200, cat: "Food", date: today },
+      ],
+      fallbackIncome: 5000,
+    }),
+  );
+  assert.doesNotMatch(out, /NaN/); // no NaN in viewBox / heights / coords
 });
 
 test("StocksSankey renders nothing with fewer than two priced holdings", () => {

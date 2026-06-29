@@ -124,7 +124,8 @@ export default function QuickAdd({
   }
   function submit() {
     const n = parseFloat(amount);
-    if (!(n > 0)) {
+    // reject blank/≤0 AND the Infinity a "1e999"-style entry parses to (Infinity > 0 is true)
+    if (!Number.isFinite(n) || n <= 0) {
       return;
     }
     // a transfer needs two distinct accounts to move between

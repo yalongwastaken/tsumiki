@@ -47,6 +47,9 @@ Backward-compatible — no changes to your data or API shape.
 
 ### Fixed
 
+- **Reject non-finite amounts.** Quick Add now rejects an `Infinity` amount (e.g. a
+  pasted `1e999`), and the money-flow Sankey coerces any non-finite amount to 0 at the
+  boundary, so a stray value can never blank the chart with `NaN` SVG geometry.
 - **Resilient price parsing.** `parseFinnhubQuote` no longer throws on a garbage/out-of-
   range quote timestamp — it keeps the valid price and falls back to today's date instead
   of dropping the symbol and reporting a sync error.

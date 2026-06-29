@@ -20,15 +20,18 @@ export default function SankeyFlow({ transactions = [], fallbackIncome = 0 }) {
     MIN_H = 30,
     SCALE = 140;
   const ym = thisMonth();
+  // coerce any non-finite amount to 0 at the boundary so a stray Infinity/NaN can never
+  // propagate into the SVG geometry (heights/viewBox) and blank the chart
+  const amt = (t) => (Number.isFinite(t.amount) ? t.amount : 0);
   const month = transactions.filter((t) => monthKey(t.date) === ym);
-  const incomeActual = month.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const incomeActual = month.filter((t) => t.type === "income").reduce((s, t) => s + amt(t), 0);
   const income = incomeActual > 0 ? incomeActual : fallbackIncome;
   const usingFallback = incomeActual <= 0;
 
   const catMap = {};
   for (const t of month) {
-    if (t.type === "spending" && t.amount > 0) {
-      catMap[t.cat || "Other"] = (catMap[t.cat || "Other"] || 0) + t.amount;
+    if (t.type === "spending" && amt(t) > 0) {
+      catMap[t.cat || "Other"] = (catMap[t.cat || "Other"] || 0) + amt(t);
     }
   }
   const topCats = Object.entries(catMap)
@@ -39,7 +42,7 @@ export default function SankeyFlow({ transactions = [], fallbackIncome = 0 }) {
   for (const t of month) {
     if (t.type === "contribution") {
       const b = bucketOf(t);
-      contribMap[b] = (contribMap[b] || 0) + t.amount;
+      contribMap[b] = (contribMap[b] || 0) + amt(t);
     }
   }
 
