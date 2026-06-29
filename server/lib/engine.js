@@ -127,7 +127,7 @@ export function buildPlan(state, incomeArg, opts = {}) {
         t.bucket === "retirement" &&
         new Date(t.date).getFullYear() === yr,
     )
-    .reduce((s, t) => s + t.amount, 0);
+    .reduce((s, t) => s + (t.amount || 0), 0);
   const retirementRoom = Math.max(0, iraLimit + k401Limit - ytdRetirement);
 
   const minPay = debts.reduce((s, d) => s + (d.minPayment || 0), 0);

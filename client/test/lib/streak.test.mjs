@@ -12,6 +12,13 @@ import {
   weekKey,
 } from "../../src/lib/insights/streak.js";
 
+test("dayKey keeps a bare YYYY-MM-DD as the local day in every timezone", () => {
+  // a bare date is already a local calendar day — it must not shift back a day when
+  // parsed as UTC midnight (this runs across the TZ matrix)
+  assert.equal(dayKey("2026-12-31"), "2026-12-31");
+  assert.equal(dayKey("2026-01-01"), "2026-01-01");
+});
+
 // local-midnight ISO for `daysAgo` days before `now`
 const now = Date.now();
 const dayAgo = (n) => {

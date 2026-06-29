@@ -7,6 +7,14 @@ export const WEEK = 7 * DAY;
 // local "YYYY-MM-DD" for a date ("" for an unparseable one). Local — not UTC — so a
 // day bucket lines up with the user's own calendar across timezones.
 export const dayKey = (d) => {
+  // a bare YYYY-MM-DD is already a local calendar day — return it as-is so it doesn't
+  // shift back a day when parsed as UTC midnight in western timezones (matches monthOf)
+  if (typeof d === "string") {
+    const bare = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+    if (bare) {
+      return d;
+    }
+  }
   const x = new Date(d);
   if (isNaN(x.getTime())) {
     return "";
