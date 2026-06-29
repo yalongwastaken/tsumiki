@@ -154,6 +154,14 @@ test("validateState rejects malformed bodies", () => {
   assert.ok(
     validateState({ transactions: [{ id: "x", type: "income", amount: 5, date: "not-a-date" }] }),
   );
+  // a roll-over-invalid calendar date (Feb 30) is rejected, not silently shifted to Mar 1
+  assert.ok(
+    validateState({ transactions: [{ id: "x", type: "income", amount: 5, date: "2024-02-30" }] }),
+  );
+  assert.equal(
+    validateState({ transactions: [{ id: "x", type: "income", amount: 5, date: "2024-02-29" }] }),
+    null, // 2024 is a leap year — the 29th is real
+  );
   assert.equal(validateState({ debts: [{ id: "d", name: "Card", balance: 1000, apr: 20 }] }), null);
   assert.equal(validateState({ goals: [{ id: "g", name: "Trip", target: 5000 }] }), null);
   assert.equal(

@@ -2,6 +2,7 @@
 // testable: turns pasted/uploaded CSV text into transactions the ledger understands,
 // and serializes the ledger back out to a human-readable CSV.
 import { categorize } from "./categories.js";
+import { dayKey } from "./selectors.js";
 
 /** Serialize transactions to a CSV string (one row per entry). Pure — used for a
  * human/spreadsheet-friendly export alongside the full JSON backup. */
@@ -112,7 +113,7 @@ export function guessMapping(headers = []) {
  */
 export function dedupeAgainst(newTxs = [], existing = []) {
   const key = (t) =>
-    `${String(t.date).slice(0, 10)}|${Math.round((t.amount || 0) * 100)}|${(t.note || "").trim().toLowerCase()}|${t.type}`;
+    `${dayKey(t.date)}|${Math.round((t.amount || 0) * 100)}|${(t.note || "").trim().toLowerCase()}|${t.type}`;
   const seen = new Set(existing.map(key));
   const kept = [];
   let skipped = 0;

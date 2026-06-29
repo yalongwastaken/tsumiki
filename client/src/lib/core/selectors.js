@@ -8,6 +8,24 @@ export const monthKey = monthOf;
 export const thisMonth = () => monthOf(new Date());
 
 /**
+ * Local "YYYY-MM-DD" for any date input ("" if unparseable). Local — not UTC — so a
+ * day bucket lines up with the user's own calendar in every timezone. A bare date is
+ * already a local calendar day and is returned as-is (mirrors streak.js dayKey).
+ */
+export const dayKey = (d) => {
+  if (typeof d === "string") {
+    const bare = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+    if (bare) {
+      return d;
+    }
+  }
+  const x = new Date(d);
+  return isNaN(x.getTime())
+    ? ""
+    : `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+};
+
+/**
  * Turn a bare "YYYY-MM-DD" (e.g. from a <input type="date">) into a full ISO stamp
  * anchored to LOCAL noon, so the day survives display in any timezone — a bare date
  * parses as UTC midnight and renders a day early in the western hemisphere. Anything

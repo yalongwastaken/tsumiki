@@ -1,6 +1,7 @@
 // portfolio.js — pure derivations over manually-entered holdings + synced prices.
 // prices is a map: { TICKER: { price, date, changePct } }. All explainable, tested.
 import { uid } from "../core/uid.js";
+import { dayKey } from "../core/selectors.js";
 
 /** Per-holding rows enriched with price, market value, and gain vs cost basis. */
 export function portfolioRows(holdings = [], prices = {}) {
@@ -173,8 +174,10 @@ export function reconcileInvestmentSnapshots(
   now = new Date(),
 ) {
   const byAcct = holdingsValueByAccount(holdings, priceMap);
-  const todayKey = now.toISOString().slice(0, 10);
-  const isToday = (s, accId) => s.accountId === accId && String(s.date).slice(0, 10) === todayKey;
+  // bucket "today" on the LOCAL calendar so the auto-valuation day flips at the user's
+  // midnight, not UTC's (matches streak/insights/forecast day bucketing)
+  const todayKey = dayKey(now);
+  const isToday = (s, accId) => s.accountId === accId && dayKey(s.date) === todayKey;
   let snaps = snapshots;
   let changed = false;
   for (const a of accounts) {

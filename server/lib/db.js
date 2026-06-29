@@ -234,6 +234,22 @@ function transferError(t) {
   return null;
 }
 
+// True for a date that's unparseable OR a bare YYYY-MM-DD that silently rolls over to
+// another month (e.g. 2024-02-30 → Mar 1) — Date.parse accepts the latter, which would
+// then skew month/streak/forecast math. Used by all inbound date checks.
+function invalidDate(v) {
+  if (v == null || Number.isNaN(Date.parse(v))) {
+    return true;
+  }
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v));
+  if (m) {
+    const [, y, mo, d] = m.map(Number);
+    const dt = new Date(y, mo - 1, d);
+    return dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d;
+  }
+  return false;
+}
+
 /**
  * Validate a full-state PUT body.
  * @returns {string|null} an error message, or null when valid
@@ -292,7 +308,7 @@ export function validateState(s) {
     if (!t.date) {
       return "transaction needs a date";
     }
-    if (Number.isNaN(Date.parse(t.date))) {
+    if (invalidDate(t.date)) {
       return "transaction.date is not a valid date";
     }
     const te = transferError(t);
@@ -310,7 +326,7 @@ export function validateState(s) {
     if (typeof sn.balance !== "number" || !isFinite(sn.balance)) {
       return "snapshot.balance must be a finite number";
     }
-    if (!sn.date || Number.isNaN(Date.parse(sn.date))) {
+    if (invalidDate(sn.date)) {
       return "snapshot.date is not a valid date";
     }
   }
@@ -361,8 +377,8 @@ export function validateTransaction(t) {
   if (!t.date) {
     return "transaction needs a date";
   }
-  // a garbage date string would persist and silently skew month/streak/forecast math
-  if (Number.isNaN(Date.parse(t.date))) {
+  // a garbage or roll-over date would persist and silently skew month/streak/forecast math
+  if (invalidDate(t.date)) {
     return "transaction.date is not a valid date";
   }
   return transferError(t);

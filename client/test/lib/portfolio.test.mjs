@@ -12,7 +12,9 @@ import {
   reconcileInvestmentSnapshots,
 } from "../../src/lib/finance/portfolio.js";
 
-const NOW = new Date("2026-06-15T12:00:00Z");
+// 08:00–09:00Z lands on the same LOCAL day (June 15) across the test matrix (UTC, LA,
+// Tokyo, Kiritimati), so "today" bucketing — now local rather than UTC — is unambiguous.
+const NOW = new Date("2026-06-15T08:00:00Z");
 
 test("reconcileInvestmentSnapshots writes today's holdings snapshot = market + cash", () => {
   const state = {

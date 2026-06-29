@@ -10,7 +10,53 @@ import {
   DAY,
   dayKey,
   weekKey,
+  streakMilestone,
+  STREAK_TIERS,
 } from "../../src/lib/insights/streak.js";
+
+test("streakMilestone: before the first tier, aim at it from zero", () => {
+  const m = streakMilestone(0);
+  assert.equal(m.tier, null);
+  assert.equal(m.next.days, 3);
+  assert.equal(m.toNext, 3);
+  assert.equal(m.progress, 0);
+  assert.equal(m.level, 0);
+});
+
+test("streakMilestone: mid-tier reports the right tier, remaining, and fractional progress", () => {
+  const m = streakMilestone(5); // past 3, heading to 7
+  assert.equal(m.tier.days, 3);
+  assert.equal(m.next.days, 7);
+  assert.equal(m.toNext, 2);
+  assert.equal(m.progress, 0.5); // (5-3)/(7-3)
+  assert.equal(m.level, 1);
+});
+
+test("streakMilestone: landing exactly on a tier sits at the start of the next", () => {
+  const m = streakMilestone(7);
+  assert.equal(m.tier.days, 7);
+  assert.equal(m.next.days, 14);
+  assert.equal(m.toNext, 7);
+  assert.equal(m.progress, 0);
+  assert.equal(m.level, 2);
+});
+
+test("streakMilestone: past the last tier is maxed out (no next)", () => {
+  const m = streakMilestone(400);
+  assert.equal(m.tier.days, 365);
+  assert.equal(m.next, null);
+  assert.equal(m.toNext, null);
+  assert.equal(m.progress, 1);
+  assert.equal(m.level, STREAK_TIERS.length);
+});
+
+test("streakMilestone: tolerates junk/negative input", () => {
+  for (const v of [-5, NaN, undefined]) {
+    const m = streakMilestone(v);
+    assert.equal(m.level, 0);
+    assert.equal(m.next.days, 3);
+  }
+});
 
 test("dayKey keeps a bare YYYY-MM-DD as the local day in every timezone", () => {
   // a bare date is already a local calendar day — it must not shift back a day when

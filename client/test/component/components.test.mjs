@@ -15,7 +15,38 @@ import StocksSankey from "../../src/charts/StocksSankey.jsx";
 import Money, { BlurAmounts } from "../../src/components/Money.jsx";
 import AccountsSection from "../../src/setup/AccountsSection.jsx";
 import Ledger from "../../src/components/Ledger.jsx";
+import StreakPanel from "../../src/components/StreakPanel.jsx";
 import { netWorthFromSnapshots } from "../../src/lib/core/selectors.js";
+
+// build a streak prop shape (cells unused by these assertions, kept minimal)
+const mkStreak = (over = {}) => ({
+  current: 0,
+  longest: 0,
+  freezesUsed: 0,
+  loggedToday: false,
+  cells: Array.from({ length: 14 }, (_, i) => ({ day: "", met: false, isNow: i === 13 })),
+  ...over,
+});
+
+test("StreakPanel shows the current tier and progress to the next milestone", () => {
+  const out = html(
+    h(StreakPanel, {
+      streak: mkStreak({ current: 5, longest: 5, loggedToday: true }),
+      transactions: [],
+    }),
+  );
+  assert.match(out, /Getting started/); // reached the 3-day tier
+  assert.match(out, /2 days to One week/); // 7 − 5
+  assert.match(out, /role="progressbar"/);
+  assert.match(out, /aria-valuenow="50"/); // (5−3)/(7−3)
+  assert.match(out, /Personal best/); // current ties longest, past day 2
+});
+
+test("StreakPanel before the first tier aims at it with no tier badge", () => {
+  const out = html(h(StreakPanel, { streak: mkStreak({ current: 0 }), transactions: [] }));
+  assert.match(out, /3 days to Getting started/);
+  assert.doesNotMatch(out, /Personal best/);
+});
 
 const html = (el) => renderToStaticMarkup(el);
 

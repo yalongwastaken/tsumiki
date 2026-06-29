@@ -92,6 +92,39 @@ export function computeDailyStreak(transactions = [], freezes = 0, now = Date.no
   return { current, longest, freezesUsed: used, loggedToday, cells };
 }
 
+// Milestone tiers for the daily logging streak — calm progression markers to chase,
+// not loss-aversion pressure. Each is a day count plus a short name to celebrate.
+export const STREAK_TIERS = [
+  { days: 3, label: "Getting started" },
+  { days: 7, label: "One week" },
+  { days: 14, label: "Two weeks" },
+  { days: 30, label: "One month" },
+  { days: 60, label: "Two months" },
+  { days: 100, label: "100 days" },
+  { days: 180, label: "Half a year" },
+  { days: 365, label: "One year" },
+];
+
+/**
+ * Where a current daily streak sits among the milestone tiers — a pure derivation so
+ * the UI can show "you're a week in, 6 days to a month" without any extra state.
+ * @param {number} current - days in the current streak
+ * @returns {{tier:object|null, next:object|null, toNext:number|null, progress:number, level:number}}
+ *   tier = highest milestone reached (null before the first), next = the upcoming one
+ *   (null once past the last), toNext = days remaining to it, progress = 0..1 from the
+ *   last tier toward the next, level = how many tiers reached (drives flame intensity).
+ */
+export function streakMilestone(current = 0) {
+  const n = Math.max(0, Math.floor(current) || 0);
+  const reached = STREAK_TIERS.filter((t) => n >= t.days);
+  const tier = reached[reached.length - 1] || null;
+  const next = STREAK_TIERS[reached.length] || null;
+  const from = tier ? tier.days : 0;
+  const toNext = next ? next.days - n : null;
+  const progress = next ? Math.max(0, Math.min(1, (n - from) / (next.days - from))) : 1;
+  return { tier, next, toNext, progress, level: reached.length };
+}
+
 /** Timestamp of the Monday that starts the week containing `d`. */
 export const weekKey = (d) => {
   const x = new Date(d);

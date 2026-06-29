@@ -101,13 +101,14 @@ test("rowsToTransactions strips currency symbols and thousands separators", () =
 });
 
 test("dedupeAgainst drops rows matching existing txs and within the batch", () => {
-  const existing = [
-    { type: "spending", amount: 4.5, note: "Coffee", date: "2026-06-01T00:00:00.000Z" },
-  ];
+  // dedup buckets by the LOCAL calendar day; a bare date is that day in any timezone,
+  // and 08:00–09:00Z lands on the same local day across the test matrix (UTC, LA, Tokyo,
+  // Kiritimati), so the "same day, different time" case stays robust.
+  const existing = [{ type: "spending", amount: 4.5, note: "Coffee", date: "2026-06-01" }];
   const incoming = [
-    { type: "spending", amount: 4.5, note: "Coffee", date: "2026-06-01T09:00:00.000Z" }, // dup of existing (same day)
-    { type: "spending", amount: 12, note: "Lunch", date: "2026-06-02T00:00:00.000Z" }, // new
-    { type: "spending", amount: 12, note: "Lunch", date: "2026-06-02T00:00:00.000Z" }, // dup within batch
+    { type: "spending", amount: 4.5, note: "Coffee", date: "2026-06-01T09:00:00.000Z" }, // dup of existing (same local day, different time)
+    { type: "spending", amount: 12, note: "Lunch", date: "2026-06-02T08:00:00.000Z" }, // new
+    { type: "spending", amount: 12, note: "Lunch", date: "2026-06-02T08:00:00.000Z" }, // dup within batch
   ];
   const { kept, skipped } = dedupeAgainst(incoming, existing);
   assert.equal(kept.length, 1);
