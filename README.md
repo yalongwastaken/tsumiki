@@ -17,9 +17,17 @@ the allocation engine. Phones and laptops are thin web clients that talk to it o
 API.
 
 ```
-server/   Express + node:sqlite API + allocation engine. No native deps.
-client/   Vite + React single-page app (thin client).
-docs/     SPEC.md — the working spec.
+server/   Express + node:sqlite API + allocation engine (no native deps)
+  lib/       db, auth, engine, prices, news, http, migrate
+  test/      server unit tests
+client/   Vite + React single-page app (thin client)
+  src/views/        tab screens (Home, Plan, Activity, Portfolio, …)
+  src/charts/       dependency-free SVG charts + Sankeys
+  src/components/   shared widgets (Money, QuickAdd, NavRail, …)
+  src/lib/          pure logic: core/ finance/ plan/ insights/
+  src/setup/        account/income/bill/budget editors
+  test/             client tests: lib/ + component/ + smoke
+docs/     INSTRUCTIONS.md (run + install) · TESTING.md (QA runbook)
 ```
 
 The engine takes your income, accounts, debts, and strategy and returns a plan: how to
@@ -27,6 +35,14 @@ split each paycheck across savings, retirement, investing, and checking (cadence
 so it can show per-paycheck recurring transfers). The client renders the plan, a money
 flow (Sankey), net-worth/FIRE projections, a calendar, and a light streak/milestone
 game layer.
+
+## Documentation
+
+- [`docs/INSTRUCTIONS.md`](./docs/INSTRUCTIONS.md) — run it on a mini PC, install it on
+  your phone, keep it updated, and keep it secure.
+- [`docs/TESTING.md`](./docs/TESTING.md) — per-release review + manual QA runbook.
+- [`SECURITY.md`](./SECURITY.md) — threat model, protections, and hardening steps.
+- [`CHANGELOG.md`](./CHANGELOG.md) — release history.
 
 ## Requirements
 

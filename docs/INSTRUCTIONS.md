@@ -2,7 +2,7 @@
 
 A plain-English guide to: running the app on your mini PC, installing it on your
 iPhone, keeping it running, and updating it later. (For the architecture/feature
-overview, see [`README.md`](./README.md).)
+overview, see [`README.md`](../README.md).)
 
 > **The model in one line:** the mini PC runs everything and holds your data; your
 > phone is just a thin client that reaches it privately over Tailscale.
@@ -243,7 +243,7 @@ for shoulder-surfing, not access control. And the app does **no encryption itsel
 relies on Tailscale/your disk for that.
 
 For the full threat model and the reasoning behind all of this, see
-[`SECURITY.md`](./SECURITY.md).
+[`SECURITY.md`](../SECURITY.md).
 
 ---
 

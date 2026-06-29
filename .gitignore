@@ -15,8 +15,7 @@ server/data/
 backups/
 
 # ── local test fixtures (sample data for smoke-testing, not shipped) ─
-sample-portfolio.json
-sample-prices.csv
+sample*
 
 # ── logs / env ───────────────────────────────────────────────
 *.log
