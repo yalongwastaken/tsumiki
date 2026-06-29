@@ -10,6 +10,10 @@ Post-2.0 improvements (a code-audit + UX/polish pass).
 
 ### Added
 
+- **Account transfers.** A new "transfer" ledger type to record moving money between your
+  own accounts (Quick Add → Transfer, with from→to pickers). Transfers show neutrally in
+  the ledger/calendar and are excluded from income/spending/budget/Sankey math, so they
+  don't distort your totals.
 - **CSV export of the ledger** (Settings → Backup → Export CSV) — a human/spreadsheet-
   friendly export alongside the full JSON backup.
 - **Tax-year guard.** The Plan tax card shows the tax year (`TAX_YEAR`) the estimate is
@@ -27,6 +31,14 @@ Post-2.0 improvements (a code-audit + UX/polish pass).
 
 ### Internal
 
+- **Versioned schema migrations** (`PRAGMA user_version` + an ordered, idempotent
+  migration list) replacing the ad-hoc column-check ALTER block — a safe foundation for
+  future schema changes.
+- **Granular meta writes**: `PATCH /api/state` + `putMeta`/`saveMeta` update only the
+  profile/settings/holdings blobs, so the frequent toggles (theme, blur, goals) no longer
+  DELETE+INSERT-rewrite the whole ledger.
+- Extracted the investment auto-valuation into a pure, tested `reconcileInvestmentSnapshots`
+  helper (slims `App.jsx`, makes the snapshot logic unit-testable).
 - Sample fixtures moved to `samples/` (git-ignored); the stray tracked `sample-data.json`
   is untracked.
 
