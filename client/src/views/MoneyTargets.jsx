@@ -26,14 +26,17 @@ export default function MoneyTargets({
   onChange,
 }) {
   const [form, setForm] = useState({ label: "", amount: "", metric: "earmarked", targetDate: "" });
+  const [err, setErr] = useState("");
   // current dollar value of a target's metric (per-goal balance for "earmarked")
   const currentOf = (t) =>
     t.metric === "earmarked" ? earmarked[t.id] || 0 : values[t.metric] || 0;
   function add() {
     const amount = Number(form.amount);
     if (!(amount > 0)) {
+      setErr("Enter a target amount greater than $0.");
       return;
     }
+    setErr("");
     onChange([
       ...targets,
       {
@@ -160,7 +163,12 @@ export default function MoneyTargets({
           <input
             type="number"
             value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })}
+            onChange={(e) => {
+              setForm({ ...form, amount: e.target.value });
+              if (err) {
+                setErr("");
+              }
+            }}
             placeholder="Target amount"
             aria-label="Target amount"
             className="w-full pl-7 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"
@@ -173,6 +181,11 @@ export default function MoneyTargets({
           Add
         </button>
       </div>
+      {err && (
+        <div role="alert" className="mt-2 text-xs text-rose-600">
+          {err}
+        </div>
+      )}
     </div>
   );
 }
