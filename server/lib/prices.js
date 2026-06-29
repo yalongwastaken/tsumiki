@@ -120,9 +120,13 @@ export function parseFinnhubQuote(symbol, json) {
   if (!isFinite(close) || close <= 0) {
     return null;
   }
-  const date = j?.t
-    ? new Date(j.t * 1000).toISOString().slice(0, 10)
-    : new Date().toISOString().slice(0, 10);
+  // guard the timestamp: a garbage/out-of-range `t` (e.g. 9e15 or Infinity) makes
+  // new Date(...).toISOString() throw, which would discard an otherwise-valid close.
+  // Fall back to today's date instead of dropping the price.
+  const stamped = j?.t ? new Date(j.t * 1000) : null;
+  const date = (stamped && !isNaN(stamped.getTime()) ? stamped : new Date())
+    .toISOString()
+    .slice(0, 10);
   return { symbol: String(symbol).toUpperCase(), close, date };
 }
 

@@ -47,6 +47,9 @@ Backward-compatible — no changes to your data or API shape.
 
 ### Fixed
 
+- **Resilient price parsing.** `parseFinnhubQuote` no longer throws on a garbage/out-of-
+  range quote timestamp — it keeps the valid price and falls back to today's date instead
+  of dropping the symbol and reporting a sync error.
 - **Save-flow data-loss race.** All client writes now rebase onto a synchronous
   latest-state mirror instead of the render closure, so a full-state save fired from the
   auto price-sync (whose effect deliberately ignores `transactions`) can no longer clobber

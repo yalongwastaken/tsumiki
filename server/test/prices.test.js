@@ -109,3 +109,13 @@ test("parseFinnhubQuote falls back to today's date when the ts is missing", () =
   const row = parseFinnhubQuote("AAPL", { c: 100 });
   assert.match(row.date, /^\d{4}-\d{2}-\d{2}$/);
 });
+
+test("parseFinnhubQuote keeps a valid price even when the ts is out-of-range/garbage", () => {
+  // a finite-but-absurd or Infinite ts would make new Date(...).toISOString() throw;
+  // the close is valid, so the row must still come back (date falls back to today)
+  for (const t of [9e15, Infinity, -9e15]) {
+    const row = parseFinnhubQuote("AAPL", { c: 123.45, t });
+    assert.equal(row?.close, 123.45);
+    assert.match(row.date, /^\d{4}-\d{2}-\d{2}$/);
+  }
+});
