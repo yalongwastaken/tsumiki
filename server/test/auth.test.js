@@ -142,6 +142,31 @@ test("login throttles after repeated wrong passwords", () => {
   );
 });
 
+test("repeated lockouts back off exponentially (and cap)", () => {
+  I.clearThrottle();
+  const lockFor = () => {
+    for (let i = 0; i < 5; i++) {
+      I.recordFailedLogin(); // MAX_FAILS wrong guesses → a lockout starts
+    }
+    return I.throttleState().lockUntil - Date.now();
+  };
+  const first = lockFor(); // ~1 minute
+  const second = lockFor(); // ~2 minutes
+  const third = lockFor(); // ~4 minutes
+  assert.ok(first >= 55_000 && first <= 65_000, `first lockout ~1m (${first})`);
+  assert.ok(second >= 2 * first - 5_000, `second lockout doubles (${second})`);
+  assert.ok(third >= 2 * second - 5_000, `third lockout doubles again (${third})`);
+  // many more lockouts never exceed the 1-hour cap
+  let last = third;
+  for (let i = 0; i < 12; i++) {
+    last = lockFor();
+  }
+  assert.ok(last <= 60 * 60 * 1000, `lockout capped at 1h (${last})`);
+  // a correct login (or password change) resets the escalation entirely
+  I.clearThrottle();
+  assert.deepEqual(I.throttleState(), { loginFails: 0, lockouts: 0, lockUntil: 0 });
+});
+
 test("end-to-end: set → gate locks → login → gate passes → logout/clear", () => {
   // set a password over a secure origin; it logs in this device + sets a cookie
   let res = mockRes();

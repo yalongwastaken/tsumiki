@@ -6,6 +6,21 @@ All notable changes to Tsumiki are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Destructive routes are guarded.** `POST /api/migrate` now snapshots the current data
+  to a local backup file first and returns **409** if transactions already exist (pass
+  `force: true` to overwrite deliberately) — previously a stray empty POST could silently
+  replace the whole dataset. `POST /api/reset` also writes a `prereset` snapshot before
+  wiping.
+- **Full and partial state writes require a `rev`.** `PUT /api/state` and
+  `PATCH /api/state` without a numeric `rev` now return 409 with the fresh state instead
+  of clobbering unconditionally — a stale tab or script can no longer bypass optimistic
+  concurrency. (The app has always sent `rev`, so nothing changes for normal use.)
+- **Login lockouts back off exponentially.** Repeated lockouts double the wait (1m → 2m
+  → 4m …, capped at one hour) instead of a fixed one-minute window; a correct login or
+  password change resets the escalation.
+
 ### Fixed
 
 - **Database path restored to the documented `server/data/tsumiki.db`.** The v2.4.0

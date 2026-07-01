@@ -1,7 +1,7 @@
 // index.js — the mini-PC brain. Express API + serves the built client.
 // Bind to 0.0.0.0 so it's reachable over the LAN / Tailscale (never exposed publicly).
 import express from "express";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 import {
@@ -89,12 +89,25 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 // full model (client loads this once on boot)
 app.get("/api/state", (_req, res) => res.json(getState()));
 
+// client-facing full/partial writes MUST carry the rev they were based on: a write
+// without one would bypass optimistic concurrency and clobber a newer save from
+// another tab/device. Absent/garbage rev is treated like a stale one (409 + fresh
+// state) so a well-behaved client re-syncs and retries.
+const missingRev = (res) =>
+  res.status(409).json({
+    error: "missing or invalid rev — reload the latest state and retry",
+    state: getState(),
+  });
+
 // pragmatic full-state replace (client's "save" — see db.js)
 app.put("/api/state", (req, res) => {
   const body = req.body || {};
   const bad = validateState(body);
   if (bad) {
     return res.status(400).json({ error: bad });
+  }
+  if (!Number.isFinite(Number(body.rev))) {
+    return missingRev(res);
   }
   try {
     res.json(putState(body, body.rev));
@@ -114,6 +127,9 @@ app.patch("/api/state", (req, res) => {
   const bad = validateMeta(body);
   if (bad) {
     return res.status(400).json({ error: bad });
+  }
+  if (!Number.isFinite(Number(body.rev))) {
+    return missingRev(res);
   }
   try {
     res.json(putMeta(body, body.rev));
@@ -172,8 +188,13 @@ app.post(
   }),
 );
 
-// wipe everything and start fresh (the Settings "danger zone")
-app.post("/api/reset", (_req, res) => res.json(resetAll()));
+// wipe everything and start fresh (the Settings "danger zone"). Snapshot the current
+// data to a local file first — reset is one click and irreversible otherwise.
+app.post("/api/reset", (_req, res) => {
+  const backup = backupStateToFile("prereset");
+  const out = resetAll();
+  res.json(backup ? { ...out, backedUpTo: backup } : out);
+});
 
 // data export (download the whole dataset) + import (validated full replace)
 app.get("/api/export", (_req, res) => {
@@ -201,16 +222,28 @@ app.post("/api/import", (req, res) => {
   }
 });
 
-// one-time import of old window.storage JSON → unified model
+// one-time import of old window.storage JSON → unified model. This is a full-state
+// replace (and migrateLegacy({}) is valid), so guard it: refuse to overwrite a dataset
+// that already has transactions unless the caller explicitly forces it, and snapshot
+// the current data to a local file first either way.
 app.post("/api/migrate", (req, res) => {
   try {
-    const migrated = migrateLegacy(req.body || {});
+    const body = req.body || {};
+    const migrated = migrateLegacy(body);
     // validate the migrated shape before it hits the NOT NULL columns
     const bad = validateState(migrated);
     if (bad) {
       return res.status(400).json({ error: bad });
     }
-    res.json(putState(migrated));
+    const force = body.force === true || body.force === "true" || body.force === 1;
+    if (!force && getState().transactions.length > 0) {
+      return res.status(409).json({
+        error: "migration would replace existing data — pass force:true to overwrite",
+      });
+    }
+    const backup = backupStateToFile("premigrate");
+    const out = putState(migrated);
+    res.json(backup ? { ...out, backedUpTo: backup } : out);
   } catch (e) {
     console.warn("POST /api/migrate failed:", e.message);
     res.status(400).json({ error: "migration failed — data may be malformed" });
@@ -241,10 +274,17 @@ app.use((err, _req, res, _next) => {
   }
 });
 
-const PORT = process.env.PORT || 4000;
-const HOST = process.env.HOST || "0.0.0.0";
-app.listen(PORT, HOST, () => console.log(`tsumiki server on http://${HOST}:${PORT}`));
+// listen + schedulers only when run directly (`node index.js`); tests import { app }
+// and attach it to an ephemeral listener instead
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+  const PORT = process.env.PORT || 4000;
+  const HOST = process.env.HOST || "0.0.0.0";
+  app.listen(PORT, HOST, () => console.log(`tsumiki server on http://${HOST}:${PORT}`));
 
-scheduleNews(); // no-op unless TSUMIKI_NEWS_FEED is configured
-schedulePrices(); // no-op unless TSUMIKI_PRICES is enabled
-scheduleBackup(); // no-op unless TSUMIKI_AUTO_BACKUP is enabled
+  scheduleNews(); // no-op unless TSUMIKI_NEWS_FEED is configured
+  schedulePrices(); // no-op unless TSUMIKI_PRICES is enabled
+  scheduleBackup(); // no-op unless TSUMIKI_AUTO_BACKUP is enabled
+}
+
+export { app };

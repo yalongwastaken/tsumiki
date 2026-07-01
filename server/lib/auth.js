@@ -12,12 +12,31 @@ const SESSION_MS = 7 * 24 * 60 * 60 * 1000; // trusted-device window
 const KEYLEN = 32;
 const MIN_LEN = 8;
 // in-memory login throttle (single-user): after MAX_FAILS wrong passwords, lock out
-// new attempts for LOCK_MS. Resets on a correct login or a server restart — enough to
-// blunt online brute-force without persisting lockout state.
+// new attempts — and each consecutive lockout doubles the wait (1m, 2m, 4m … capped
+// at LOCK_MAX_MS), so a patient brute-forcer can't just ride out a fixed one-minute
+// window forever. Resets on a correct login (or a server restart — acceptable for the
+// threat model; no lockout state is persisted).
 const MAX_FAILS = 5;
-const LOCK_MS = 60 * 1000;
+const LOCK_BASE_MS = 60 * 1000;
+const LOCK_MAX_MS = 60 * 60 * 1000; // backoff cap: one hour
 let loginFails = 0;
+let lockouts = 0; // consecutive lockouts → exponential backoff
 let lockUntil = 0;
+
+/** Reset the throttle (correct login, or a password set/change/clear). */
+function clearThrottle() {
+  loginFails = 0;
+  lockouts = 0;
+  lockUntil = 0;
+}
+/** Register one failed attempt; starts (and escalates) a lockout at MAX_FAILS. */
+function recordFailedLogin() {
+  if (++loginFails >= MAX_FAILS) {
+    lockUntil = Date.now() + Math.min(LOCK_BASE_MS * 2 ** lockouts, LOCK_MAX_MS);
+    lockouts = Math.min(lockouts + 1, 30); // cap the exponent too (2**30 ≫ LOCK_MAX_MS)
+    loginFails = 0;
+  }
+}
 
 /** Whether a password is currently set. */
 export const authEnabled = () => !!getAuth();
@@ -163,17 +182,16 @@ export function authLogin(req, res) {
     return res.status(400).json({ error: "open over HTTPS or Tailscale to sign in" });
   }
   if (Date.now() < lockUntil) {
-    return res.status(429).json({ error: "too many attempts — wait a minute and try again" });
+    const wait = Math.max(1, Math.ceil((lockUntil - Date.now()) / 60000));
+    return res
+      .status(429)
+      .json({ error: `too many attempts — wait ${wait} minute${wait > 1 ? "s" : ""} and retry` });
   }
   if (!verifyPassword(req.body?.password, auth)) {
-    if (++loginFails >= MAX_FAILS) {
-      lockUntil = Date.now() + LOCK_MS;
-      loginFails = 0;
-    }
+    recordFailedLogin();
     return res.status(401).json({ error: "wrong password" });
   }
-  loginFails = 0;
-  lockUntil = 0;
+  clearThrottle();
   setSessionCookie(req, res, sign({ exp: Date.now() + SESSION_MS }, auth.secret));
   res.json({ ok: true });
 }
@@ -191,8 +209,7 @@ export function authSet(req, res) {
     return res.status(401).json({ error: "wrong current password" });
   }
   // a successful set/change/clear clears any active login lockout
-  loginFails = 0;
-  lockUntil = 0;
+  clearThrottle();
   if (password == null || password === "") {
     setAuth(null); // disable the lock
     clearSessionCookie(res);
@@ -214,4 +231,13 @@ export function authSet(req, res) {
 }
 
 // test-only seam: re-export the internals worth unit-testing without a live server
-export const _internals = { hashPassword, verifyPassword, sign, verifyToken, readCookie };
+export const _internals = {
+  hashPassword,
+  verifyPassword,
+  sign,
+  verifyToken,
+  readCookie,
+  recordFailedLogin,
+  clearThrottle,
+  throttleState: () => ({ loginFails, lockouts, lockUntil }),
+};
