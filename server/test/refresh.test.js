@@ -141,6 +141,61 @@ test("a manual holding's ticker is never requested from the feed", async () => {
   assert.ok(!joined.includes("swppx"), "manual holding SWPPX is never requested");
 });
 
+test("same-day re-sync replaces the day's close instead of dropping it", async () => {
+  db.putState({
+    holdings: [
+      { id: "a", ticker: "AAPL", shares: 1 },
+      { id: "f", ticker: "SWPPX", shares: 5, manual: true, manualPrice: 80 },
+    ],
+  });
+  stub(ok(stooq("AAPL", "2026-10-01", 150)));
+  await prices.refreshPrices();
+  stub(ok(stooq("AAPL", "2026-10-01", 151))); // later close, same session
+  const res = await prices.refreshPrices();
+  assert.equal(res.prices.AAPL.price, 151);
+  const sameDay = db.getSymbolPriceHistory().AAPL.filter((p) => p.date === "2026-10-01");
+  assert.equal(sameDay.length, 1); // one entry per day…
+  assert.equal(sameDay[0].price, 151); // …holding the NEWER close
+});
+
+test("portfolio-value history includes manual holdings at their user-set price", async () => {
+  // holdings from the previous test: AAPL (auto, priced 151) + SWPPX (manual @ $80 × 5)
+  const hist = db.getPortfolioHistory();
+  assert.equal(hist[hist.length - 1].value, 151 * 1 + 80 * 5); // 551, not 151
+});
+
+test("a partial sync records NO portfolio point (no phantom dips)", async () => {
+  db.putState({
+    holdings: [
+      { id: "a", ticker: "AAPL", shares: 1 },
+      { id: "m", ticker: "MSFT", shares: 2 }, // auto-sync, never priced, no manualPrice
+    ],
+  });
+  const before = JSON.stringify(db.getPortfolioHistory());
+  stub(ok(stooq("AAPL", "2026-10-02", 152))); // MSFT missing from the feed
+  await prices.refreshPrices();
+  assert.equal(JSON.stringify(db.getPortfolioHistory()), before); // unchanged
+});
+
+test("a 429 rate limit reports 'error' and never trips the circuit breaker", async () => {
+  db.putState({ holdings: [{ id: "r", ticker: "RATED", shares: 1 }] });
+  stub(async () => ({
+    ok: false,
+    status: 429,
+    headers: { get: () => null },
+    body: null,
+    text: async () => "",
+  }));
+  // more consecutive rate-limited syncs than MANUAL_AFTER — used to flip it to "manual"
+  for (let i = 0; i < 4; i++) {
+    await prices.refreshPrices();
+  }
+  const p = await prices.getPrices();
+  assert.equal(p.lastSync.status, "error"); // a provider failure, not "empty"
+  assert.deepEqual(p.lastSync.manual, []); // RATED is NOT given up on
+  assert.ok(p.lastSync.missing.includes("RATED")); // still being retried
+});
+
 // ── news ────────────────────────────────────────────────────────────────────
 
 test("refreshNews caches headlines and caps to MAX_ITEMS", async () => {

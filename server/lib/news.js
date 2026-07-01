@@ -8,9 +8,11 @@ import { fetchTextCapped } from "./http.js";
 
 const FEED = process.env.TSUMIKI_NEWS_FEED || "";
 const TTL = 20 * 60 * 60 * 1000; // refetch at most ~daily
+const RETRY_FLOOR = 5 * 60 * 1000; // after a failed refresh, wait before a lazy retry
 const MAX_ITEMS = 8;
 
 let cache = { items: [], fetchedAt: 0 };
+let lastAttempt = 0; // when we last tried (success OR failure) — drives the backoff
 
 // safe code-point → string (guards bad/out-of-range numeric entities)
 const cp = (n) => {
@@ -110,17 +112,33 @@ export function parseFeed(xml = "") {
   return out;
 }
 
+// single-flight guard: the scheduler, lazy reads, and concurrent /api/news requests
+// share ONE in-flight fetch instead of each blocking on the (up to 8s) feed call —
+// mirrors the prices.js pattern.
+let inFlight = null;
+
 /** Fetch + cache the feed; on any failure, keep the last good cache. */
-export async function refreshNews() {
+export function refreshNews() {
+  if (inFlight) {
+    return inFlight;
+  }
+  inFlight = doRefresh().finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+async function doRefresh() {
   if (!FEED) {
     return cache;
   }
+  lastAttempt = Date.now();
   try {
-    const text = await fetchTextCapped(FEED, { maxBytes: 3_000_000 });
-    if (text == null) {
-      return cache;
+    const res = await fetchTextCapped(FEED, { maxBytes: 3_000_000 });
+    if (res.text == null) {
+      return cache; // non-OK / oversized — serve the last good cache
     }
-    const items = parseFeed(text).slice(0, MAX_ITEMS);
+    const items = parseFeed(res.text).slice(0, MAX_ITEMS);
     if (items.length) {
       cache = { items, fetchedAt: Date.now() };
     }
@@ -130,9 +148,12 @@ export async function refreshNews() {
   return cache;
 }
 
-/** Cached headlines, refreshing lazily when stale. */
+/** Cached headlines, refreshing lazily when stale — but with a failure floor, so a
+ * down feed doesn't get re-fetched (blocking the request) on every read. */
 export async function getNews() {
-  if (FEED && Date.now() - cache.fetchedAt > TTL) {
+  const stale = Date.now() - cache.fetchedAt > TTL;
+  const recentlyTried = lastAttempt && Date.now() - lastAttempt < RETRY_FLOOR;
+  if (FEED && stale && !recentlyTried) {
     await refreshNews();
   }
   return { enabled: !!FEED, items: cache.items, fetchedAt: cache.fetchedAt || null };

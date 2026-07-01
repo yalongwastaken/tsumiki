@@ -24,7 +24,7 @@ import {
   getPriceFailures,
   setPriceFailures,
 } from "./db.js";
-import { fetchTextCapped } from "./http.js";
+import { fetchTextCapped, isRetryableStatus } from "./http.js";
 
 const TTL = 20 * 60 * 60 * 1000; // refetch at most ~daily
 const RETRY_FLOOR = 5 * 60 * 1000; // after a failed sync, wait this long before a lazy retry
@@ -140,35 +140,57 @@ export function parseFinnhubQuote(symbol, json) {
   return { symbol: String(symbol).toUpperCase(), close, date };
 }
 
-// ── providers (each returns rows or throws/[]) ──────────────────────────────────
+// ── providers (each returns {rows, errored}) ────────────────────────────────────
+// `errored` means a REAL failure happened (network error, 429 rate limit, 5xx) — as
+// opposed to "the feed answered fine but had no data for these symbols". The refresh
+// loop maps errored → anyError, which both reports status:"error" and stops the
+// circuit breaker from punishing symbols that were never actually answered (three
+// rate-limited syncs used to flip perfectly good holdings to "manual").
+const INTER_REQUEST_DELAY_MS = 250; // polite gap between serial per-symbol requests
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function fetchStooq(url, symbols) {
   const full = url.replace("{SYMBOLS}", symbols.map((s) => `${s.toLowerCase()}.us`).join(","));
-  const text = await fetchTextCapped(full, { maxBytes: 2_000_000 });
-  return text == null ? [] : parseStooqCsv(text);
+  const res = await fetchTextCapped(full, { maxBytes: 2_000_000 });
+  if (res.text == null) {
+    // rate-limited / server error → a provider failure, not "no data"
+    return { rows: [], errored: isRetryableStatus(res.status) };
+  }
+  return { rows: parseStooqCsv(res.text), errored: false };
 }
 async function fetchFinnhub(symbols) {
   const base = finnhubUrl();
   const key = finnhubKey();
   const rows = [];
   let errors = 0;
-  for (const s of symbols) {
+  for (let i = 0; i < symbols.length; i++) {
+    const s = symbols[i];
+    // small delay between serial quote calls — the free tier is 60 req/min, and a
+    // burst of holdings shouldn't trip the limiter on our own sync
+    if (i > 0) {
+      await sleep(INTER_REQUEST_DELAY_MS);
+    }
     try {
       const u = `${base}?symbol=${encodeURIComponent(s)}&token=${encodeURIComponent(key)}`;
-      const text = await fetchTextCapped(u, { maxBytes: 100_000 });
-      const row = text == null ? null : parseFinnhubQuote(s, text);
+      const res = await fetchTextCapped(u, { maxBytes: 100_000 });
+      if (res.text == null) {
+        if (isRetryableStatus(res.status)) {
+          errors++; // 429/5xx: a real failure — and if rate-limited, stop hammering
+          if (res.status === 429) {
+            break;
+          }
+        }
+        continue; // other non-OK (e.g. 404 unknown symbol) → a plain per-symbol miss
+      }
+      const row = parseFinnhubQuote(s, res.text);
       if (row) {
         rows.push(row);
       }
     } catch {
-      errors++; // skip this symbol, but remember a real failure occurred
+      errors++; // network error/timeout: skip this symbol, remember it failed
     }
   }
-  // if every request errored and nothing came back, surface it so the loop records
-  // status:"error" (unreachable) rather than "empty" (reached, no data).
-  if (!rows.length && errors) {
-    throw new Error("finnhub: all requests failed");
-  }
-  return rows;
+  return { rows, errored: errors > 0 };
 }
 function providers() {
   // a custom keyless CSV feed (if configured) is tried first; Finnhub is the fallback —
@@ -186,7 +208,9 @@ function providers() {
 // append a close to a symbol's persisted history and return its week-over-week change
 function recordHistory(history, symbol, date, price) {
   const h = (history[symbol] = history[symbol] || []);
-  if (!h.length || h[h.length - 1].date !== date) {
+  if (h.length && h[h.length - 1].date === date) {
+    h[h.length - 1].price = price; // same session, newer close → replace, don't drop
+  } else {
     h.push({ date, price });
     if (h.length > HIST_MAX) {
       h.shift();
@@ -288,7 +312,10 @@ async function doRefresh() {
       break;
     }
     try {
-      const got = (await p.fetch(need)) || [];
+      const { rows: got = [], errored = false } = (await p.fetch(need)) || {};
+      if (errored) {
+        anyError = true; // 429/5xx/network — a provider failure, not "no data"
+      }
       const fresh = got.filter((r) => need.includes(r.symbol) && !(r.symbol in collected));
       if (fresh.length) {
         for (const r of fresh) {
@@ -303,10 +330,17 @@ async function doRefresh() {
   const rows = Object.values(collected);
   const source = sources.length ? sources.join(",") : null;
 
-  // update the breaker: reset a symbol that priced, increment one that missed (capped at
-  // the threshold so re-probing a permanently-unpriceable symbol can't grow it unbounded)
+  // update the breaker: reset a symbol that priced; increment one that missed (capped at
+  // the threshold so re-probing a permanently-unpriceable symbol can't grow it unbounded).
+  // When ANY provider errored (rate limit, outage), don't penalize the un-priced symbols
+  // at all — they were never genuinely answered, and a few rate-limited syncs in a row
+  // must not flip real holdings to "manual".
   for (const s of toFetch) {
-    failures[s] = s in collected ? 0 : Math.min((failures[s] || 0) + 1, MANUAL_AFTER);
+    if (s in collected) {
+      failures[s] = 0;
+    } else if (!anyError) {
+      failures[s] = Math.min((failures[s] || 0) + 1, MANUAL_AFTER);
+    }
   }
   setPriceFailures(failures);
 
@@ -319,12 +353,26 @@ async function doRefresh() {
     }
     setSymbolPriceHistory(history);
     cache = { prices, fetchedAt: Date.now() };
-    // record today's total portfolio value so the client can chart it over time
-    const value = (getState().holdings || []).reduce((sum, h) => {
-      const p = prices[String(h.ticker).toUpperCase()]?.price;
-      return sum + (p ? p * (h.shares || 0) : 0);
-    }, 0);
-    if (value > 0) {
+    // record today's total portfolio value so the client can chart it over time.
+    // Manual holdings count at their user-set price (they're real money — excluding
+    // them made server history permanently disagree with the client's net worth), and
+    // an auto-sync holding falls back to its stopgap manualPrice until first priced.
+    // If any holding still has NO price at all, skip the point: a partial sync would
+    // chart a dip that never happened.
+    let value = 0;
+    let complete = true;
+    for (const h of getState().holdings || []) {
+      const shares = Number(h.shares) || 0;
+      const manual = Number(h.manualPrice);
+      const synced = h.manual ? null : prices[String(h.ticker).toUpperCase()]?.price;
+      const price = synced ?? (Number.isFinite(manual) && manual > 0 ? manual : null);
+      if (price == null) {
+        complete = false;
+        break;
+      }
+      value += price * shares;
+    }
+    if (complete && value > 0) {
       appendPortfolioPoint(value);
     }
   }

@@ -23,6 +23,20 @@ All notable changes to Tsumiki are documented here. The format follows
 
 ### Fixed
 
+- **Rate limits no longer flip holdings to "manual".** Outbound feed responses now carry
+  their HTTP status, so a 429/5xx counts as a provider failure (sync status `error`)
+  instead of a per-symbol miss — previously three rate-limited syncs tripped the circuit
+  breaker and marked perfectly good holdings "update manually". Serial Finnhub quote
+  calls are spaced out (and stop early on a 429) to stay under the free-tier limit.
+- **Portfolio-value history counts manual holdings.** Manually-priced holdings now
+  contribute `manualPrice × shares` to the daily portfolio point (server history used to
+  permanently disagree with client net worth), and a partial sync — any auto-sync holding
+  still unpriced — records no point at all instead of charting a dip that never happened.
+- **Same-day price re-syncs keep the newer close** in per-symbol history instead of
+  dropping it.
+- **`/api/news` has a failure backoff and single-flight guard** (mirroring the prices
+  sync): a down feed is retried at most every 5 minutes instead of blocking every
+  request for up to 8 seconds, and concurrent requests share one fetch.
 - **Year-to-date retirement bucketing is timezone-safe.** The engine now derives a
   contribution's year from the date string itself (the shared `monthOf` pattern) instead
   of `new Date(...).getFullYear()`, which parsed a bare `"2026-01-01"` as UTC midnight —
