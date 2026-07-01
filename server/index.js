@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 import {
   getState,
+  exportState,
   putState,
   validateState,
   validateTransaction,
@@ -16,6 +17,11 @@ import {
   validateMeta,
   backupStateToFile,
   scheduleBackup,
+  invalidDate,
+  ENTITY_KINDS,
+  validateEntity,
+  upsertEntity,
+  deleteEntity,
 } from "./lib/db.js";
 import { migrateLegacy } from "./lib/migrate.js";
 import { buildPlan, typicalIncome } from "./lib/engine.js";
@@ -157,14 +163,70 @@ app.post("/api/transactions", (req, res) => {
   }
 });
 
+// per-entity granular writes: upsert/delete ONE item (account / debt / goal) without
+// a full-state PUT — same pattern as the granular meta PATCH above: rev-checked,
+// rev-bumping, and returning the fresh full state. DELETE takes the rev as ?rev=
+// (or in a JSON body); deleting an account cascades its snapshots (schema FK).
+for (const kind of ENTITY_KINDS) {
+  app.patch(`/api/${kind}/:id`, (req, res) => {
+    const { rev, ...item } = req.body || {};
+    item.id = req.params.id; // the path is authoritative for the id
+    const bad = validateEntity(kind, item);
+    if (bad) {
+      return res.status(400).json({ error: bad });
+    }
+    if (!Number.isFinite(Number(rev))) {
+      return missingRev(res);
+    }
+    try {
+      res.json(upsertEntity(kind, item, rev));
+    } catch (e) {
+      if (e instanceof ConflictError) {
+        return res.status(409).json({ error: e.message, state: getState() });
+      }
+      console.warn(`PATCH /api/${kind} failed:`, e.message);
+      res.status(400).json({ error: "could not save — check your data" });
+    }
+  });
+  app.delete(`/api/${kind}/:id`, (req, res) => {
+    const rev = req.body?.rev ?? req.query.rev;
+    if (!Number.isFinite(Number(rev))) {
+      return missingRev(res);
+    }
+    try {
+      const out = deleteEntity(kind, req.params.id, rev);
+      if (!out) {
+        return res.status(404).json({ error: "not found" });
+      }
+      res.json(out);
+    } catch (e) {
+      if (e instanceof ConflictError) {
+        return res.status(409).json({ error: e.message, state: getState() });
+      }
+      console.warn(`DELETE /api/${kind} failed:`, e.message);
+      res.status(400).json({ error: "could not delete" });
+    }
+  });
+}
+
 // the allocation engine — "where should this money go?"
+// optional ?date=YYYY-MM-DD plans for that day instead of today (e.g. next payday /
+// early January), which drives the month override and the plan year's YTD + caps
 app.get("/api/plan", (req, res) => {
   const state = getState();
   // coerce ?income, falling back to typical when it's missing or not a finite number
   const q = Number(req.query.income);
   const income = req.query.income != null && Number.isFinite(q) ? q : typicalIncome(state);
   const windfall = req.query.windfall === "1" || req.query.windfall === "true";
-  res.json(buildPlan(state, income, { strategy: req.query.strategy, windfall }));
+  let asOf;
+  if (req.query.date != null) {
+    const d = String(req.query.date);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || invalidDate(d)) {
+      return res.status(400).json({ error: "date must be a valid YYYY-MM-DD" });
+    }
+    asOf = d;
+  }
+  res.json(buildPlan(state, income, { strategy: req.query.strategy, windfall, asOf }));
 });
 
 // opt-in money-news headlines (off unless TSUMIKI_NEWS_FEED is set)
@@ -196,13 +258,14 @@ app.post("/api/reset", (_req, res) => {
   res.json(backup ? { ...out, backedUpTo: backup } : out);
 });
 
-// data export (download the whole dataset) + import (validated full replace)
+// data export (download the whole dataset) + import (validated full replace).
+// exportState includes the portfolio/symbol history blobs so a restore keeps the charts.
 app.get("/api/export", (_req, res) => {
   res.setHeader(
     "Content-Disposition",
     `attachment; filename="tsumiki-${new Date().toISOString().slice(0, 10)}.json"`,
   );
-  res.json(getState());
+  res.json(exportState());
 });
 app.post("/api/import", (req, res) => {
   const body = req.body || {};

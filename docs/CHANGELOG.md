@@ -6,7 +6,28 @@ All notable changes to Tsumiki are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Per-entity write endpoints.** `PATCH /api/{accounts,debts,goals}/:id` upserts one
+  item and `DELETE /api/{accounts,debts,goals}/:id` removes one — rev-checked and
+  rev-bumping like every other write — so a single-row change no longer needs a
+  full-state `PUT` that rewrites the whole ledger. Updates use `ON CONFLICT DO UPDATE`,
+  so editing an account can't cascade away its snapshot history. (The app still uses
+  full-state saves for now; a client pass follows.)
+- **`GET /api/plan?date=YYYY-MM-DD`** plans for a specific day instead of today — the
+  month override, YTD retirement total, and that year's contribution caps all follow the
+  requested date (e.g. plan January's paycheck from late December). Invalid dates are
+  rejected; the response echoes `asOf`.
+- **Exports and JSON backups now include portfolio history.** `GET /api/export` (and the
+  pre-import/pre-reset/auto backup files) carry `portfolioHistory` and
+  `symbolPriceHistory`, and `POST /api/import` restores them — a restore no longer loses
+  the portfolio chart.
+
 ### Changed
+
+- Migrated legacy datasets now inherit the current default profile/settings fields
+  (`bills`, `moneyTargets`, theme, …) instead of missing every field added since the
+  migration was written.
 
 - **Destructive routes are guarded.** `POST /api/migrate` now snapshots the current data
   to a local backup file first and returns **409** if transactions already exist (pass

@@ -118,17 +118,23 @@ export function typicalIncome(state) {
  * then split the surplus across savings / retirement / investing / checking.
  * @param {Object} state - accounts, snapshots, debts, profile, transactions
  * @param {number} incomeArg - income to plan for
- * @param {{strategy?: string, windfall?: boolean}} [opts] - preview a strategy
- *   without persisting it; opt into the aggressive windfall split (confirm-first)
+ * @param {{strategy?: string, windfall?: boolean, asOf?: string}} [opts] - preview a
+ *   strategy without persisting it; opt into the aggressive windfall split
+ *   (confirm-first); plan "as of" a bare YYYY-MM-DD date (defaults to today) — drives
+ *   the month override + which year's YTD/limits apply, e.g. planning January from
+ *   late December
  * @returns {Object} { steps, split, windfall, allocated, leftover, investable, cadence, ... }
  */
 export function buildPlan(state, incomeArg, opts = {}) {
   const { accounts = [], snapshots = [], debts = [], profile = {}, transactions = [] } = state;
   const n = Number(incomeArg);
   const income = Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
-  // local month, matching the client's thisMonth() so a "this month" override the
-  // user set in their local calendar isn't missed around the UTC/local boundary
-  const ym = monthOf(new Date());
+  // the date the plan is FOR: an explicit bare YYYY-MM-DD (timezone-independent via
+  // monthOf's bare-date short-circuit), else now. Local month, matching the client's
+  // thisMonth() so a "this month" override the user set in their local calendar isn't
+  // missed around the UTC/local boundary.
+  const asOf = typeof opts.asOf === "string" && opts.asOf ? opts.asOf : new Date();
+  const ym = monthOf(asOf);
   // strategy precedence: explicit preview (opts) → this-month override → main
   const mo = profile.monthOverride;
   const overrideStrategy = mo && mo.ym === ym && STRATEGY_SPLIT[mo.strategy] ? mo.strategy : null;
@@ -318,6 +324,8 @@ export function buildPlan(state, incomeArg, opts = {}) {
   return {
     income,
     strategy,
+    // the explicit plan date when one was requested (GET /api/plan?date=…), else null
+    asOf: typeof opts.asOf === "string" && opts.asOf ? opts.asOf : null,
     allocated: income - remaining,
     leftover: remaining,
     investable,

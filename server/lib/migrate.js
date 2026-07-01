@@ -2,6 +2,8 @@
 // Old "finance-v2" shape:
 //   { goals:[{id,name,target,pledge,color}], expenses:[{id,cat,amount,note,date}],
 //     contributions:[{id,goalId,amount,date}], settings:{startNetWorth,monthlyInvest,returnRate} }
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS } from "./defaults.js";
+
 /** Short unique id. */
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
@@ -50,22 +52,20 @@ export function migrateLegacy(old = {}) {
   const snapshots =
     start > 0 ? [{ id: uid(), accountId: "brokerage", date: iso(Date.now()), balance: start }] : [];
 
+  // spread the CURRENT defaults underneath so fields added after this migration was
+  // written (moneyTargets, bills, theme, onboarded…) exist on a migrated dataset too,
+  // instead of being permanently absent until the user happens to edit settings
   const settings = {
-    returnRate: old.settings?.returnRate ?? 0.07,
+    ...DEFAULT_SETTINGS,
+    returnRate: old.settings?.returnRate ?? DEFAULT_SETTINGS.returnRate,
     monthlyInvest: old.settings?.monthlyInvest ?? null,
     streakFreezes: 0,
   };
 
   // profile gets sensible defaults; real values come from setup
   const profile = {
-    incomeType: "salary",
+    ...DEFAULT_PROFILE,
     typicalIncome: 7000, // old hardcoded MONTHLY, kept as a fallback
-    checkingFloor: 0,
-    emergencyTarget: 0,
-    employerMatch: null,
-    retirementLimits: null,
-    strategy: "balanced",
-    customRules: null,
     // seed a single income source from the old single income figure
     incomeSources: [
       { id: "primary", name: "Primary income", type: "salary", typicalMonthly: 7000 },
