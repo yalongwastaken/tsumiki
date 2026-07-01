@@ -23,6 +23,17 @@ All notable changes to Tsumiki are documented here. The format follows
 
 ### Fixed
 
+- **Year-to-date retirement bucketing is timezone-safe.** The engine now derives a
+  contribution's year from the date string itself (the shared `monthOf` pattern) instead
+  of `new Date(...).getFullYear()`, which parsed a bare `"2026-01-01"` as UTC midnight —
+  in US timezones a New-Year contribution landed in the previous year, zeroing the YTD
+  total and letting the plan advise contributing past the IRA/401k caps.
+- **Garbage profile fields can no longer NaN plan steps away.** Numeric profile fields
+  the engine consumes (`checkingFloor`, `emergencyTarget`, `employerMatch.pct`,
+  `highApr`, `retirementLimits.*`, `split.*`, `bills[].amount`,
+  `incomeSources[].typicalMonthly`) are validated at the API boundary, and the engine
+  itself guards every profile number as defense in depth — previously
+  `checkingFloor: "abc"` silently deleted the Savings step and nulled plan context.
 - **Database path restored to the documented `server/data/tsumiki.db`.** The v2.4.0
   `lib/` refactor silently moved the default DB to `server/lib/data/` (the path was
   module-relative), so `make backup` and the docs pointed at a dead file. On startup the
@@ -37,6 +48,9 @@ All notable changes to Tsumiki are documented here. The format follows
 
 ### Added
 
+- Year-keyed IRA/401k contribution-limit table (2025 + 2026 caps) with a fallback to the
+  latest known year; the plan context now reports which year's limits applied
+  (`using 2026 limits`) so a stale table is visible instead of silent.
 - Boot log of the resolved DB path, state rev, and transaction/account counts — a wrong
   or empty database path is now obvious on the first startup line.
 

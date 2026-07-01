@@ -326,6 +326,61 @@ function invalidDate(v) {
   return false;
 }
 
+// Numeric profile fields the plan engine consumes. A non-finite value (NaN via JSON is
+// null, but "abc"/Infinity can arrive from scripts or a corrupt import) would silently
+// NaN whole plan steps out of existence — reject it up front with a clear message.
+// null/undefined mean "unset" and are always fine.
+function profileError(p) {
+  const fin = (v) => typeof v === "number" && isFinite(v);
+  const bad = (obj, key, label) =>
+    obj?.[key] != null && !fin(obj[key]) ? `${label} must be a finite number` : null;
+  const notObj = (v, label) =>
+    v != null && (typeof v !== "object" || Array.isArray(v)) ? `${label} must be an object` : null;
+
+  const direct =
+    bad(p, "checkingFloor", "profile.checkingFloor") ||
+    bad(p, "emergencyTarget", "profile.emergencyTarget") ||
+    bad(p, "typicalIncome", "profile.typicalIncome") ||
+    bad(p, "highApr", "profile.highApr") ||
+    bad(p, "iraLimit", "profile.iraLimit") ||
+    notObj(p.employerMatch, "profile.employerMatch") ||
+    bad(p.employerMatch, "pct", "profile.employerMatch.pct") ||
+    notObj(p.retirementLimits, "profile.retirementLimits") ||
+    bad(p.retirementLimits, "ira", "profile.retirementLimits.ira") ||
+    bad(p.retirementLimits, "k401", "profile.retirementLimits.k401") ||
+    notObj(p.split, "profile.split") ||
+    bad(p.split, "savings", "profile.split.savings") ||
+    bad(p.split, "retirement", "profile.split.retirement") ||
+    bad(p.split, "invest", "profile.split.invest") ||
+    bad(p.split, "checking", "profile.split.checking");
+  if (direct) {
+    return direct;
+  }
+  if (p.bills != null) {
+    if (!Array.isArray(p.bills)) {
+      return "profile.bills must be an array";
+    }
+    for (const b of p.bills) {
+      const e = bad(b, "amount", "profile.bills[].amount");
+      if (e) {
+        return e;
+      }
+    }
+  }
+  if (p.incomeSources != null) {
+    if (!Array.isArray(p.incomeSources)) {
+      return "profile.incomeSources must be an array";
+    }
+    for (const src of p.incomeSources) {
+      const e = bad(src, "typicalMonthly", "profile.incomeSources[].typicalMonthly");
+      if (e) {
+        return e;
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Validate a full-state PUT body.
  * @returns {string|null} an error message, or null when valid
@@ -432,6 +487,15 @@ export function validateState(s) {
     }
     if (typeof g.target !== "number" || !isFinite(g.target)) {
       return "goal.target must be a finite number";
+    }
+  }
+  if (s.profile != null) {
+    if (typeof s.profile !== "object" || Array.isArray(s.profile)) {
+      return "profile must be an object";
+    }
+    const pe = profileError(s.profile);
+    if (pe) {
+      return pe;
     }
   }
   return null; // ok
@@ -618,8 +682,14 @@ export function validateMeta(p) {
   if (!p || typeof p !== "object") {
     return "body must be an object";
   }
-  if (p.profile !== undefined && (typeof p.profile !== "object" || p.profile == null)) {
-    return "profile must be an object";
+  if (p.profile !== undefined) {
+    if (typeof p.profile !== "object" || p.profile == null || Array.isArray(p.profile)) {
+      return "profile must be an object";
+    }
+    const pe = profileError(p.profile); // numeric fields the engine consumes
+    if (pe) {
+      return pe;
+    }
   }
   if (p.settings !== undefined && (typeof p.settings !== "object" || p.settings == null)) {
     return "settings must be an object";

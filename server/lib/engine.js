@@ -15,8 +15,36 @@ import {
 import { CADENCE } from "../../client/src/lib/plan/cadence.js";
 
 const DEFAULT_HIGH_APR = 10; // % — at/above this, debt is "high interest"
-const DEFAULT_IRA_LIMIT = 7500; // 2026 IRA annual contribution cap
-const DEFAULT_401K_LIMIT = 24500; // 2026 401k employee elective-deferral cap
+
+// IRA / 401k employee elective-deferral caps by tax year. When planning for a year we
+// don't know yet, fall back to the LATEST known year (caps only ever ratchet up, so
+// that's the conservative-enough guess) and say so in the plan context.
+const RETIREMENT_LIMITS = {
+  2025: { ira: 7000, k401: 23500 },
+  2026: { ira: 7500, k401: 24500 },
+};
+const LATEST_LIMIT_YEAR = Math.max(...Object.keys(RETIREMENT_LIMITS).map(Number));
+
+/**
+ * Contribution caps for a tax year, falling back to the latest known year.
+ * @returns {{year: number, ira: number, k401: number}} year = the caps actually used
+ */
+export function limitsForYear(year) {
+  const y = Number(year);
+  const known = RETIREMENT_LIMITS[y] ? y : LATEST_LIMIT_YEAR;
+  return { year: known, ...RETIREMENT_LIMITS[known] };
+}
+
+// defense in depth: profile fields are validated at the API boundary (db.js), but the
+// engine must still never let a non-finite value (NaN, "abc", Infinity) poison the
+// waterfall — a NaN amount silently deletes plan steps. null/undefined → the default.
+const num = (v, dflt = 0) => {
+  if (v == null) {
+    return dflt;
+  }
+  const n = Number(v);
+  return Number.isFinite(n) ? n : dflt;
+};
 
 /** Sum the latest snapshot balance per account, grouped by account type. */
 function balancesByType(accounts, snapshots) {
@@ -46,10 +74,10 @@ const STRATEGY_SPLIT = {
 function splitWeights(profile, strategy) {
   const c = profile.split;
   if (c && (c.savings != null || c.retirement != null || c.invest != null || c.checking != null)) {
-    const s = Math.max(0, c.savings || 0),
-      r = Math.max(0, c.retirement || 0),
-      i = Math.max(0, c.invest || 0),
-      k = Math.max(0, c.checking || 0);
+    const s = Math.max(0, num(c.savings)),
+      r = Math.max(0, num(c.retirement)),
+      i = Math.max(0, num(c.invest)),
+      k = Math.max(0, num(c.checking));
     const tot = s + r + i + k;
     if (tot > 0) {
       return { savings: s / tot, retirement: r / tot, invest: i / tot, checking: k / tot };
@@ -110,34 +138,39 @@ export function buildPlan(state, incomeArg, opts = {}) {
     (STRATEGY_SPLIT[profile.strategy] ? profile.strategy : "balanced");
 
   const bal = balancesByType(accounts, snapshots);
-  const floor = Math.max(0, profile.checkingFloor || 0);
-  const emTarget = Math.max(0, profile.emergencyTarget || 0);
-  const matchPct = profile.employerMatch?.pct || 0;
-  const highApr = profile.highApr ?? DEFAULT_HIGH_APR;
-  const iraLimit = profile.retirementLimits?.ira ?? profile.iraLimit ?? DEFAULT_IRA_LIMIT;
+  const floor = Math.max(0, num(profile.checkingFloor));
+  const emTarget = Math.max(0, num(profile.emergencyTarget));
+  const matchPct = Math.max(0, num(profile.employerMatch?.pct));
+  const highApr = num(profile.highApr, DEFAULT_HIGH_APR);
+  // contribution caps for the plan's tax year (falls back to the latest known year)
+  const limits = limitsForYear(ym.slice(0, 4));
+  const iraLimit = num(profile.retirementLimits?.ira ?? profile.iraLimit, limits.ira);
   // an employer match signals a 401k, so that elective-deferral room is available
   // on top of the IRA cap — otherwise we'd push money to taxable far too early
-  const k401Limit = profile.retirementLimits?.k401 ?? (matchPct > 0 ? DEFAULT_401K_LIMIT : 0);
+  const k401Limit = num(profile.retirementLimits?.k401, matchPct > 0 ? limits.k401 : 0);
 
-  // YTD retirement contributions → remaining annual room (so we never over-contribute)
-  const yr = new Date().getFullYear();
+  // YTD retirement contributions → remaining annual room (so we never over-contribute).
+  // Bucket by the LOCAL calendar year via monthOf: a bare "2026-01-01" date parsed with
+  // new Date() is UTC midnight, which lands in 2025 in negative-offset timezones and
+  // would drop New-Year contributions from the YTD total (over-advising the caps).
+  const yr = ym.slice(0, 4);
   const ytdRetirement = transactions
     .filter(
       (t) =>
         t.type === "contribution" &&
         t.bucket === "retirement" &&
-        new Date(t.date).getFullYear() === yr,
+        monthOf(t.date).slice(0, 4) === yr,
     )
-    .reduce((s, t) => s + (t.amount || 0), 0);
+    .reduce((s, t) => s + num(t.amount), 0);
   const retirementRoom = Math.max(0, iraLimit + k401Limit - ytdRetirement);
 
-  const minPay = debts.reduce((s, d) => s + (d.minPayment || 0), 0);
+  const minPay = debts.reduce((s, d) => s + num(d.minPayment), 0);
   // payoff order: avalanche (highest APR, math-optimal) or snowball (smallest balance, motivational)
   const snowball = profile.debtStrategy === "snowball";
   const highDebts = debts
-    .filter((d) => (d.apr || 0) >= highApr)
-    .sort((a, b) => (snowball ? (a.balance || 0) - (b.balance || 0) : (b.apr || 0) - (a.apr || 0)));
-  const highDebtBalance = highDebts.reduce((s, d) => s + (d.balance || 0), 0);
+    .filter((d) => num(d.apr) >= highApr)
+    .sort((a, b) => (snowball ? num(a.balance) - num(b.balance) : num(b.apr) - num(a.apr)));
+  const highDebtBalance = highDebts.reduce((s, d) => s + num(d.balance), 0);
   const topDebt = highDebts[0];
 
   const floorGap = Math.max(0, floor - bal.checking);
@@ -154,7 +187,10 @@ export function buildPlan(state, incomeArg, opts = {}) {
     : 0;
 
   // reserve essential spending (bills, or learned average) before allocating
-  const billsTotal = (profile.bills || []).reduce((s, b) => s + (b.amount || 0), 0);
+  const billsTotal = (Array.isArray(profile.bills) ? profile.bills : []).reduce(
+    (s, b) => s + Math.max(0, num(b?.amount)),
+    0,
+  );
   const learned = avgMonthlySpend(transactions);
   const essentials = billsTotal > 0 ? billsTotal : learned;
   const essentialsSource = billsTotal > 0 ? "bills" : learned > 0 ? "learned" : "none";
@@ -274,8 +310,8 @@ export function buildPlan(state, incomeArg, opts = {}) {
     .reduce((a, s) => a + s.amount, 0);
 
   // pay cadence → how many paychecks land per month (drives per-paycheck amounts)
-  const srcs = profile.incomeSources || [];
-  const primary = srcs.slice().sort((a, b) => (b.typicalMonthly || 0) - (a.typicalMonthly || 0))[0];
+  const srcs = Array.isArray(profile.incomeSources) ? profile.incomeSources : [];
+  const primary = srcs.slice().sort((a, b) => num(b?.typicalMonthly) - num(a?.typicalMonthly))[0];
   const cadence = primary?.cadence && CADENCE[primary.cadence] ? primary.cadence : "monthly";
   const paychecksPerMonth = CADENCE[cadence];
 
@@ -313,6 +349,10 @@ export function buildPlan(state, incomeArg, opts = {}) {
       highApr,
       iraLimit,
       k401Limit,
+      // which tax year's caps applied — e.g. "using 2026 limits". When the plan year is
+      // beyond the known table this reports the fallback year, so the UI can flag it.
+      limitsYear: limits.year,
+      limitsNote: `using ${limits.year} limits`,
       essentials,
       essentialsSource,
     },

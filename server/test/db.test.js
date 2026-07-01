@@ -146,6 +146,38 @@ test("validateMeta accepts blob slices, rejects junk + bad tickers", () => {
   assert.ok(validateMeta({ holdings: [{ id: "h", ticker: "BAD TICKER!" }] }));
 });
 
+test("profile numeric fields are validated on both write paths (engine safety)", () => {
+  // unset/absent is fine; a real number is fine
+  assert.equal(validateMeta({ profile: { checkingFloor: 3000, emergencyTarget: null } }), null);
+  assert.equal(
+    validateMeta({
+      profile: {
+        employerMatch: { pct: 4 },
+        retirementLimits: { ira: 7500, k401: 24500 },
+        split: { savings: 0.25, retirement: 0.3, invest: 0.3, checking: 0.15 },
+        bills: [{ id: "r", name: "Rent", amount: 1200 }],
+        incomeSources: [{ id: "s", typicalMonthly: 6000 }],
+      },
+    }),
+    null,
+  );
+  // non-finite garbage in any engine-consumed field is rejected with a clear message
+  assert.ok(validateMeta({ profile: { checkingFloor: "abc" } }));
+  assert.ok(validateMeta({ profile: { emergencyTarget: {} } }));
+  assert.ok(validateMeta({ profile: { highApr: "12%" } }));
+  assert.ok(validateMeta({ profile: { employerMatch: { pct: "four" } } }));
+  assert.ok(validateMeta({ profile: { employerMatch: "4%" } }));
+  assert.ok(validateMeta({ profile: { retirementLimits: { ira: "lots" } } }));
+  assert.ok(validateMeta({ profile: { split: { savings: "x" } } }));
+  assert.ok(validateMeta({ profile: { bills: [{ id: "b", name: "B", amount: "12" }] } }));
+  assert.ok(validateMeta({ profile: { bills: "nope" } }));
+  assert.ok(validateMeta({ profile: { incomeSources: [{ id: "s", typicalMonthly: "much" }] } }));
+  // the full-state PUT path runs the same checks (putState also writes the profile)
+  assert.ok(validateState({ profile: { checkingFloor: NaN } }));
+  assert.ok(validateState({ profile: ["not", "an", "object"] }));
+  assert.equal(validateState({ profile: { checkingFloor: 100 } }), null);
+});
+
 test("validateState rejects malformed bodies", () => {
   assert.ok(validateState({ transactions: [{ id: "x", type: "bogus", amount: 1, date: "d" }] }));
   assert.ok(validateState({ accounts: [{ id: "a", type: "checking" }] })); // no name
