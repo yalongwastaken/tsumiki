@@ -66,20 +66,24 @@ format:
 lint:
 	npm run lint
 
-## backup: copy the SQLite database into ./backups (timestamped, PLAINTEXT)
+## backup: WAL-safe SQLite backup into ./backups (timestamped, PLAINTEXT)
+# uses `VACUUM INTO` (via node:sqlite — dependency-free) instead of `cp`: a plain copy
+# of a live WAL-mode DB can miss recent writes still sitting in the -wal file
 backup:
 	@mkdir -p backups
-	cp server/data/tsumiki.db backups/tsumiki-$$(date +%F).db
+	node --experimental-sqlite server/scripts/backup-db.mjs server/data/tsumiki.db backups/tsumiki-$$(date +%F).db
 	@echo "backed up → backups/tsumiki-$$(date +%F).db"
 	@echo "note: this copy is unencrypted — use 'make backup-enc' for an encrypted one"
 
-## backup-enc: encrypted DB backup (set TSUMIKI_BACKUP_PASSPHRASE; requires gpg)
+## backup-enc: encrypted WAL-safe DB backup (set TSUMIKI_BACKUP_PASSPHRASE; requires gpg)
 backup-enc:
 	@command -v gpg >/dev/null || { echo "gpg not found — install gnupg (or use 'make backup' for a plaintext copy)"; exit 1; }
 	@[ -n "$$TSUMIKI_BACKUP_PASSPHRASE" ] || { echo "set TSUMIKI_BACKUP_PASSPHRASE=... to encrypt the backup"; exit 1; }
 	@mkdir -p backups
+	@node --experimental-sqlite server/scripts/backup-db.mjs server/data/tsumiki.db backups/.tsumiki-enc-tmp.db
 	@gpg --batch --yes --pinentry-mode loopback --passphrase "$$TSUMIKI_BACKUP_PASSPHRASE" \
-		--cipher-algo AES256 -c -o backups/tsumiki-$$(date +%F).db.gpg server/data/tsumiki.db
+		--cipher-algo AES256 -c -o backups/tsumiki-$$(date +%F).db.gpg backups/.tsumiki-enc-tmp.db
+	@rm -f backups/.tsumiki-enc-tmp.db
 	@echo "encrypted backup → backups/tsumiki-$$(date +%F).db.gpg"
 	@echo "restore: gpg -d -o restored.db backups/tsumiki-YYYY-MM-DD.db.gpg"
 

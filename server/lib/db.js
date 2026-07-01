@@ -4,10 +4,42 @@
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { mkdirSync, writeFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, readdirSync, rmSync } from "node:fs";
+import { resolveDbLocation, relocateDbFiles } from "./dbpath.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = process.env.TSUMIKI_DB || join(__dirname, "data", "tsumiki.db");
+// the documented default (README/SECURITY/INSTRUCTIONS + Makefile backups)
+const DEFAULT_DB_PATH = join(__dirname, "..", "data", "tsumiki.db");
+// where the lib/ refactor accidentally put it (db.js's old module-relative default)
+const LEGACY_DB_PATH = join(__dirname, "data", "tsumiki.db");
+
+const loc = resolveDbLocation({
+  envPath: process.env.TSUMIKI_DB,
+  targetPath: DEFAULT_DB_PATH,
+  legacyPath: LEGACY_DB_PATH,
+  targetExists: existsSync(DEFAULT_DB_PATH),
+  legacyExists: existsSync(LEGACY_DB_PATH),
+});
+if (loc.action === "relocate") {
+  // one-time heal: the live DB is stranded at the legacy lib/ path — move it (and its
+  // -wal/-shm) back to the documented path before opening, so backups/docs are right again
+  const moved = relocateDbFiles(LEGACY_DB_PATH, DEFAULT_DB_PATH);
+  console.log(
+    `db: relocated ${LEGACY_DB_PATH} → ${DEFAULT_DB_PATH} (moved: ${moved.join(", ")}) — ` +
+      "the lib/ refactor had silently changed the default DB path",
+  );
+} else if (loc.action === "conflict") {
+  console.warn(
+    "!".repeat(72) +
+      `\ndb: TWO databases exist:\n  documented: ${DEFAULT_DB_PATH}\n  legacy:     ${LEGACY_DB_PATH}\n` +
+      "Refusing to guess which one is yours — continuing with the LEGACY file (the one\n" +
+      "that has been live since the lib/ refactor). Please resolve manually: verify which\n" +
+      "file holds your data, move it to the documented path, and archive the other.\n" +
+      "Neither file has been touched.\n" +
+      "!".repeat(72),
+  );
+}
+const DB_PATH = loc.path;
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
@@ -119,6 +151,16 @@ function runMigrations() {
   }
 }
 runMigrations();
+
+// boot log: resolved path + rev + row counts — makes a wrong/empty DB path obvious
+// immediately (the lib/ refactor bug would have surfaced on the first boot log)
+{
+  const count = (t) => db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n;
+  console.log(
+    `db: ${DB_PATH} (rev ${getRev()}, ${count("transactions")} transactions, ` +
+      `${count("accounts")} accounts)`,
+  );
+}
 
 // ── defaults ────────────────────────────────────────────────────────────────
 const DEFAULT_PROFILE = {

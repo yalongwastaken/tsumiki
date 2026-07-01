@@ -217,7 +217,9 @@ server is live — it deletes the built app.)
 
 ## 7. Back up your data
 
-The whole database is one file, so a copy is a complete backup:
+The whole database is one file (`server/data/tsumiki.db`), and `make backup` writes a
+consistent snapshot of it — safe to run while the server is up (it uses SQLite's
+`VACUUM INTO`, so recent writes still sitting in the `-wal` journal are included):
 
 ```bash
 make backup       # writes backups/tsumiki-YYYY-MM-DD.db  (PLAINTEXT)
@@ -237,8 +239,11 @@ Automate it nightly with cron on the mini PC (`crontab -e`):
 0 2 * * *  cd /home/youruser/tsumiki && make backup
 ```
 
-To restore: stop the server, then copy a backup over `server/data/tsumiki.db` (for an
-encrypted one, `gpg -d -o server/data/tsumiki.db backups/tsumiki-YYYY-MM-DD.db.gpg`).
+To restore: stop the server, **delete any stale `server/data/tsumiki.db-wal` and
+`server/data/tsumiki.db-shm` files** (leftover journal files from the old database
+would not match the restored one), then copy a backup over `server/data/tsumiki.db`
+(for an encrypted one,
+`gpg -d -o server/data/tsumiki.db backups/tsumiki-YYYY-MM-DD.db.gpg`).
 
 **Starting over:** to wipe everything and reset to a clean slate, go to
 **Settings → Danger zone → Delete all my data** (export first if you might want it

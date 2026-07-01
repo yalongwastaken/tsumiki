@@ -4,6 +4,27 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Database path restored to the documented `server/data/tsumiki.db`.** The v2.4.0
+  `lib/` refactor silently moved the default DB to `server/lib/data/` (the path was
+  module-relative), so `make backup` and the docs pointed at a dead file. On startup the
+  server now relocates a database stranded at the old `lib/data/` path (including its
+  `-wal`/`-shm` journal files) back to the documented location; if files exist at **both**
+  paths it refuses to guess, keeps the live one, and logs a loud warning — nothing is ever
+  discarded silently.
+- **`make backup` / `make backup-enc` are now WAL-safe.** They snapshot via SQLite's
+  `VACUUM INTO` (dependency-free, through `node:sqlite`) instead of `cp`, so recent writes
+  still in the `-wal` journal can no longer be missing or torn in a backup taken while the
+  server runs. Restore instructions now cover stale `-wal`/`-shm` files.
+
+### Added
+
+- Boot log of the resolved DB path, state rev, and transaction/account counts — a wrong
+  or empty database path is now obvious on the first startup line.
+
 ## [2.4.0] — 2026-06-29
 
 ### Added

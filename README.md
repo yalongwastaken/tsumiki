@@ -148,7 +148,9 @@ with a theme color that follows light/dark mode.
 
 ## Back up your data
 
-The whole database is one file, so a copy is a full backup:
+The whole database is one file (`server/data/tsumiki.db`), and `make backup` writes a
+consistent snapshot of it — safe to run while the server is up (it uses SQLite's
+`VACUUM INTO`, so writes still sitting in the `-wal` journal are included):
 
 ```bash
 make backup       # → backups/tsumiki-YYYY-MM-DD.db   (PLAINTEXT)

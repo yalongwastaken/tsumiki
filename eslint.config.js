@@ -60,7 +60,7 @@ export default [
 
   // server + config files — node globals
   {
-    files: ["server/**/*.js", "client/*.js", "*.js"],
+    files: ["server/**/*.{js,mjs}", "client/*.js", "*.js"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "module",
