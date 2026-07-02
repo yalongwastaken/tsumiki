@@ -15,9 +15,9 @@ import StocksSankey from "../../src/charts/StocksSankey.jsx";
 import SankeyFlow from "../../src/charts/Sankey.jsx";
 import Money, { BlurAmounts } from "../../src/components/Money.jsx";
 import AccountsSection from "../../src/setup/AccountsSection.jsx";
-import Ledger from "../../src/components/Ledger.jsx";
+import Ledger, { editPrefill } from "../../src/components/Ledger.jsx";
 import StreakPanel from "../../src/components/StreakPanel.jsx";
-import { netWorthFromSnapshots } from "../../src/lib/core/selectors.js";
+import { netWorthFromSnapshots, dayKey, localNoonIso } from "../../src/lib/core/selectors.js";
 
 // build a streak prop shape (cells unused by these assertions, kept minimal)
 const mkStreak = (over = {}) => ({
@@ -178,6 +178,26 @@ test("Ledger shows an edit button per row when onUpdate is provided", () => {
   );
   assert.match(out, /aria-label="Edit Food"/); // per-row edit affordance
   assert.match(out, /id="tsumiki-ledger-cats"/); // category suggestions always present
+});
+
+test("Ledger edit pre-fills the LOCAL day of a UTC ISO stamp (round-trips on save)", () => {
+  // transactions are stamped `new Date().toISOString()` — 04:30Z is late evening the
+  // PREVIOUS local day west of UTC. The edit form must show the day the user logged
+  // it (slicing the UTC stamp pre-filled tomorrow, so saving an amount-only edit
+  // silently moved the entry a day).
+  const t = {
+    id: "s1",
+    type: "spending",
+    amount: 12,
+    date: "2026-06-12T04:30:00.000Z",
+    cat: "Food",
+  };
+  const form = editPrefill(t);
+  assert.match(form.date, /^\d{4}-\d{2}-\d{2}$/); // shaped for the <input type="date">
+  assert.equal(form.date, dayKey(t.date)); // the local day it was logged, in every TZ
+  // round-trip: saveEdit re-stamps via localNoonIso — the entry stays on its local day
+  assert.equal(dayKey(localNoonIso(form.date)), dayKey(t.date));
+  assert.equal(form.amount, "12");
 });
 
 test("Ledger renders a transfer as 'From → To' with no +/− sign", () => {

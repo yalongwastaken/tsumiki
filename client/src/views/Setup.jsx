@@ -3,6 +3,7 @@ import { useState, useMemo, useRef } from "react";
 import { ChevronDown } from "lucide-react";
 import { importData, exportUrl } from "../lib/core/api.js";
 import { transactionsToCsv } from "../lib/core/csv.js";
+import { dayKey } from "../lib/core/selectors.js";
 import Money from "../components/Money.jsx";
 import { card, label } from "../setup/ui.jsx";
 import { INVESTMENT_TYPES, holdingsValueByAccount } from "../lib/finance/portfolio.js";
@@ -135,7 +136,7 @@ export default function Setup({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `tsumiki-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `tsumiki-transactions-${dayKey(new Date())}.csv`; // local day, not the UTC slice
     a.click();
     URL.revokeObjectURL(url);
   }

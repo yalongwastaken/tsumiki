@@ -54,6 +54,12 @@ All notable changes to Tsumiki are documented here. The format follows
   advanced by fixed 24-hour increments, so two iterations resolved to the same local
   date after DST fall-back and that day's bills and payday applied twice; it now steps
   by calendar day. The average-daily-spend window boundary uses calendar math too.
+- **Editing a transaction no longer silently shifts it to the next day.** The ledger's
+  edit form pre-filled the first ten characters of the stored UTC ISO stamp, which is
+  tomorrow's date for a west-of-UTC evening entry — saving even an amount-only edit
+  re-stamped the transaction a day late (moving its calendar cell, month totals,
+  budgets, and streak day). The form now pre-fills the local calendar day the entry
+  was logged. The CSV export filename likewise uses the local date.
 - **Rate limits no longer flip holdings to "manual".** Outbound feed responses now carry
   their HTTP status, so a 429/5xx counts as a provider failure (sync status `error`)
   instead of a per-symbol miss — previously three rate-limited syncs tripped the circuit

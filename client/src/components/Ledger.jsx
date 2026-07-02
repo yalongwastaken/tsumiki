@@ -5,7 +5,22 @@ import Money from "./Money.jsx";
 import { X, Check, Pencil } from "lucide-react";
 import { bucketLabel } from "../lib/plan/buckets.js";
 import { allCategories } from "../lib/core/categories.js";
-import { localNoonIso } from "../lib/core/selectors.js";
+import { localNoonIso, dayKey } from "../lib/core/selectors.js";
+
+/**
+ * Seed values for the per-row edit form. Exported for tests. The date must be the
+ * LOCAL calendar day the entry was logged — slicing the stored UTC ISO stamp
+ * (`String(t.date).slice(0, 10)`) pre-fills TOMORROW for a west-of-UTC evening
+ * entry, so saving even an amount-only edit silently moved the entry a day.
+ */
+export function editPrefill(t) {
+  return {
+    amount: String(t.amount),
+    date: dayKey(t.date), // local YYYY-MM-DD for the date input
+    note: t.note || "",
+    cat: t.cat || "",
+  };
+}
 
 /** Read-only ledger with filter/search/delete + bulk recategorize of spending. */
 export default function Ledger({ transactions, sources, accounts = [], onDelete, onUpdate }) {
@@ -18,12 +33,7 @@ export default function Ledger({ transactions, sources, accounts = [], onDelete,
 
   function startEdit(t) {
     setEditId(t.id);
-    setEditForm({
-      amount: String(t.amount),
-      date: String(t.date).slice(0, 10), // YYYY-MM-DD for the date input
-      note: t.note || "",
-      cat: t.cat || "",
-    });
+    setEditForm(editPrefill(t));
   }
   function saveEdit(t) {
     const amount = Number(editForm.amount);
