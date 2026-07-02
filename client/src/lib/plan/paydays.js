@@ -34,15 +34,25 @@ export function nextPaydays(anchorISO, cadence, count = 4, from = new Date()) {
   const out = [];
 
   if (cadence === "weekly" || cadence === "biweekly") {
-    const stride = (cadence === "weekly" ? 7 : 14) * DAY;
-    let t = anchor.getTime();
-    if (t < today.getTime()) {
-      // jump forward to the first occurrence on/after today
-      t += Math.ceil((today.getTime() - t) / stride) * stride;
+    // step with CALENDAR math (setDate re-anchors to local midnight), never fixed
+    // 7/14-day millisecond strides — a ms stride from a local-midnight anchor drifts
+    // 1h at DST fall-back, rendering every payday Nov–Mar a day early in US zones.
+    const stride = cadence === "weekly" ? 7 : 14;
+    const d = new Date(anchor);
+    if (d < today) {
+      // fast-forward near today with a ms-based ESTIMATE of whole strides (floor, so
+      // DST hours can only make it undershoot), then correct by calendar steps.
+      const jumps = Math.floor((today.getTime() - d.getTime()) / (stride * DAY));
+      if (jumps > 0) {
+        d.setDate(d.getDate() + jumps * stride);
+      }
+      while (d < today) {
+        d.setDate(d.getDate() + stride);
+      }
     }
     while (out.length < count) {
-      out.push(new Date(t));
-      t += stride;
+      out.push(new Date(d));
+      d.setDate(d.getDate() + stride);
     }
     return out;
   }

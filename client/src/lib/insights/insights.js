@@ -30,7 +30,10 @@ export function avgDailySpend(transactions = [], days = 60, today = new Date()) 
   if (days <= 0) {
     return 0;
   }
-  const cutoff = startOfDay(today).getTime() - days * DAY;
+  // calendar math, not `- days * DAY`: a fixed-ms window boundary drifts an hour
+  // across DST and can drop/keep a transaction on the edge day
+  const t0 = startOfDay(today);
+  const cutoff = new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() - days).getTime();
   let total = 0;
   for (const t of transactions) {
     if (
@@ -92,7 +95,9 @@ export function cashflowForecast(state = {}, { days = 45, today = new Date() } =
   let dipDate = null;
   const series = [{ date: new Date(t0), balance: Math.round(bal) }];
   for (let i = 1; i <= days; i++) {
-    const day = new Date(t0.getTime() + i * DAY);
+    // calendar-day step: `t0.getTime() + i * DAY` resolves two iterations to the
+    // same local date across DST fall-back, double-applying that day's bills/payday
+    const day = new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() + i);
     const key = localKey(day);
     bal += delta[key] || 0;
     // each bill's resolved due-day for this month (handles last day, last business

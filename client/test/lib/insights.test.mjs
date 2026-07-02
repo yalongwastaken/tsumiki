@@ -111,6 +111,29 @@ test("avgDailySpend counts a window-edge bare date the same in every timezone", 
   assert.equal(avgDailySpend(tx, 60, localToday), 1); // 60 / 60, included
 });
 
+test("cashflowForecast steps calendar days across DST fall-back (no double-applied day)", () => {
+  // Nov 1 2026 is US fall-back: a fixed `t0 + i*DAY` step resolves two iterations
+  // to the same local date, applying that day's bill AND payday twice
+  const today = new Date(2026, 9, 30); // Oct 30, local
+  const state = {
+    accounts: [{ id: "c", type: "checking" }],
+    snapshots: [snap("c", "2026-10-01", 5000)],
+    profile: {
+      bills: [{ id: "r", name: "Rent", amount: 1500, dayOfMonth: 1 }],
+      incomeSources: [{ id: "x", typicalMonthly: 3000, cadence: "monthly", payday: "2026-11-01" }],
+    },
+    transactions: [], // burn = 0, so only the Nov 1 bill + payday move the balance
+  };
+  const f = cashflowForecast(state, { days: 5, today });
+  // every series point is a distinct local calendar day
+  const keys = f.series.map(
+    (p) => `${p.date.getFullYear()}-${p.date.getMonth()}-${p.date.getDate()}`,
+  );
+  assert.equal(new Set(keys).size, keys.length, "series must not repeat a local day");
+  // 5000 + 3000 payday − 1500 rent, each applied exactly once
+  assert.equal(f.series.at(-1).balance, 6500);
+});
+
 test("cashflowForecast: a big balance with low spend never dips", () => {
   const state = {
     accounts: [{ id: "c", type: "checking" }],

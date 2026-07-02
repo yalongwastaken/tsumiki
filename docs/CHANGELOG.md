@@ -44,6 +44,16 @@ All notable changes to Tsumiki are documented here. The format follows
 
 ### Fixed
 
+- **Weekly/biweekly paydays no longer drift a day early after DST fall-back.** Payday
+  projection stepped by fixed 7/14-day millisecond strides from a local-midnight anchor,
+  so the 25-hour fall-back day shifted every subsequent payday Nov–Mar to the previous
+  weekday in US timezones — wrong calendar dots, payday reminders, "Upcoming paydays",
+  one-tap paycheck dates, and forecast inflow days. Stepping is now calendar math that
+  re-anchors to local midnight (the fast-forward past old anchors included).
+- **The cashflow forecast no longer double-counts the fall-back day.** Its day loop
+  advanced by fixed 24-hour increments, so two iterations resolved to the same local
+  date after DST fall-back and that day's bills and payday applied twice; it now steps
+  by calendar day. The average-daily-spend window boundary uses calendar math too.
 - **Rate limits no longer flip holdings to "manual".** Outbound feed responses now carry
   their HTTP status, so a 429/5xx counts as a provider failure (sync status `error`)
   instead of a per-symbol miss — previously three rate-limited syncs tripped the circuit
