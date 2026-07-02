@@ -100,12 +100,32 @@ export function avgMonthlyIncome(transactions = []) {
   return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
 }
 
-/** Average monthly logged spending (fallback "essentials" estimate when no bills). */
-export function avgMonthlySpend(transactions = []) {
-  const sp = transactions.filter((t) => t.type === "spending" && t.amount > 0);
-  if (!sp.length) {
+/**
+ * Average monthly logged spending (fallback "essentials" estimate when no bills).
+ * Excludes the current — still partial — month once at least one complete month of
+ * spending exists (the same cutoff `typicalIncome` uses): dividing three days of
+ * spend by a whole month deflates the average, making the FIRE number too low,
+ * emergency-fund suggestions too small, and runway look longer than it is. When the
+ * current month is the ONLY data it counts as-is (a rough figure beats claiming $0).
+ * @param {Array} transactions
+ * @param {Date|string} [today] - "now" for the current-month cutoff (the engine
+ *   passes its asOf so a plan-for-a-date stays consistent)
+ */
+export function avgMonthlySpend(transactions = [], today = new Date()) {
+  const ym = monthOf(today);
+  const byMonth = {};
+  for (const t of transactions) {
+    if (t.type === "spending" && t.amount > 0) {
+      const m = monthOf(t.date);
+      if (m) {
+        byMonth[m] = (byMonth[m] || 0) + t.amount;
+      }
+    }
+  }
+  const complete = Object.keys(byMonth).filter((m) => m < ym);
+  const months = complete.length ? complete : Object.keys(byMonth);
+  if (!months.length) {
     return 0;
   }
-  const months = new Set(sp.map((t) => monthOf(t.date)).filter(Boolean));
-  return sp.reduce((s, t) => s + t.amount, 0) / Math.max(1, months.size);
+  return months.reduce((s, m) => s + byMonth[m], 0) / months.length;
 }

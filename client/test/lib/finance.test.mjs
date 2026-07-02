@@ -1,7 +1,31 @@
 // finance.test.mjs — shared income/spend core (client + server).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { nonTaxableMonthly, taxableShare, monthOf } from "../../src/lib/finance/finance.js";
+import {
+  nonTaxableMonthly,
+  taxableShare,
+  monthOf,
+  avgMonthlySpend,
+} from "../../src/lib/finance/finance.js";
+
+test("avgMonthlySpend excludes the current partial month once a complete month exists", () => {
+  const today = new Date(2026, 5, 3); // June 3, local — June is 3 days old
+  const tx = [
+    { type: "spending", amount: 1400, date: "2026-04-15" },
+    { type: "spending", amount: 1600, date: "2026-05-10" },
+    { type: "spending", amount: 120, date: "2026-06-02" }, // partial June, must not deflate
+    { type: "income", amount: 9999, date: "2026-06-02" }, // ignored
+  ];
+  // (1400 + 1600) / 2 — not (1400 + 1600 + 120) / 3 ≈ 1040
+  assert.equal(avgMonthlySpend(tx, today), 1500);
+});
+
+test("avgMonthlySpend counts the current month as-is when it's the only data", () => {
+  const today = new Date(2026, 5, 3);
+  const tx = [{ type: "spending", amount: 300, date: "2026-06-02" }];
+  assert.equal(avgMonthlySpend(tx, today), 300); // rough figure beats claiming $0
+  assert.equal(avgMonthlySpend([], today), 0);
+});
 
 test("nonTaxableMonthly sums only sources flagged non-taxable", () => {
   const profile = {

@@ -1,5 +1,5 @@
 // selectors.js — shared pure derivations over the ledger + account snapshots.
-import { monthOf } from "../finance/finance.js";
+import { monthOf, avgMonthlySpend } from "../finance/finance.js";
 import { uid } from "./uid.js";
 
 /**
@@ -141,16 +141,12 @@ export function avgMonthlyContribution(transactions = []) {
 }
 
 /**
- * Average monthly spending, annualized (×12).
+ * Average monthly spending, annualized (×12). Delegates to avgMonthlySpend so the
+ * FIRE number, emergency-fund suggestions, and the plan's learned essentials all
+ * share one definition — including its exclude-the-current-partial-month cutoff
+ * (with the fall-back to counting the current month when it's the only data).
  * @returns {number} 0 when no spending has been logged
  */
-export function annualSpend(transactions = []) {
-  const spending = transactions.filter((tx) => tx.type === "spending" && tx.amount > 0);
-  if (spending.length === 0) {
-    return 0;
-  }
-
-  const months = new Set(spending.map((tx) => monthKey(tx.date)).filter(Boolean));
-  const total = spending.reduce((sum, tx) => sum + tx.amount, 0);
-  return (total / Math.max(1, months.size)) * 12;
+export function annualSpend(transactions = [], today = new Date()) {
+  return avgMonthlySpend(transactions, today) * 12;
 }

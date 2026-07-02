@@ -197,7 +197,8 @@ export function buildPlan(state, incomeArg, opts = {}) {
     (s, b) => s + Math.max(0, num(b?.amount)),
     0,
   );
-  const learned = avgMonthlySpend(transactions);
+  // pass asOf so the current-partial-month cutoff tracks the date the plan is FOR
+  const learned = avgMonthlySpend(transactions, asOf);
   const essentials = billsTotal > 0 ? billsTotal : learned;
   const essentialsSource = billsTotal > 0 ? "bills" : learned > 0 ? "learned" : "none";
 

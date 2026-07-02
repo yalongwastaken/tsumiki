@@ -54,6 +54,14 @@ All notable changes to Tsumiki are documented here. The format follows
   advanced by fixed 24-hour increments, so two iterations resolved to the same local
   date after DST fall-back and that day's bills and payday applied twice; it now steps
   by calendar day. The average-daily-spend window boundary uses calendar math too.
+- **Average monthly spend no longer counts the current partial month as a full month.**
+  Three days of spending on the 3rd divided as a whole "month", deflating the average —
+  FIRE number too low (progress overstated), emergency-fund and checking-floor
+  suggestions too small, months-of-runway overstated, and the plan's learned essentials
+  underestimated. `annualSpend` / `avgMonthlySpend` now share one definition that
+  excludes the current month once a complete month of data exists (the same cutoff
+  `typicalIncome` uses) and fall back to counting the lone current month as-is when
+  it's the only data. The plan engine applies the cutoff relative to its `asOf` date.
 - **Editing a transaction no longer silently shifts it to the next day.** The ledger's
   edit form pre-filled the first ten characters of the stored UTC ISO stamp, which is
   tomorrow's date for a west-of-UTC evening entry — saving even an amount-only edit

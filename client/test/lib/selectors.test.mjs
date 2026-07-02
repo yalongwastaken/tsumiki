@@ -109,3 +109,19 @@ test("annualSpend averages monthly spend × 12", () => {
   assert.equal(annualSpend(tx), 18000);
   assert.equal(annualSpend([]), 0);
 });
+
+test("annualSpend ignores the current partial month (FIRE number / suggestions)", () => {
+  const today = new Date(2026, 5, 3); // June 3, local
+  const tx = [
+    { type: "spending", amount: 1000, date: "2026-04-10" },
+    { type: "spending", amount: 2000, date: "2026-05-10" },
+    { type: "spending", amount: 90, date: "2026-06-02" }, // 3 days of June
+  ];
+  // complete months only: (1000 + 2000) / 2 × 12 — the 90 must not divide as a month
+  assert.equal(annualSpend(tx, today), 18000);
+});
+
+test("annualSpend falls back to the lone current month rather than 0", () => {
+  const today = new Date(2026, 5, 3);
+  assert.equal(annualSpend([{ type: "spending", amount: 250, date: "2026-06-02" }], today), 3000);
+});
