@@ -225,6 +225,9 @@ client can rebase and retry.
 | POST   | `/api/import`                       | replace the model from an exported JSON (snapshots current data first)      |
 | POST   | `/api/migrate`                      | import old `window.storage` JSON (refuses to overwrite unless `force:true`) |
 | POST   | `/api/reset`                        | wipe everything (snapshots current data to a local file first)              |
+| GET    | `/api/push/key`                     | public VAPID key for enabling reminder notifications (+ device count)       |
+| POST   | `/api/push/subscribe`               | register this device for the daily reminder push                            |
+| POST   | `/api/push/unsubscribe`             | remove this device's push subscription                                      |
 | GET    | `/api/auth/status`                  | app-lock status (enabled? authenticated?)                                   |
 | POST   | `/api/auth/login`                   | sign in when the app lock is enabled (sets a 7-day session cookie)          |
 | POST   | `/api/auth/logout`                  | clear the session                                                           |
