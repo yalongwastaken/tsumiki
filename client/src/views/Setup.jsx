@@ -14,6 +14,7 @@ import DebtsSection from "../setup/DebtsSection.jsx";
 import BudgetsSection from "../setup/BudgetsSection.jsx";
 import ProfileSection from "../setup/ProfileSection.jsx";
 import AppLock from "../setup/AppLock.jsx";
+import Notifications from "../setup/Notifications.jsx";
 import CsvImport from "../components/CsvImport.jsx";
 
 /** Collapsible card: title + one-line summary collapsed, full form when open. */
@@ -330,6 +331,9 @@ export default function Setup({
               Shown on Home; turned-off ones are hidden.
             </div>
           </div>
+
+          {/* Daily reminder push (per device, opt-in) */}
+          <Notifications />
 
           {/* Category budgets (envelope caps) */}
           <BudgetsSection data={data} onSave={onSave} />

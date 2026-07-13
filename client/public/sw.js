@@ -5,6 +5,39 @@ const CACHE = "tsumiki-shell-v1";
 
 self.addEventListener("install", () => self.skipWaiting());
 
+// ── web-push reminders (opt-in from Settings → Notifications) ───────────────────
+// payloads are generic by design (counts only — no names or amounts); the app shows
+// the real details when opened
+self.addEventListener("push", (e) => {
+  let data = {};
+  try {
+    data = e.data?.json() || {};
+  } catch {
+    /* non-JSON payload — show the generic fallback */
+  }
+  e.waitUntil(
+    self.registration.showNotification(data.title || "Tsumiki", {
+      body: data.body || "You have reminders today — open the app for details.",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      tag: "tsumiki-daily", // a newer digest replaces an unread older one
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  e.waitUntil(
+    (async () => {
+      const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      if (wins.length) {
+        return wins[0].focus();
+      }
+      return self.clients.openWindow("/");
+    })(),
+  );
+});
+
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     (async () => {

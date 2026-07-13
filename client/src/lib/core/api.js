@@ -73,6 +73,11 @@ export const resetAll = () => call("POST", "/api/reset");
 export const importData = (state) => call("POST", "/api/import", state);
 export const exportUrl = () => (BASE || "") + "/api/export";
 
+// ── web-push reminders (opt-in per device) ──────────────────────────────────────
+export const getPushKey = () => call("GET", "/api/push/key");
+export const pushSubscribe = (subscription) => call("POST", "/api/push/subscribe", subscription);
+export const pushUnsubscribe = (endpoint) => call("POST", "/api/push/unsubscribe", { endpoint });
+
 // ── app lock (auth) ─────────────────────────────────────────────────────────────
 export const authStatus = () => call("GET", "/api/auth/status");
 export const authLogin = (password) => call("POST", "/api/auth/login", { password });

@@ -28,6 +28,13 @@ import { buildPlan, typicalIncome } from "./lib/engine.js";
 import { getNews, scheduleNews } from "./lib/news.js";
 import { getPrices, refreshPrices, schedulePrices } from "./lib/prices.js";
 import { authGate, authStatus, authLogin, authLogout, authSet } from "./lib/auth.js";
+import {
+  vapidKeys,
+  addSubscription,
+  removeSubscription,
+  subscriptionCount,
+  schedulePush,
+} from "./lib/push.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -229,6 +236,26 @@ app.get("/api/plan", (req, res) => {
   res.json(buildPlan(state, income, { strategy: req.query.strategy, windfall, asOf }));
 });
 
+// ── web-push reminders (opt-in per device from Settings → Notifications) ──────
+// the public VAPID key the browser needs to subscribe (+ current device count)
+app.get("/api/push/key", (_req, res) =>
+  res.json({ key: vapidKeys().publicKey, devices: subscriptionCount() }),
+);
+app.post("/api/push/subscribe", (req, res) => {
+  const out = addSubscription(req.body || {});
+  if (out.error) {
+    return res.status(400).json({ error: out.error });
+  }
+  res.json(out);
+});
+app.post("/api/push/unsubscribe", (req, res) => {
+  const endpoint = req.body?.endpoint;
+  if (!endpoint || typeof endpoint !== "string") {
+    return res.status(400).json({ error: "endpoint required" });
+  }
+  res.json(removeSubscription(endpoint));
+});
+
 // opt-in money-news headlines (off unless TSUMIKI_NEWS_FEED is set)
 app.get(
   "/api/news",
@@ -348,6 +375,7 @@ if (isMain) {
   scheduleNews(); // no-op unless TSUMIKI_NEWS_FEED is configured
   schedulePrices(); // no-op unless TSUMIKI_PRICES is enabled
   scheduleBackup(); // no-op unless TSUMIKI_AUTO_BACKUP is enabled
+  schedulePush(); // sends nothing unless a device subscribed in Settings
 }
 
 export { app };

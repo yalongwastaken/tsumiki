@@ -131,6 +131,15 @@ where it could be sniffed. Behind a TLS-terminating proxy (e.g. `tailscale serve
 broke)? Open the app from the mini-PC itself at `http://localhost:4000` to sign in and
 change or remove the password.
 
+## Daily reminder notifications (optional)
+
+In **Settings → Notifications** each device can opt into one morning push on days a
+bill is due or a payday lands. The payload is deliberately generic — counts only,
+never names or amounts — because push messages transit the browser vendor's push
+service; the real details stay in the app. Requires a secure origin (your Tailscale
+HTTPS name or `localhost`) and the installed PWA. No device subscribed → the server
+sends nothing at all.
+
 ## Reach it from your phone, securely (Tailscale)
 
 1. Install Tailscale on the mini PC and your phone; sign into the same tailnet.

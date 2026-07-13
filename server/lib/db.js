@@ -92,6 +92,29 @@ export function setThrottle(state) {
   setMeta("loginThrottle", state);
 }
 
+// ── web-push storage (device-level, survives resetAll like the auth record) ────
+/** VAPID keypair { publicKey, privateKey } or null until first generated. */
+export function getVapid() {
+  return getMeta("vapid", null);
+}
+export function setVapid(keys) {
+  setMeta("vapid", keys);
+}
+/** Push subscriptions [{endpoint, keys:{p256dh, auth}}] — one per subscribed device. */
+export function getPushSubs() {
+  return getMeta("pushSubs", []);
+}
+export function setPushSubs(subs) {
+  setMeta("pushSubs", subs);
+}
+/** Push scheduler state { lastSentDay: "YYYY-MM-DD" } — one digest per day. */
+export function getPushState() {
+  return getMeta("pushState", { lastSentDay: "" });
+}
+export function setPushState(state) {
+  setMeta("pushState", state);
+}
+
 /** App-lock config { salt, hash, secret } or null when no password is set. Stored
  * outside the keys resetAll() clears, so a data reset doesn't unlock the app. */
 export function getAuth() {
