@@ -15,6 +15,24 @@ self.addEventListener("activate", (e) => {
   );
 });
 
+// drop cached /assets/ entries the current index.html doesn't reference — hashed
+// bundles are immutable, so anything unreferenced belongs to an old deploy
+async function pruneStaleAssets(res) {
+  try {
+    const html = await res.text();
+    const referenced = new Set(Array.from(html.matchAll(/\/assets\/[^"')\s]+/g), (m) => m[0]));
+    const c = await caches.open(CACHE);
+    for (const key of await c.keys()) {
+      const path = new URL(key.url).pathname;
+      if (path.startsWith("/assets/") && !referenced.has(path)) {
+        await c.delete(key);
+      }
+    }
+  } catch {
+    // best-effort housekeeping — never let it break a navigation
+  }
+}
+
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") {
@@ -27,14 +45,20 @@ self.addEventListener("fetch", (e) => {
   }
 
   // navigations: network-first (always get the freshest HTML when online), fall
-  // back to the cached shell when offline.
+  // back to the cached shell when offline. Only cache a 2xx shell — a transient
+  // 502 must not become the permanent offline fallback (AUDIT L11) — and prune
+  // hashed assets the fresh HTML no longer references, so old deploys' bundles
+  // don't accumulate in the cache forever (AUDIT M11).
   if (req.mode === "navigate") {
     e.respondWith(
       (async () => {
         try {
           const res = await fetch(req);
-          const c = await caches.open(CACHE);
-          c.put("/index.html", res.clone());
+          if (res.ok) {
+            const c = await caches.open(CACHE);
+            await c.put("/index.html", res.clone());
+            pruneStaleAssets(res.clone()); // fire-and-forget
+          }
           return res;
         } catch {
           const c = await caches.open(CACHE);

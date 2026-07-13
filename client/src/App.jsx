@@ -12,6 +12,7 @@ import {
   authStatus,
   setOnLocked,
 } from "./lib/core/api.js";
+import { createPersistence } from "./lib/core/persist.js";
 import { fmt } from "./lib/core/format.js";
 import { typicalIncome } from "./lib/finance/income.js";
 import {
@@ -105,21 +106,38 @@ export default function App() {
   const [prices, setPrices] = useState(null); // opt-in synced stock prices (null until fetched)
   const [locked, setLocked] = useState(false); // app lock engaged + this device unauthed
   const [authSecure, setAuthSecure] = useState(true); // served over a secure origin?
-  const revRef = useRef(0); // last server rev (optimistic concurrency)
-  const saveChain = useRef(Promise.resolve()); // serialize writes so rapid saves can't self-conflict
-  // synchronous mirror of the latest committed state. Every write rebases onto this (not
-  // the render closure), so a save queued behind another — or fired from an effect with
-  // intentionally-narrow deps (e.g. the auto price-sync reconcile) — can't persist a stale
-  // full-state snapshot that clobbers a concurrent edit.
-  const dataRef = useRef(EMPTY);
+
+  const flashToast = (msg, ms) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), ms);
+  };
+  // persistence store: optimistic writes + serialized rev-checked save chain + 409
+  // rebase/re-sync — extracted to lib/core/persist.js so it's pure and unit-tested.
+  // Its synchronous mirror (store.snapshot()) is what every write rebases onto, so a
+  // save queued behind another — or fired from an effect with intentionally-narrow
+  // deps (e.g. the auto price-sync reconcile) — can't persist a stale snapshot.
+  const storeRef = useRef(null);
+  if (!storeRef.current) {
+    storeRef.current = createPersistence({
+      api: { putState, patchState, addTransaction, getState },
+      empty: EMPTY,
+      onChange: setData,
+      onSaved: () => flashToast("Saved", 1200),
+      onResync: ({ conflict, message }) => {
+        setError(conflict ? "" : message);
+        flashToast(conflict ? "Reloaded — changed elsewhere" : "Couldn't save — reloaded", 1800);
+      },
+      onError: (message) => setError(message),
+    });
+  }
+  const store = storeRef.current;
+  const { save, saveMeta } = store;
 
   // load the full model + plan + prices (called after boot and after a successful unlock)
   async function loadData() {
     try {
       const fresh = await getState();
-      revRef.current = fresh.rev ?? 0;
-      dataRef.current = { ...EMPTY, ...fresh };
-      setData(dataRef.current);
+      storeRef.current.setCommitted(fresh); // via the ref: keeps this fn dep-stable for the boot effect
       if (!fresh.settings?.onboarded) {
         setShowOnboard(true);
       } // first run
@@ -169,64 +187,17 @@ export default function App() {
     if (loading || !prices) {
       return;
     }
-    // build from the LATEST state (dataRef), not this effect's closure — its deps omit
-    // data.transactions, so the closure can be stale after a log; rebasing prevents the
-    // snapshot write from clobbering a just-logged transaction.
+    // build from the LATEST state (the store's mirror), not this effect's closure — its
+    // deps omit data.transactions, so the closure can be stale after a log; rebasing
+    // prevents the snapshot write from clobbering a just-logged transaction.
     const { snapshots, changed } = reconcileInvestmentSnapshots(
-      dataRef.current,
+      store.snapshot(),
       prices.prices || {},
     );
     if (changed) {
       save((d) => ({ ...d, snapshots }));
     }
   }, [prices, data.holdings, data.accounts, data.snapshots]); // eslint-disable-line
-
-  // shared persistence: optimistic UI, then a rev-checked write serialized through the
-  // saveChain; on failure (409 or otherwise) re-sync from the server. `produce` is a
-  // functional updater applied to the latest state (dataRef) so queued/concurrent writes
-  // rebase instead of overwriting each other from a stale closure.
-  function runSave(produce, write) {
-    const next = typeof produce === "function" ? produce(dataRef.current) : produce;
-    dataRef.current = next; // advance the mirror synchronously so the next write composes
-    setData(next);
-    saveChain.current = saveChain.current.then(async () => {
-      try {
-        const saved = await write(next, revRef.current);
-        revRef.current = saved.rev ?? revRef.current;
-        setToast("Saved");
-        setTimeout(() => setToast(""), 1200);
-      } catch (e) {
-        // 409 = changed elsewhere; any other failure means the write didn't
-        // persist, so re-sync from the server rather than leave stale optimistic UI.
-        try {
-          const fresh = await getState();
-          revRef.current = fresh.rev ?? 0;
-          dataRef.current = { ...EMPTY, ...fresh };
-          setData(dataRef.current);
-          setError(e.status === 409 ? "" : String(e.message || e));
-          setToast(e.status === 409 ? "Reloaded — changed elsewhere" : "Couldn't save — reloaded");
-          setTimeout(() => setToast(""), 1800);
-        } catch (_) {
-          setError(String(e.message || e));
-        }
-      }
-    });
-  }
-  // full-state save (rewrites the normalized tables) — for account/snapshot/debt edits.
-  // Accepts a functional updater (d) => next; a bare object is treated as a constant.
-  function save(next) {
-    runSave(next, (d, rev) => putState({ ...d, rev }));
-  }
-  // granular save of only profile/settings/holdings blobs — for the frequent toggles
-  // (theme, blur, goals, strategy…) so they don't rewrite the whole ledger. Accepts a
-  // partial object or a (d) => partial updater; the blob is rebased on the latest state.
-  function saveMeta(partial) {
-    const part = typeof partial === "function" ? partial(dataRef.current) : partial;
-    runSave(
-      (d) => ({ ...d, ...part }),
-      (_d, rev) => patchState({ ...part, rev }),
-    );
-  }
 
   const { transactions, settings, accounts, snapshots, profile, debts, holdings = [] } = data;
   // apply theme to <html> — supports light / dark / system (live OS updates)
@@ -387,8 +358,23 @@ export default function App() {
     return out;
   }, [snapshots]);
 
+  // delete with undo: removing a ledger entry was one tap and permanent (AUDIT H6) —
+  // keep the deleted tx around briefly and offer an Undo in the toast area
+  const [undoTx, setUndoTx] = useState(null);
   function deleteTx(id) {
+    const tx = store.snapshot().transactions.find((t) => t.id === id);
     save((d) => ({ ...d, transactions: d.transactions.filter((t) => t.id !== id) }));
+    if (tx) {
+      setUndoTx(tx);
+      setTimeout(() => setUndoTx((u) => (u?.id === tx.id ? null : u)), 6000);
+    }
+  }
+  function undoDelete() {
+    const tx = undoTx;
+    setUndoTx(null);
+    if (tx) {
+      save((d) => ({ ...d, transactions: [...d.transactions, tx] }));
+    }
   }
   function logTx({
     type,
@@ -439,27 +425,10 @@ export default function App() {
       return;
     }
 
-    // no balance move → the lean append endpoint (cheaper than re-sending the whole state).
-    // advance the synchronous mirror + optimistic UI so rapid logs (and any full-state
-    // save queued behind this) compose on the new tx instead of dropping it
-    dataRef.current = { ...dataRef.current, transactions: [...dataRef.current.transactions, tx] };
-    setData(dataRef.current);
-    saveChain.current = saveChain.current.then(async () => {
-      try {
-        const saved = await addTransaction(tx);
-        revRef.current = saved.rev ?? revRef.current;
-        setToast("Saved");
-        setTimeout(() => setToast(""), 1200);
-      } catch (e) {
-        try {
-          const fresh = await getState();
-          revRef.current = fresh.rev ?? 0;
-          dataRef.current = { ...EMPTY, ...fresh };
-          setData(dataRef.current);
-        } catch (_) {}
-        setError(String(e.message || e));
-      }
-    });
+    // no balance move → the lean append endpoint (cheaper than re-sending the whole
+    // state); the store advances its mirror + optimistic UI so rapid logs (and any
+    // full-state save queued behind this) compose on the new tx instead of dropping it
+    store.appendTx(tx);
   }
   function finishOnboarding({
     name,
@@ -496,14 +465,10 @@ export default function App() {
   // wipe all data on the server, reset the UI, and start onboarding fresh
   async function resetEverything() {
     try {
-      const fresh = await resetAll();
-      revRef.current = fresh.rev ?? 0;
-      dataRef.current = { ...EMPTY, ...fresh };
-      setData(dataRef.current);
+      store.setCommitted(await resetAll());
       setTab("home");
       setShowOnboard(true);
-      setToast("All data deleted");
-      setTimeout(() => setToast(""), 1800);
+      flashToast("All data deleted", 1800);
     } catch (e) {
       setError(String(e.message || e));
     }
@@ -615,14 +580,30 @@ export default function App() {
           </div>
         </header>
 
-        {toast && (
+        {undoTx ? (
           <div
             role="status"
             aria-live="polite"
-            className="anim-fade fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-lg"
+            className="anim-fade fixed bottom-24 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-full bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-lg"
           >
-            {toast}
+            <span>Deleted</span>
+            <button
+              onClick={undoDelete}
+              className="font-semibold text-amber-300 hover:text-amber-200"
+            >
+              Undo
+            </button>
           </div>
+        ) : (
+          toast && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="anim-fade fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-lg"
+            >
+              {toast}
+            </div>
+          )
         )}
 
         <ErrorBoundary key={tab}>
@@ -753,7 +734,12 @@ export default function App() {
                     }
                   }}
                 />
-                <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
+                {/* only while no accounts exist: once real accounts are set up, net worth
+                    comes from their snapshots — writing a whole-net-worth figure here would
+                    corrupt accounts[0]'s balance history (AUDIT H5) */}
+                {accounts.length === 0 && (
+                  <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
+                )}
               </>
             )}
 

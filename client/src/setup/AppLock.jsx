@@ -32,8 +32,10 @@ export default function AppLock() {
     setMsg("");
     try {
       if (!clearing) {
-        if (form.password.length < 6) {
-          throw new Error("Password must be at least 6 characters.");
+        // match the server's minimum (auth.js MIN_LEN = 8) so a 6-7 char password
+        // fails here with a clear message instead of a server 400 (AUDIT L6)
+        if (form.password.length < 8) {
+          throw new Error("Password must be at least 8 characters.");
         }
         if (form.password !== form.confirm) {
           throw new Error("Passwords don't match.");

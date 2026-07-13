@@ -2,23 +2,9 @@
 import { PartyPopper } from "lucide-react";
 import Money, { BlurAmounts } from "../components/Money.jsx";
 import { fmt } from "../lib/core/format.js";
+import { yearsToTarget } from "../lib/finance/fire.js";
 
 // fire number = 25× annual expenses (the 4% rule)
-
-/** Years for `start` to reach `target` at `monthly` contributions + annual `rate`. */
-function yearsToTarget(start, monthly, rate, target) {
-  if (start >= target) {
-    return 0;
-  }
-  const mr = rate / 12;
-  let bal = start,
-    m = 0;
-  while (bal < target && m < 1200) {
-    bal = bal * (1 + mr) + monthly;
-    m++;
-  }
-  return m >= 1200 ? Infinity : m / 12;
-}
 
 const yr = (years) => (years === Infinity ? "—" : `${years.toFixed(years < 10 ? 1 : 0)} yr`);
 const whenYear = (years) =>

@@ -3,27 +3,7 @@ import { useState, useMemo } from "react";
 import Money, { BlurAmounts } from "../components/Money.jsx";
 import AreaChart from "../charts/Chart.jsx";
 import { fmt } from "../lib/core/format.js";
-
-/** Yearly balance + contributed series from compounding `monthly` at annual `rate`. */
-function projectSeries(start, monthly, rate, years) {
-  const data = [],
-    mRate = rate / 12,
-    now = new Date().getFullYear();
-  let bal = start,
-    contributed = start;
-  for (let m = 0; m <= years * 12; m++) {
-    if (m % 12 === 0) {
-      data.push({
-        year: now + m / 12,
-        value: Math.round(bal),
-        contributed: Math.round(contributed),
-      });
-    }
-    bal = bal * (1 + mRate) + monthly;
-    contributed += monthly;
-  }
-  return data;
-}
+import { projectSeries } from "../lib/finance/fire.js";
 
 function Slider({ label, value, min, max, step, suffix = "", fmt: f, onChange }) {
   return (
