@@ -4,6 +4,57 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] — 2026-07-13
+
+Every stock syncs, the coach reaches your phone, and the app survives being offline.
+Closes every remaining finding from the 2026-07-01 audit.
+
+### Added
+
+- **Keyless Yahoo chart fallback — every held symbol syncs.** Finnhub's free tier
+  can't price mutual funds and some ETFs, so those holdings tripped the circuit
+  breaker and went "manual". A Yahoo v8 chart provider now runs last in the chain,
+  filling only what earlier providers missed — on by default whenever price sync is
+  enabled (`TSUMIKI_YAHOO=0` to opt out, `TSUMIKI_YAHOO_URL` to override). It also
+  makes price sync work with zero keys configured.
+- **Daily reminder notifications (Web Push).** Settings → Notifications lets each
+  device opt into one morning push on days a bill is due or a payday lands. Payloads
+  are deliberately generic — counts only, never names or amounts, since push transits
+  the browser vendor's push service; details stay in the app. VAPID keys and
+  subscriptions persist server-side; revoked subscriptions are pruned automatically.
+- **Bill paid/unpaid tracking.** Logged spending is matched to recurring bills (by
+  name, or by amount within a week of the due date). Calendar bill dots now read
+  paid / due / overdue, day details say when a bill was paid, and Home gains a
+  "Bills this month" card: paid X of N, dollars left, overdue callouts.
+- **"I moved it" on the Plan tab.** One tap records the plan's remaining transfers as
+  contribution entries — amounts are target − already-logged, so mid-month taps never
+  double count. Closes the plan → action gap.
+- **Offline resilience.** The installed PWA now boots from the last synced state with
+  an "Offline — showing your last synced data" banner instead of an error and $0
+  everywhere; writes that fail keep their optimistic UI and are pushed automatically
+  on reconnect (rev-checked, so a conflicting change re-syncs rather than clobbers).
+  The cache exists only while the app lock is off — enabling the lock clears it.
+- **CI.** A GitHub Actions workflow runs lint, format checks, and all test suites on
+  every push and pull request.
+
+### Changed
+
+- **The client uses the per-entity endpoints.** Account and debt edits go through
+  `PATCH|DELETE /api/{accounts,debts}/:id` (optimistic, rev-checked, through the same
+  serialized save chain) instead of full-state PUTs; deleting an account cascades its
+  snapshots server-side and patches orphaned holdings.
+- **Every destructive delete asks first.** Bills, income sources, and money targets
+  join accounts and debts with an in-app two-tap confirm.
+
+### Fixed
+
+- **Login lockouts survive restarts.** The throttle's fails/lockouts/until state is
+  persisted (and, like the auth record, survives a data reset) — restarting the
+  server no longer resets a brute-forcer's clock.
+- **CSV import warns about formats it would misread** — European decimals
+  ("1.234,56") and provably day-first dates ("25/06/2026") now surface a warning in
+  the preview before anything is committed.
+
 ## [2.5.0] — 2026-07-13
 
 Audit clean-up release: the remaining v2.4-audit findings fixed, the riskiest client

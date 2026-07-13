@@ -1,6 +1,6 @@
 # Tsumiki — personal money coach
 
-**v2.5.0** · self-hosted · single-user · no cloud, no AI in the product
+**v2.6.0** · self-hosted · single-user · no cloud, no AI in the product
 
 A self-hosted money **coach**, not just a tracker. Given the money you have, it tells
 you where it should go — essentials, debt, a checking buffer, savings, retirement, and
@@ -18,7 +18,7 @@ API.
 
 ```
 server/   Express + node:sqlite API + allocation engine (no native deps)
-  lib/       db, auth, engine, prices, news, http, migrate
+  lib/       schema, db, validate, auth, engine, prices, news, push, http, migrate
   test/      server unit tests
 client/   Vite + React single-page app (thin client)
   src/views/        tab screens (Home, Plan, Activity, Portfolio, …)
@@ -241,7 +241,7 @@ Run `make help` for the full list: `install`, `dev`, `server`, `client`, `build`
 ## Releases
 
 See [`CHANGELOG.md`](./docs/CHANGELOG.md). Releases follow [SemVer](https://semver.org);
-the current release is **v2.5.0**.
+the current release is **v2.6.0**.
 
 ## License
 
