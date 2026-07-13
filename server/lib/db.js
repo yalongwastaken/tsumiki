@@ -82,6 +82,16 @@ export function setPriceFailures(map) {
   setMeta("priceFailures", map);
 }
 
+/** Login-throttle state { fails, lockouts, until } — persisted so restarting the
+ * server doesn't reset a brute-forcer's lockout clock (AUDIT L7). Stored outside
+ * the keys resetAll() clears, like the auth record itself. */
+export function getThrottle() {
+  return getMeta("loginThrottle", { fails: 0, lockouts: 0, until: 0 });
+}
+export function setThrottle(state) {
+  setMeta("loginThrottle", state);
+}
+
 /** App-lock config { salt, hash, secret } or null when no password is set. Stored
  * outside the keys resetAll() clears, so a data reset doesn't unlock the app. */
 export function getAuth() {

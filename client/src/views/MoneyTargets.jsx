@@ -27,6 +27,16 @@ export default function MoneyTargets({
 }) {
   const [form, setForm] = useState({ label: "", amount: "", metric: "earmarked", targetDate: "" });
   const [err, setErr] = useState("");
+  const [confirmId, setConfirmId] = useState(null); // two-tap delete confirm (AUDIT M10)
+  function removeTarget(id) {
+    if (confirmId !== id) {
+      setConfirmId(id);
+      setTimeout(() => setConfirmId((c) => (c === id ? null : c)), 4000);
+      return;
+    }
+    setConfirmId(null);
+    onChange(targets.filter((x) => x.id !== id));
+  }
   // current dollar value of a target's metric (per-goal balance for "earmarked")
   const currentOf = (t) =>
     t.metric === "earmarked" ? earmarked[t.id] || 0 : values[t.metric] || 0;
@@ -77,11 +87,17 @@ export default function MoneyTargets({
                       </span>
                     </span>
                     <button
-                      onClick={() => onChange(targets.filter((x) => x.id !== t.id))}
-                      className="-m-1.5 flex h-11 w-11 items-center justify-center text-slate-400 hover:text-rose-500"
-                      aria-label={`Remove ${t.label}`}
+                      onClick={() => removeTarget(t.id)}
+                      className={
+                        confirmId === t.id
+                          ? "-m-1.5 flex h-11 items-center px-2 text-xs font-semibold text-rose-600"
+                          : "-m-1.5 flex h-11 w-11 items-center justify-center text-slate-400 hover:text-rose-500"
+                      }
+                      aria-label={
+                        confirmId === t.id ? `Confirm: remove ${t.label}` : `Remove ${t.label}`
+                      }
                     >
-                      <X size={14} />
+                      {confirmId === t.id ? "Remove?" : <X size={14} />}
                     </button>
                   </div>
                 </div>

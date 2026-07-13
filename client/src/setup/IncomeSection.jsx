@@ -32,6 +32,7 @@ export default function IncomeSection({ data, onSave }) {
   const incomeSources = profile.incomeSources || [];
   const [src, setSrc] = useState(BLANK);
   const [editingSrc, setEditingSrc] = useState(null);
+  const [confirmId, setConfirmId] = useState(null); // two-tap delete confirm
   // walks the ledger — memoize so typing in the form doesn't re-derive it each keystroke
   const incomeSchedule = useMemo(() => detectIncomeSchedule(transactions), [transactions]);
 
@@ -86,7 +87,15 @@ export default function IncomeSection({ data, onSave }) {
     });
     setEditingSrc(s.id);
   }
+  // two-tap confirm (AUDIT M10): an income source drives paydays/typical income —
+  // one accidental tap shouldn't silently drop it
   function removeSource(id) {
+    if (confirmId !== id) {
+      setConfirmId(id);
+      setTimeout(() => setConfirmId((c) => (c === id ? null : c)), 4000);
+      return;
+    }
+    setConfirmId(null);
     commitSources(incomeSources.filter((s) => s.id !== id));
     if (editingSrc === id) {
       setEditingSrc(null);
@@ -139,10 +148,14 @@ export default function IncomeSection({ data, onSave }) {
                 </button>
                 <button
                   onClick={() => removeSource(s.id)}
-                  className="text-slate-400 hover:text-rose-400"
-                  aria-label="Remove"
+                  className={
+                    confirmId === s.id
+                      ? "px-1 text-xs font-semibold text-rose-600"
+                      : "text-slate-400 hover:text-rose-400"
+                  }
+                  aria-label={confirmId === s.id ? `Confirm: remove ${s.name}` : `Remove ${s.name}`}
                 >
-                  <X size={14} />
+                  {confirmId === s.id ? "Remove?" : <X size={14} />}
                 </button>
               </div>
             </div>

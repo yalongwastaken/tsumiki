@@ -5,29 +5,32 @@
 // localhost) so a credential is never sent over sniffable plain-LAN http — which is
 // the exact threat (someone on your wifi). Dependency-free: cookies parsed by hand.
 import { randomBytes, scryptSync, timingSafeEqual, createHmac } from "node:crypto";
-import { getAuth, setAuth } from "./db.js";
+import { getAuth, setAuth, getThrottle, setThrottle } from "./db.js";
 
 const COOKIE = "tsumiki_session";
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000; // trusted-device window
 const KEYLEN = 32;
 const MIN_LEN = 8;
-// in-memory login throttle (single-user): after MAX_FAILS wrong passwords, lock out
-// new attempts — and each consecutive lockout doubles the wait (1m, 2m, 4m … capped
-// at LOCK_MAX_MS), so a patient brute-forcer can't just ride out a fixed one-minute
-// window forever. Resets on a correct login (or a server restart — acceptable for the
-// threat model; no lockout state is persisted).
+// login throttle (single-user): after MAX_FAILS wrong passwords, lock out new
+// attempts — and each consecutive lockout doubles the wait (1m, 2m, 4m … capped at
+// LOCK_MAX_MS), so a patient brute-forcer can't just ride out a fixed one-minute
+// window forever. State is PERSISTED (meta table, survives resetAll) so restarting
+// the server no longer resets the clock (AUDIT L7).
 const MAX_FAILS = 5;
 const LOCK_BASE_MS = 60 * 1000;
 const LOCK_MAX_MS = 60 * 60 * 1000; // backoff cap: one hour
-let loginFails = 0;
-let lockouts = 0; // consecutive lockouts → exponential backoff
-let lockUntil = 0;
+const saved = getThrottle();
+let loginFails = Number(saved.fails) || 0;
+let lockouts = Number(saved.lockouts) || 0; // consecutive lockouts → exponential backoff
+let lockUntil = Number(saved.until) || 0;
+const persistThrottle = () => setThrottle({ fails: loginFails, lockouts, until: lockUntil });
 
 /** Reset the throttle (correct login, or a password set/change/clear). */
 function clearThrottle() {
   loginFails = 0;
   lockouts = 0;
   lockUntil = 0;
+  persistThrottle();
 }
 /** Register one failed attempt; starts (and escalates) a lockout at MAX_FAILS. */
 function recordFailedLogin() {
@@ -36,6 +39,7 @@ function recordFailedLogin() {
     lockouts = Math.min(lockouts + 1, 30); // cap the exponent too (2**30 ≫ LOCK_MAX_MS)
     loginFails = 0;
   }
+  persistThrottle();
 }
 
 /** Whether a password is currently set. */

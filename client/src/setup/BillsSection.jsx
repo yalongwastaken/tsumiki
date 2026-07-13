@@ -55,6 +55,7 @@ export default function BillsSection({ data, onSave }) {
   const transactions = data.transactions || [];
   const bills = profile.bills || [];
   const [bill, setBill] = useState(blank);
+  const [confirmId, setConfirmId] = useState(null); // two-tap delete confirm
   // charges that look recurring but aren't billed yet — offer to add them
   const detected = detectRecurring(transactions, bills);
 
@@ -79,8 +80,19 @@ export default function BillsSection({ data, onSave }) {
     });
     setBill(blank);
   }
+  // two-tap confirm (AUDIT M10) + functional updater so the save rebases on the
+  // latest profile instead of this render's closure
   function removeBill(id) {
-    onSave({ ...data, profile: { ...profile, bills: bills.filter((b) => b.id !== id) } });
+    if (confirmId !== id) {
+      setConfirmId(id);
+      setTimeout(() => setConfirmId((c) => (c === id ? null : c)), 4000);
+      return;
+    }
+    setConfirmId(null);
+    onSave((d) => ({
+      ...d,
+      profile: { ...d.profile, bills: (d.profile.bills || []).filter((b) => b.id !== id) },
+    }));
   }
   function addDetectedBill(d) {
     onSave({
@@ -135,10 +147,16 @@ export default function BillsSection({ data, onSave }) {
                   </span>
                   <button
                     onClick={() => removeBill(b.id)}
-                    className="-m-1 flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-400"
-                    aria-label="Remove"
+                    className={
+                      confirmId === b.id
+                        ? "-m-1 flex h-9 items-center px-2 text-xs font-semibold text-rose-600"
+                        : "-m-1 flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-400"
+                    }
+                    aria-label={
+                      confirmId === b.id ? `Confirm: remove ${b.name}` : `Remove ${b.name}`
+                    }
                   >
-                    <X size={14} />
+                    {confirmId === b.id ? "Remove?" : <X size={14} />}
                   </button>
                 </div>
               </div>

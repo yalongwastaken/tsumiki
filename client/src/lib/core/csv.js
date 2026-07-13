@@ -139,6 +139,44 @@ const num = (v) => {
 };
 
 /**
+ * Scan mapped rows for formats this parser would silently misread (AUDIT L8), so the
+ * import preview can warn BEFORE anything is committed:
+ * - European decimals ("1.234,56") parse as 1.23456 here — wrong by orders of magnitude
+ * - day-first dates ("25/06/2026") get read month-first; a day > 12 proves day-first
+ * Pure; returns human-readable warning strings (empty array = nothing suspicious).
+ */
+export function detectFormatWarnings(rows = [], mapping = {}) {
+  let euro = 0;
+  let dayFirst = 0;
+  for (const r of rows) {
+    const a = String(r[mapping.amount] ?? "").trim();
+    // 1.234,56 / (1.234,56) / 1.234,56-  — thousands dots with a decimal comma
+    if (/^-?\(?\d{1,3}(\.\d{3})+,\d{2}\)?-?$/.test(a) || /^-?\(?\d+,\d{2}\)?-?$/.test(a)) {
+      euro++;
+    }
+    const m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/.exec(String(r[mapping.date] ?? "").trim());
+    if (m && Number(m[1]) > 12 && Number(m[2]) <= 12) {
+      dayFirst++; // e.g. 25/06/2026 — month-first parsing would misread or drop it
+    }
+  }
+  const warnings = [];
+  if (euro > 0) {
+    warnings.push(
+      `${euro} amount${euro === 1 ? " looks" : "s look"} European-formatted (e.g. "1.234,56") — ` +
+        "these would import with the wrong value. Re-export the statement with plain decimals first.",
+    );
+  }
+  if (dayFirst > 0) {
+    warnings.push(
+      `${dayFirst} date${dayFirst === 1 ? " looks" : "s look"} day-first (e.g. "25/06/2026") — ` +
+        "dates here are read month-first, so these rows would land on the wrong day or be dropped. " +
+        "Re-export with ISO dates (YYYY-MM-DD) first.",
+    );
+  }
+  return warnings;
+}
+
+/**
  * Convert mapped CSV rows into transactions (without ids — the caller assigns them).
  * Sign convention: negative amount = spending, positive = income. `invert` flips it
  * for banks that list expenses as positive numbers.

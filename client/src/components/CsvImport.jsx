@@ -2,7 +2,13 @@
 // as transactions. Uses the pure parser in csv.js; nothing leaves the device.
 import { useState, useMemo } from "react";
 import Money from "./Money.jsx";
-import { parseCsv, guessMapping, rowsToTransactions, dedupeAgainst } from "../lib/core/csv.js";
+import {
+  parseCsv,
+  guessMapping,
+  rowsToTransactions,
+  dedupeAgainst,
+  detectFormatWarnings,
+} from "../lib/core/csv.js";
 import { uid } from "../lib/core/uid.js";
 
 const field =
@@ -40,6 +46,11 @@ export default function CsvImport({ onImport, existing = [] }) {
   const txs = useMemo(
     () => (parsed ? rowsToTransactions(parsed.rows, mapping, { invert }) : []),
     [parsed, mapping, invert],
+  );
+  // formats this parser would silently misread (European decimals, day-first dates)
+  const formatWarnings = useMemo(
+    () => (parsed ? detectFormatWarnings(parsed.rows, mapping) : []),
+    [parsed, mapping],
   );
 
   function readFile(e) {
@@ -119,6 +130,15 @@ export default function CsvImport({ onImport, existing = [] }) {
             My bank lists expenses as positive numbers (flip the sign)
           </label>
 
+          {formatWarnings.length > 0 && (
+            <div role="alert" className="rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800">
+              {formatWarnings.map((w, i) => (
+                <div key={i} className={i > 0 ? "mt-1" : ""}>
+                  ⚠ {w}
+                </div>
+              ))}
+            </div>
+          )}
           {txs.length > 0 ? (
             <>
               <div className="rounded-lg border border-slate-100 divide-y divide-slate-50">

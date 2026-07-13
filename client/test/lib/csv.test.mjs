@@ -138,3 +138,28 @@ test("rowsToTransactions reads accounting parentheses as negative (spending)", (
   assert.equal(txs[0].amount, 50);
   assert.equal(txs[1].type, "income");
 });
+
+// ── detectFormatWarnings (AUDIT L8) ────────────────────────────────────────────
+import { detectFormatWarnings } from "../../src/lib/core/csv.js";
+
+test("detectFormatWarnings flags European decimals and day-first dates", () => {
+  const mapping = { date: 0, amount: 1, description: 2 };
+  const rows = [
+    ["25/06/2026", "1.234,56", "rent"], // day-first + euro decimal
+    ["2026-06-25", "42.10", "ok row"],
+  ];
+  const warnings = detectFormatWarnings(rows, mapping);
+  assert.equal(warnings.length, 2);
+  assert.match(warnings[0], /European/);
+  assert.match(warnings[1], /day-first/);
+});
+
+test("detectFormatWarnings stays quiet for plain US/ISO data", () => {
+  const mapping = { date: 0, amount: 1, description: 2 };
+  const rows = [
+    ["2026-06-25", "1234.56", "rent"],
+    ["06/25/2026", "-42.10", "coffee"], // month-first with day>12 in slot 2 — fine
+    ["6/9/2026", "10.00", "ambiguous but unprovable — no warning noise"],
+  ];
+  assert.deepEqual(detectFormatWarnings(rows, mapping), []);
+});
