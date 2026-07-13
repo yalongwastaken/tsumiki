@@ -1,0 +1,49 @@
+# ci.yml — run the full quality gate on every push/PR: lint, formatting, and all
+# three test suites (server, client lib, client components). Same commands as local
+# development (`make test`), so green here means green on the mini-PC.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+            server/package-lock.json
+
+      - name: Install (root + server + client)
+        run: |
+          npm ci
+          cd server && npm ci
+          cd ../client && npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Formatting (prettier --check)
+        run: npm run format:check
+
+      - name: Server tests
+        run: cd server && npm test
+
+      - name: Client lib tests
+        run: cd client && npm test
+
+      - name: Client component tests
+        run: cd client && npm run test:components
+
+      - name: Client smoke test (headless full-UI walk)
+        run: cd client && npm run test:smoke
