@@ -7,8 +7,11 @@
 // null) lets callers tell "rate-limited / server error" (retry later, don't punish
 // the symbol) apart from "answered fine but had no data". Network errors/timeouts
 // still throw (fetch semantics).
-export async function fetchTextCapped(url, { timeoutMs = 8000, maxBytes = 5_000_000 } = {}) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+export async function fetchTextCapped(
+  url,
+  { timeoutMs = 8000, maxBytes = 5_000_000, headers } = {},
+) {
+  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs), headers });
   const meta = { status: res.status, ok: res.ok };
   if (!res.ok) {
     return { ...meta, text: null };

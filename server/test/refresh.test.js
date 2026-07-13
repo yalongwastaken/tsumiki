@@ -5,6 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 process.env.TSUMIKI_PRICES = "1";
+process.env.TSUMIKI_YAHOO = "0"; // these tests predate the yahoo fallback — keep them off the real network
 // there's no default price feed anymore (Stooq is bot-walled), so configure a keyless
 // CSV feed explicitly; the stubbed fetch ignores the URL and returns canned CSV.
 process.env.TSUMIKI_PRICE_URL = "https://example.test/q?s={SYMBOLS}&e=csv";

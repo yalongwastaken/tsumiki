@@ -43,6 +43,14 @@ const feedUrls = () =>
     .filter(Boolean);
 const finnhubKey = () => process.env.TSUMIKI_FINNHUB_KEY || "";
 const finnhubUrl = () => process.env.TSUMIKI_FINNHUB_URL || "https://finnhub.io/api/v1/quote";
+// Yahoo chart fallback — keyless and covers what Finnhub's free tier can't (mutual
+// funds like VTSAX, many ETFs). ON by default whenever price sync itself is enabled
+// (it's the same opt-in: only your ticker symbols are sent); set TSUMIKI_YAHOO=0 to
+// turn it off. Note it's the LAST provider, so it only ever fills what the others miss.
+const yahooEnabled = () =>
+  !["0", "false", "no"].includes((process.env.TSUMIKI_YAHOO || "").toLowerCase());
+const yahooUrl = () =>
+  process.env.TSUMIKI_YAHOO_URL || "https://query1.finance.yahoo.com/v8/finance/chart";
 
 let cache = { prices: {}, fetchedAt: 0 };
 // outcome of the most recent refresh attempt (surfaced via getPrices). `manual` lists
@@ -140,6 +148,43 @@ export function parseFinnhubQuote(symbol, json) {
   return { symbol: String(symbol).toUpperCase(), close, date };
 }
 
+/** Parse a Yahoo v8 chart JSON for one symbol → a row, or null when there's no price.
+ * Prefers meta.regularMarketPrice; falls back to the last finite close in the
+ * indicators series (covers mutual funds, whose meta sometimes lags a session). */
+export function parseYahooChart(symbol, json) {
+  let j;
+  try {
+    j = typeof json === "string" ? JSON.parse(json) : json;
+  } catch {
+    return null;
+  }
+  const r = j?.chart?.result?.[0];
+  let close = Number(r?.meta?.regularMarketPrice);
+  if (!isFinite(close) || close <= 0) {
+    const closes = r?.indicators?.quote?.[0]?.close;
+    if (Array.isArray(closes)) {
+      for (let i = closes.length - 1; i >= 0; i--) {
+        const c = Number(closes[i]);
+        if (isFinite(c) && c > 0) {
+          close = c;
+          break;
+        }
+      }
+    }
+  }
+  if (!isFinite(close) || close <= 0) {
+    return null;
+  }
+  // guard the timestamp like parseFinnhubQuote: garbage `regularMarketTime` must not
+  // discard an otherwise-valid close
+  const t = Number(r?.meta?.regularMarketTime);
+  const stamped = t > 0 ? new Date(t * 1000) : null;
+  const date = (stamped && !isNaN(stamped.getTime()) ? stamped : new Date())
+    .toISOString()
+    .slice(0, 10);
+  return { symbol: String(symbol).toUpperCase(), close, date };
+}
+
 // ── providers (each returns {rows, errored}) ────────────────────────────────────
 // `errored` means a REAL failure happened (network error, 429 rate limit, 5xx) — as
 // opposed to "the feed answered fine but had no data for these symbols". The refresh
@@ -192,15 +237,61 @@ async function fetchFinnhub(symbols) {
   }
   return { rows, errored: errors > 0 };
 }
+// some endpoints (Yahoo included) reject the default undici UA with 429/403 — send a
+// plain browser-ish one. No cookies, no auth; only the ticker symbol goes out.
+const YAHOO_HEADERS = {
+  "user-agent": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0",
+  accept: "application/json",
+};
+
+async function fetchYahoo(symbols) {
+  const base = yahooUrl();
+  const rows = [];
+  let errors = 0;
+  for (let i = 0; i < symbols.length; i++) {
+    const s = symbols[i];
+    if (i > 0) {
+      await sleep(INTER_REQUEST_DELAY_MS);
+    }
+    try {
+      const u = `${base}/${encodeURIComponent(s)}?interval=1d&range=5d`;
+      const res = await fetchTextCapped(u, { maxBytes: 500_000, headers: YAHOO_HEADERS });
+      if (res.text == null) {
+        if (isRetryableStatus(res.status)) {
+          errors++; // 429/5xx: a real failure — and if rate-limited, stop hammering
+          if (res.status === 429) {
+            break;
+          }
+        }
+        continue; // other non-OK (e.g. 404 unknown symbol) → a plain per-symbol miss
+      }
+      const row = parseYahooChart(s, res.text);
+      if (row) {
+        rows.push(row);
+      }
+    } catch {
+      errors++; // network error/timeout: skip this symbol, remember it failed
+    }
+  }
+  return { rows, errored: errors > 0 };
+}
+
 function providers() {
-  // a custom keyless CSV feed (if configured) is tried first; Finnhub is the fallback —
-  // and, since there's no default feed, the primary when no TSUMIKI_PRICE_URL is set
+  // a custom keyless CSV feed (if configured) is tried first; Finnhub next; the keyless
+  // Yahoo chart endpoint runs LAST as a gap-filler — it covers the symbols Finnhub's
+  // free tier can't price (mutual funds, some ETFs), so with it on, every held symbol
+  // normally syncs and the circuit breaker's "manual" state becomes rare. With neither
+  // a feed URL nor a Finnhub key configured, Yahoo alone makes sync work zero-config
+  // (still gated by the TSUMIKI_PRICES opt-in).
   const list = feedUrls().map((url, i) => ({
     name: i === 0 ? "feed" : `feed-${i + 1}`,
     fetch: (syms) => fetchStooq(url, syms),
   }));
   if (finnhubKey()) {
     list.push({ name: "finnhub", fetch: fetchFinnhub });
+  }
+  if (yahooEnabled()) {
+    list.push({ name: "yahoo", fetch: fetchYahoo });
   }
   return list;
 }

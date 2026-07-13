@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 
 process.env.TSUMIKI_PRICES = "1";
+process.env.TSUMIKI_YAHOO = "0"; // these tests predate the yahoo fallback — keep them off the real network
 process.env.TSUMIKI_DB = `/tmp/tsumiki-sync-${process.pid}-${Date.now()}.db`;
 
 // server-controlled responders, swapped per test
