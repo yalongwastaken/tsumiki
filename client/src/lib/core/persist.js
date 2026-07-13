@@ -106,6 +106,53 @@ export function createPersistence({
   }
 
   /**
+   * Granular upsert of ONE item in a collection (accounts | debts | goals) —
+   * optimistic local upsert, then PATCH /api/<kind>/:id. Skips the full-state
+   * DELETE+INSERT of the whole ledger for a one-row change.
+   * Requires `api.patchEntity` to be injected.
+   */
+  function saveEntity(kind, item) {
+    apply((d) => {
+      const list = d[kind] || [];
+      const i = list.findIndex((x) => x.id === item.id);
+      return {
+        ...d,
+        [kind]:
+          i === -1 ? [...list, item] : list.map((x) => (x.id === item.id ? { ...x, ...item } : x)),
+      };
+    });
+    return enqueue((r) => api.patchEntity(kind, { ...item, rev: r }));
+  }
+
+  /**
+   * Granular delete of ONE item — optimistic local removal, then DELETE
+   * /api/<kind>/:id. For accounts this also drops the account's snapshots locally
+   * (the server FK cascades them) and, since holdings live in the meta blob the
+   * server does NOT cascade, queues a holdings patch when any were attached.
+   * Requires `api.deleteEntity` (and, for accounts, `api.patchState`) to be injected.
+   */
+  function deleteEntity(kind, id) {
+    let keptHoldings = null;
+    apply((d) => {
+      const next = { ...d, [kind]: (d[kind] || []).filter((x) => x.id !== id) };
+      if (kind === "accounts") {
+        next.snapshots = (d.snapshots || []).filter((s) => s.accountId !== id);
+        const kept = (d.holdings || []).filter((h) => h.accountId !== id);
+        if (kept.length !== (d.holdings || []).length) {
+          next.holdings = kept;
+          keptHoldings = kept;
+        }
+      }
+      return next;
+    });
+    let p = enqueue((r) => api.deleteEntity(kind, id, r));
+    if (keptHoldings) {
+      p = enqueue((r) => api.patchState({ holdings: keptHoldings, rev: r }));
+    }
+    return p;
+  }
+
+  /**
    * Lean transaction append — the common no-balance-move log. Optimistic append,
    * then POST /api/transactions (no rev clash by design). On failure: re-sync
    * (so the UI is truthful) and report via onError — the entry did not persist.
@@ -129,5 +176,15 @@ export function createPersistence({
     return chain;
   }
 
-  return { save, saveMeta, appendTx, setCommitted, snapshot, getRev, flush };
+  return {
+    save,
+    saveMeta,
+    saveEntity,
+    deleteEntity,
+    appendTx,
+    setCommitted,
+    snapshot,
+    getRev,
+    flush,
+  };
 }

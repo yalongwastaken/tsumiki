@@ -180,6 +180,79 @@ test("appendTx success advances the rev and a queued full save composes on the n
   assert.equal(calls.putState[0].rev, 99); // and the rev the append advanced to
 });
 
+test("saveEntity upserts locally and PATCHes only that item + rev", async () => {
+  const calls = [];
+  const { api } = makeApi({
+    patchEntity: async (kind, item) => {
+      calls.push([kind, item]);
+      return { rev: (item.rev ?? 0) + 1 };
+    },
+  });
+  const { store, changes } = makeStore(api);
+  store.setCommitted({ rev: 3, debts: [{ id: "d1", name: "Card", balance: 500 }] });
+
+  await store.saveEntity("debts", { id: "d1", name: "Card", balance: 400 });
+  assert.equal(changes.at(-1).debts[0].balance, 400); // updated in place
+  await store.saveEntity("debts", { id: "d2", name: "Loan", balance: 900 });
+  assert.equal(changes.at(-1).debts.length, 2); // appended
+
+  assert.deepEqual(calls[0][0], "debts");
+  assert.equal(calls[0][1].rev, 3); // carried the base rev
+  assert.equal(calls[1][1].rev, 4); // and the advanced one
+  assert.equal(store.getRev(), 5);
+});
+
+test("deleteEntity('accounts') drops snapshots locally and patches orphaned holdings", async () => {
+  const deleted = [];
+  const patched = [];
+  const { api } = makeApi({
+    deleteEntity: async (kind, id, rev) => {
+      deleted.push([kind, id, rev]);
+      return { rev: rev + 1 };
+    },
+    patchState: async (body) => {
+      patched.push(body);
+      return { rev: (body.rev ?? 0) + 1 };
+    },
+  });
+  const { store, changes } = makeStore(api);
+  store.setCommitted({
+    rev: 1,
+    accounts: [{ id: "a1" }, { id: "a2" }],
+    snapshots: [
+      { id: "s1", accountId: "a1" },
+      { id: "s2", accountId: "a2" },
+    ],
+    holdings: [
+      { id: "h1", accountId: "a1", ticker: "VTSAX", shares: 1 },
+      { id: "h2", accountId: "a2", ticker: "AAPL", shares: 1 },
+    ],
+  });
+
+  await store.deleteEntity("accounts", "a1");
+
+  const s = changes.at(-1);
+  assert.deepEqual(
+    s.accounts.map((a) => a.id),
+    ["a2"],
+  );
+  assert.deepEqual(
+    s.snapshots.map((x) => x.id),
+    ["s2"],
+  ); // cascaded locally
+  assert.deepEqual(
+    s.holdings.map((h) => h.id),
+    ["h2"],
+  ); // orphaned holding dropped
+  assert.deepEqual(deleted, [["accounts", "a1", 1]]);
+  assert.equal(patched.length, 1); // follow-up holdings patch queued
+  assert.deepEqual(
+    patched[0].holdings.map((h) => h.id),
+    ["h2"],
+  );
+  assert.equal(patched[0].rev, 2); // used the rev the DELETE advanced to
+});
+
 test("setCommitted merges the empty shape so missing keys get safe defaults", () => {
   const { api } = makeApi();
   const { store } = makeStore(api);

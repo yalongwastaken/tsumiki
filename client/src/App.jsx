@@ -4,6 +4,8 @@ import {
   getState,
   putState,
   patchState,
+  patchEntity,
+  deleteEntity,
   getPlan,
   addTransaction,
   resetAll,
@@ -119,7 +121,7 @@ export default function App() {
   const storeRef = useRef(null);
   if (!storeRef.current) {
     storeRef.current = createPersistence({
-      api: { putState, patchState, addTransaction, getState },
+      api: { putState, patchState, patchEntity, deleteEntity, addTransaction, getState },
       empty: EMPTY,
       onChange: setData,
       onSaved: () => flashToast("Saved", 1200),
@@ -765,7 +767,14 @@ export default function App() {
             )}
 
             {tab === "accounts" && (
-              <Setup section="accounts" data={data} onSave={save} prices={prices} />
+              <Setup
+                section="accounts"
+                data={data}
+                onSave={save}
+                onSaveEntity={store.saveEntity}
+                onDeleteEntity={store.deleteEntity}
+                prices={prices}
+              />
             )}
 
             {tab === "settings" && (

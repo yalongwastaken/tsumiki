@@ -31,7 +31,13 @@ const isCredit = (t) => t === "credit";
 const iconBtn = "-m-1.5 flex h-11 w-11 items-center justify-center"; // 44px tap target (WCAG 2.5.5)
 
 /** Accounts editor body (rendered inside the accordion Section). */
-export default function AccountsSection({ data, onSave, prices = null }) {
+export default function AccountsSection({
+  data,
+  onSave,
+  onSaveEntity,
+  onDeleteEntity,
+  prices = null,
+}) {
   const accounts = data.accounts || [];
   const holdings = useMemo(() => data.holdings || [], [data.holdings]);
   const snapshots = useMemo(() => data.snapshots || [], [data.snapshots]);
@@ -108,17 +114,25 @@ export default function AccountsSection({ data, onSave, prices = null }) {
     if (inv && acct.balance !== "") {
       account.cash = Math.max(0, Number(acct.balance) || 0); // for investment accounts the field is "cash"
     }
-    const next = { ...data, accounts: [...accounts, account] };
     if (!inv && acct.balance !== "") {
       const entered = Number(acct.balance) || 0;
       // a credit card's entered figure is what you OWE → store it negative (a liability)
       const balance = isCredit(acct.type) ? -Math.abs(entered) : entered;
-      next.snapshots = [
-        ...snapshots,
-        { id: uid(), accountId: id, date: new Date().toISOString(), balance },
-      ];
+      // account + its opening snapshot must land together → full-state save
+      onSave((d) => ({
+        ...d,
+        accounts: [...(d.accounts || []), account],
+        snapshots: [
+          ...(d.snapshots || []),
+          { id: uid(), accountId: id, date: new Date().toISOString(), balance },
+        ],
+      }));
+    } else if (onSaveEntity) {
+      // no snapshot to write → one-row upsert via PATCH /api/accounts/:id
+      onSaveEntity("accounts", account);
+    } else {
+      onSave((d) => ({ ...d, accounts: [...(d.accounts || []), account] }));
     }
-    onSave(next);
     setAcct({ name: "", type: "checking", balance: "" });
     if (inv) {
       toggleOpen(id); // jump straight into adding shares
@@ -135,7 +149,13 @@ export default function AccountsSection({ data, onSave, prices = null }) {
       return;
     }
     setConfirmRemove(null);
-    // functional updater: rebase on the latest state, not this render's closure
+    if (onDeleteEntity) {
+      // granular DELETE /api/accounts/:id — the server FK-cascades the snapshots and
+      // the store drops attached holdings (meta) in a follow-up patch
+      onDeleteEntity("accounts", id);
+      return;
+    }
+    // fallback: functional full-state save rebased on the latest state
     onSave((d) => ({
       ...d,
       accounts: d.accounts.filter((a) => a.id !== id),

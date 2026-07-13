@@ -62,6 +62,12 @@ export const addTransaction = (tx) => call("POST", "/api/transactions", tx);
 export const putState = (state) => call("PUT", "/api/state", state);
 // granular write of only the profile/settings/holdings blobs (avoids rewriting the ledger)
 export const patchState = (partial) => call("PATCH", "/api/state", partial);
+// per-entity granular writes: upsert/delete ONE item (kind: accounts | debts | goals)
+// without a full-state PUT — rev-checked and rev-bumping like every other write
+export const patchEntity = (kind, item) =>
+  call("PATCH", `/api/${kind}/${encodeURIComponent(item.id)}`, item);
+export const deleteEntity = (kind, id, rev) =>
+  call("DELETE", `/api/${kind}/${encodeURIComponent(id)}?rev=${encodeURIComponent(rev)}`);
 export const migrateLegacy = (legacy) => call("POST", "/api/migrate", legacy);
 export const resetAll = () => call("POST", "/api/reset");
 export const importData = (state) => call("POST", "/api/import", state);

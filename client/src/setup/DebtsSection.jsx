@@ -6,31 +6,43 @@ import { X } from "lucide-react";
 import { uid, field, AmountInput } from "./ui.jsx";
 
 /** Debts editor body (rendered inside the accordion Section). */
-export default function DebtsSection({ data, onSave }) {
+export default function DebtsSection({ data, onSave, onSaveEntity, onDeleteEntity }) {
   const debts = data.debts || [];
   const [debt, setDebt] = useState({ name: "", balance: "", apr: "", minPayment: "" });
+  // deleting a debt is destructive → in-app two-tap confirm (AUDIT M10)
+  const [confirmId, setConfirmId] = useState(null);
 
   function addDebt() {
     if (!debt.name.trim()) {
       return;
     }
-    onSave({
-      ...data,
-      debts: [
-        ...debts,
-        {
-          id: uid(),
-          name: debt.name.trim(),
-          balance: Number(debt.balance || 0),
-          apr: Number(debt.apr || 0),
-          minPayment: Number(debt.minPayment || 0),
-        },
-      ],
-    });
+    const item = {
+      id: uid(),
+      name: debt.name.trim(),
+      balance: Number(debt.balance || 0),
+      apr: Number(debt.apr || 0),
+      minPayment: Number(debt.minPayment || 0),
+    };
+    // one-row upsert via PATCH /api/debts/:id when available (no full-state rewrite)
+    if (onSaveEntity) {
+      onSaveEntity("debts", item);
+    } else {
+      onSave((d) => ({ ...d, debts: [...(d.debts || []), item] }));
+    }
     setDebt({ name: "", balance: "", apr: "", minPayment: "" });
   }
   function removeDebt(id) {
-    onSave({ ...data, debts: debts.filter((d) => d.id !== id) });
+    if (confirmId !== id) {
+      setConfirmId(id);
+      setTimeout(() => setConfirmId((c) => (c === id ? null : c)), 4000); // disarm
+      return;
+    }
+    setConfirmId(null);
+    if (onDeleteEntity) {
+      onDeleteEntity("debts", id);
+    } else {
+      onSave((d) => ({ ...d, debts: (d.debts || []).filter((x) => x.id !== id) }));
+    }
   }
 
   return (
@@ -48,10 +60,14 @@ export default function DebtsSection({ data, onSave }) {
               </div>
               <button
                 onClick={() => removeDebt(d.id)}
-                className="-m-1 flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-400"
-                aria-label="Remove"
+                className={
+                  confirmId === d.id
+                    ? "-m-1 flex h-9 items-center px-2 text-xs font-semibold text-rose-600"
+                    : "-m-1 flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-400"
+                }
+                aria-label={confirmId === d.id ? `Confirm: remove ${d.name}` : `Remove ${d.name}`}
               >
-                <X size={14} />
+                {confirmId === d.id ? "Remove?" : <X size={14} />}
               </button>
             </div>
           ))}

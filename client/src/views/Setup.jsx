@@ -44,6 +44,8 @@ function Section({ title, summary, open, onToggle, children }) {
 export default function Setup({
   data,
   onSave,
+  onSaveEntity, // granular one-row upsert (accounts | debts | goals) — falls back to onSave
+  onDeleteEntity, // granular one-row delete — falls back to onSave
   onReplayIntro,
   onReset,
   theme = "light",
@@ -192,7 +194,13 @@ export default function Setup({
             open={isOpen("accounts", accounts.length === 0)}
             onToggle={() => toggle("accounts", accounts.length === 0)}
           >
-            <AccountsSection data={data} onSave={onSave} prices={prices} />
+            <AccountsSection
+              data={data}
+              onSave={onSave}
+              onSaveEntity={onSaveEntity}
+              onDeleteEntity={onDeleteEntity}
+              prices={prices}
+            />
           </Section>
 
           {/* Recurring bills (essentials) */}
@@ -227,7 +235,12 @@ export default function Setup({
             open={isOpen("debts", debts.length === 0)}
             onToggle={() => toggle("debts", debts.length === 0)}
           >
-            <DebtsSection data={data} onSave={onSave} />
+            <DebtsSection
+              data={data}
+              onSave={onSave}
+              onSaveEntity={onSaveEntity}
+              onDeleteEntity={onDeleteEntity}
+            />
           </Section>
         </>
       )}
