@@ -15,6 +15,7 @@ import { nextMilestone } from "../lib/insights/milestones.js";
 import { nextPaydays } from "../lib/plan/paydays.js";
 import { cashflowForecast, spendingTrends, coachNudges } from "../lib/insights/insights.js";
 import { budgetStatus, budgetAlert } from "../lib/finance/budgets.js";
+import { billPayments, billsSummary } from "../lib/plan/billpay.js";
 import { learnFeed } from "../lib/insights/learn.js";
 import { Flame, Check, TrendingUp, TrendingDown, ArrowRight, Bell, X } from "lucide-react";
 import SankeyFlow from "../charts/Sankey.jsx";
@@ -210,6 +211,12 @@ export default function Home({
     [transactions, profile.budgets, profile.budgetOpts],
   );
   const budgetWarn = budgetAlert(budgetRows);
+  // bills matched against logged spends: paid X of N, $ left, overdue names
+  const billStatuses = useMemo(() => {
+    const now = new Date();
+    return billPayments(profile.bills || [], transactions, now.getFullYear(), now.getMonth());
+  }, [profile.bills, transactions]);
+  const billSum = useMemo(() => billsSummary(billStatuses), [billStatuses]);
   // this month's spending split by category (for the "where it went" breakdown)
   const catSpend = useMemo(() => {
     const m = {};
@@ -600,6 +607,46 @@ export default function Home({
           </div>
           <div className="text-xs text-slate-500 mt-2">
             <Money n={spendThisMonth} /> spent this month
+          </div>
+        </Card>
+      )}
+
+      {/* bills — paid / left / overdue, matched against logged spends */}
+      {billSum.total > 0 && (
+        <Card title="Bills this month" onGo={() => onGo?.("accounts")}>
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="text-2xl font-mono font-bold text-slate-900">
+              {billSum.paidCount}/{billSum.total}
+            </span>
+            <span className="text-xs text-slate-500">paid</span>
+            {billSum.leftCount > 0 && (
+              <span className="ml-auto text-sm font-mono font-semibold text-slate-700">
+                <Money n={billSum.leftTotal} />{" "}
+                <span className="text-xs font-sans font-normal text-slate-500">left</span>
+              </span>
+            )}
+          </div>
+          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-2">
+            <div
+              className="h-full bg-emerald-400 rounded-full transition-all"
+              style={{ width: `${(billSum.paidCount / billSum.total) * 100}%` }}
+            />
+          </div>
+          {billSum.overdue.length > 0 ? (
+            <div className="text-sm text-rose-600">
+              Overdue: {billSum.overdue.map((s) => s.bill.name).join(", ")} — log the payment or
+              check the account.
+            </div>
+          ) : billSum.leftCount > 0 ? (
+            <div className="text-sm text-slate-600">
+              {billSum.leftCount === 1 ? "1 bill" : `${billSum.leftCount} bills`} still coming up
+              this month.
+            </div>
+          ) : (
+            <div className="text-sm text-emerald-600">All bills covered this month.</div>
+          )}
+          <div className="text-xs text-slate-500 mt-1">
+            Matched from your logged spending (by name or amount near the due date).
           </div>
         </Card>
       )}

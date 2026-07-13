@@ -52,6 +52,11 @@ Tailscale/TLS**, and **encrypt the DB file and its backups**.
 - **No encryption at rest.** The SQLite file is plaintext. Anyone who obtains it — a
   stolen disk, a synced/cloud backup, another user account on the box — reads all your
   finances. `make backup` is a plaintext copy; use `make backup-enc` (below).
+- **Offline cache in the browser.** So the installed PWA can show your data when the
+  server is unreachable, the client keeps the last synced state in `localStorage` —
+  plaintext, in that device's browser profile. It exists **only while the app lock is
+  off** (enabling the lock clears it and stops writing it), so it never bypasses the
+  lock; but on a shared device it's the same exposure as opening the lock-less app.
 - **No built-in TLS.** The server speaks plain HTTP and binds `0.0.0.0:4000` by default.
   Confidentiality in transit depends entirely on Tailscale (WireGuard) or a TLS proxy.
   Opening it over `http://<lan-ip>:4000` exposes all traffic to anyone on that network.

@@ -5,7 +5,7 @@ import { Flame, ChevronLeft, ChevronRight } from "lucide-react";
 import { fmt } from "../lib/core/format.js";
 import { weekKey, objectiveForWeek } from "../lib/insights/streak.js";
 import { paydaysInMonth } from "../lib/plan/paydays.js";
-import { billDueDay } from "../lib/plan/billdates.js";
+import { billPayments } from "../lib/plan/billpay.js";
 
 const DOW = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -54,16 +54,31 @@ export default function Calendar({ transactions = [], profile = {} }) {
   }, [transactions, year, month]);
   const maxSpend = Math.max(1, ...Object.values(byDay).map((d) => d.spend));
 
+  // bills with their PAYMENT status (matched against logged spends): the dot can say
+  // paid / due / overdue instead of a flat "due on the 15th"
   const billsByDay = useMemo(() => {
     const m = {};
-    for (const b of profile.bills || []) {
-      const day = billDueDay(b, year, month); // resolves day/last-day/Nth-weekday this month
-      if (day) {
-        (m[day] ??= []).push(b);
+    for (const s of billPayments(profile.bills || [], transactions, year, month)) {
+      if (s.dueDay) {
+        (m[s.dueDay] ??= []).push(s);
       }
     }
     return m;
-  }, [profile.bills, year, month]);
+  }, [profile.bills, transactions, year, month]);
+  // worst status among a day's bills decides the dot color
+  const billDot = (day) => {
+    const list = billsByDay[day];
+    if (!list) {
+      return null;
+    }
+    if (list.some((s) => s.status === "overdue")) {
+      return "bg-rose-500";
+    }
+    if (list.every((s) => s.status === "paid")) {
+      return "bg-slate-300";
+    }
+    return "bg-amber-400";
+  };
 
   // forecast paydays this month, per income source (day-of-month → source names)
   const paydaysByDay = useMemo(() => {
@@ -173,7 +188,13 @@ export default function Calendar({ transactions = [], profile = {} }) {
                 parts.push("saved");
               }
               if (billsByDay[d]) {
-                parts.push("bill due");
+                parts.push(
+                  billsByDay[d].every((s) => s.status === "paid")
+                    ? "bill paid"
+                    : billsByDay[d].some((s) => s.status === "overdue")
+                      ? "bill overdue"
+                      : "bill due",
+                );
               }
               if (paydaysByDay[d]) {
                 parts.push("payday");
@@ -197,7 +218,7 @@ export default function Calendar({ transactions = [], profile = {} }) {
                     {info?.contrib > 0 && (
                       <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
                     )}
-                    {billsByDay[d] && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
+                    {billsByDay[d] && <span className={`w-1.5 h-1.5 rounded-full ${billDot(d)}`} />}
                     {paydaysByDay[d] && (
                       <span className="w-1.5 h-1.5 rounded-full border border-emerald-500" />
                     )}
@@ -220,6 +241,14 @@ export default function Calendar({ transactions = [], profile = {} }) {
           <span>
             <span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />
             bill due
+          </span>
+          <span>
+            <span className="inline-block w-2 h-2 rounded-full bg-slate-300 mr-1" />
+            bill paid
+          </span>
+          <span>
+            <span className="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1" />
+            bill overdue
           </span>
           <span>
             <span className="inline-block w-2 h-2 rounded-full border border-emerald-500 mr-1" />
@@ -250,11 +279,25 @@ export default function Calendar({ transactions = [], profile = {} }) {
             </div>
           ))}
           {selBills.length > 0 &&
-            selBills.map((b) => (
-              <div key={b.id} className="flex justify-between py-1.5 text-sm">
-                <span className="text-amber-600">Bill due · {b.name}</span>
+            selBills.map((s) => (
+              <div key={s.bill.id} className="flex justify-between py-1.5 text-sm">
+                <span
+                  className={
+                    s.status === "paid"
+                      ? "text-slate-500"
+                      : s.status === "overdue"
+                        ? "text-rose-600"
+                        : "text-amber-600"
+                  }
+                >
+                  {s.status === "paid"
+                    ? `Bill paid ✓ · ${s.bill.name}${s.paidOn ? ` (on the ${s.paidOn})` : ""}`
+                    : s.status === "overdue"
+                      ? `Bill overdue · ${s.bill.name}`
+                      : `Bill due · ${s.bill.name}`}
+                </span>
                 <span className="font-mono text-slate-500">
-                  <Money n={b.amount} />
+                  <Money n={s.bill.amount} />
                 </span>
               </div>
             ))}
