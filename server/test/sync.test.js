@@ -1,159 +1,139 @@
-// sync.test.js — REAL integration tests for the price sync. Unlike refresh.test.js
-// (which stubs global.fetch), this stands up an actual localhost HTTP server and points
-// the feed/Finnhub URLs at it, so the whole path exercises real sockets: fetchTextCapped
-// → provider chain → parse → cache → sync-outcome status. It covers the outcomes the UI
-// relies on: ok, partial, empty, error (unreachable), multi-URL fallback, and the
-// keyed-provider (Finnhub) fallback when the keyless feed yields nothing.
-import { test, before, after } from "node:test";
+// sync.test.js — REAL integration tests for the price sync. The refresh path spawns
+// an actual python3 process (the fixture fake_prices.py, driven by env vars) exactly
+// like production spawns scripts/prices.py, so the whole chain is exercised:
+// execFile → JSON contract → cache → circuit breaker → sync-outcome status. It covers
+// the outcomes the UI relies on: ok, partial, empty, error, missing python, garbage
+// output, and breaker behavior across error vs miss.
+import { test } from "node:test";
 import assert from "node:assert/strict";
-import http from "node:http";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 process.env.TSUMIKI_PRICES = "1";
-process.env.TSUMIKI_YAHOO = "0"; // these tests predate the yahoo fallback — keep them off the real network
 process.env.TSUMIKI_DB = `/tmp/tsumiki-sync-${process.pid}-${Date.now()}.db`;
-
-// server-controlled responders, swapped per test
-let feedResponder = () => ({ status: 200, body: "" });
-let finnhubResponder = () => ({ status: 200, body: '{"c":0}' });
-
-let server, base;
-before(async () => {
-  server = http.createServer((req, res) => {
-    const r = req.url.startsWith("/finnhub") ? finnhubResponder(req) : feedResponder(req);
-    res.writeHead(r.status, { "content-type": "text/plain" });
-    res.end(r.body ?? "");
-  });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  base = `http://127.0.0.1:${server.address().port}`;
-});
-after(() => server?.close());
+process.env.TSUMIKI_PRICES_SCRIPT = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake_prices.py",
+);
 
 // dynamic import AFTER env is set so module-level reads see TSUMIKI_PRICES
 const db = await import("../lib/db.js");
 const prices = await import("../lib/prices.js");
 
-const stooqCsv = (rows) =>
-  [
-    "Symbol,Date,Open,High,Low,Close,Volume",
-    ...rows.map((r) => `${r.s}.US,${r.d},1,2,3,${r.c},100`),
-  ].join("\n");
+const feed = (rows, error = null) => {
+  process.env.FAKE_PRICES_JSON = JSON.stringify({ rows, error });
+  process.env.FAKE_PRICES_EXIT = "0";
+};
+const row = (symbol, close, date = "2026-06-20") => ({ symbol, close, date });
 
-function setFeed(url) {
-  process.env.TSUMIKI_PRICE_URL = url;
-}
-
-test("OK: every held symbol priced → status 'ok', no missing, source 'feed'", async () => {
+test("OK: every held symbol priced → status 'ok', source 'yfinance'", async () => {
   db.putState({
     holdings: [
       { id: "h1", ticker: "AAPL", shares: 10 },
-      { id: "h2", ticker: "MSFT", shares: 5 },
+      { id: "h2", ticker: "VTSAX", shares: 5 }, // a mutual fund — the whole point
     ],
   });
-  setFeed(`${base}/feed?s={SYMBOLS}`);
-  delete process.env.TSUMIKI_FINNHUB_KEY;
-  feedResponder = () => ({
-    status: 200,
-    body: stooqCsv([
-      { s: "AAPL", d: "2026-06-20", c: 200 },
-      { s: "MSFT", d: "2026-06-20", c: 400 },
-    ]),
-  });
-
+  feed([row("AAPL", 200), row("VTSAX", 131.42)]);
   const out = await prices.getPrices();
   assert.equal(out.prices.AAPL.price, 200);
-  assert.equal(out.prices.MSFT.price, 400);
+  assert.equal(out.prices.VTSAX.price, 131.42);
   assert.equal(out.lastSync.status, "ok");
-  assert.equal(out.lastSync.source, "feed");
+  assert.equal(out.lastSync.source, "yfinance");
   assert.deepEqual(out.lastSync.missing, []);
 });
 
-test("PARTIAL: feed returns only some symbols → status 'partial' lists the missing", async () => {
-  feedResponder = () => ({ status: 200, body: stooqCsv([{ s: "AAPL", d: "2026-06-21", c: 205 }]) });
+test("PARTIAL: script returns only some symbols → 'partial' lists the missing", async () => {
+  feed([row("AAPL", 205, "2026-06-21")]);
   await prices.refreshPrices();
   const out = await prices.getPrices();
   assert.equal(out.lastSync.status, "partial");
-  assert.deepEqual(out.lastSync.missing, ["MSFT"]);
+  assert.deepEqual(out.lastSync.missing, ["VTSAX"]);
   assert.equal(out.prices.AAPL.price, 205); // updated
-  assert.equal(out.prices.MSFT.price, 400); // last good value preserved
+  assert.equal(out.prices.VTSAX.price, 131.42); // last good value preserved
 });
 
-test("EMPTY: a 200 with no data rows → status 'empty', cache untouched", async () => {
-  feedResponder = () => ({ status: 200, body: "Symbol,Date,Close\n" }); // header only
+test("EMPTY: a clean run with no rows → 'empty', cache untouched", async () => {
+  feed([]);
   await prices.refreshPrices();
   const out = await prices.getPrices();
   assert.equal(out.lastSync.status, "empty");
   assert.equal(out.prices.AAPL.price, 205); // unchanged
 });
 
-test("ERROR: an unreachable feed → status 'error' (distinct from 'empty')", async () => {
-  setFeed("http://127.0.0.1:1/feed?s={SYMBOLS}"); // nothing listens on :1 → connection refused
-  await prices.refreshPrices();
+test("ERROR: the script reports a failure → 'error' + note, no breaker punishment", async () => {
+  feed([], "yfinance failed for 2 symbol(s) — network or rate limit?");
+  // three error syncs in a row must NOT flip real holdings to "manual"
+  for (let i = 0; i < 3; i++) {
+    await prices.refreshPrices();
+  }
   const out = await prices.getPrices();
   assert.equal(out.lastSync.status, "error");
+  assert.match(out.lastSync.note, /network or rate limit/);
+  assert.deepEqual(out.lastSync.manual, []); // breaker never engaged
   assert.equal(out.prices.AAPL.price, 205); // still serves last good
 });
 
-test("FALLBACK: first feed empty, second feed has data → source 'feed-2'", async () => {
-  // first URL → /empty (header only), second → /feed (data)
-  setFeed(`${base}/empty?s={SYMBOLS}, ${base}/feed?s={SYMBOLS}`);
-  feedResponder = (req) =>
-    req.url.startsWith("/empty")
-      ? { status: 200, body: "Symbol,Date,Close\n" }
-      : { status: 200, body: stooqCsv([{ s: "AAPL", d: "2026-06-22", c: 210 }]) };
+test("GARBAGE: unreadable stdout → 'error', not a crash", async () => {
+  process.env.FAKE_PRICES_JSON = "this is not json";
   await prices.refreshPrices();
   const out = await prices.getPrices();
-  assert.equal(out.lastSync.source, "feed-2");
-  assert.equal(out.prices.AAPL.price, 210);
+  assert.equal(out.lastSync.status, "error");
+  assert.match(out.lastSync.note, /unreadable/);
 });
 
-test("FINNHUB FALLBACK: keyless feed empty + key set → source 'finnhub'", async () => {
-  db.putState({ holdings: [{ id: "h1", ticker: "AAPL", shares: 10 }] });
-  setFeed(`${base}/empty?s={SYMBOLS}`);
-  process.env.TSUMIKI_FINNHUB_KEY = "test-key";
-  process.env.TSUMIKI_FINNHUB_URL = `${base}/finnhub`;
-  feedResponder = () => ({ status: 200, body: "Symbol,Date,Close\n" });
-  finnhubResponder = (req) => {
-    assert.match(req.url, /token=test-key/); // the key is actually sent
-    return { status: 200, body: JSON.stringify({ c: 222.22, t: 1750636800 }) };
-  };
+test("CRASH: a non-zero exit with no output → 'error' with the failure note", async () => {
+  process.env.FAKE_PRICES_JSON = "";
+  process.env.FAKE_PRICES_EXIT = "2";
   await prices.refreshPrices();
   const out = await prices.getPrices();
-  assert.equal(out.lastSync.source, "finnhub");
-  assert.equal(out.prices.AAPL.price, 222.22);
-  delete process.env.TSUMIKI_FINNHUB_KEY;
+  assert.equal(out.lastSync.status, "error");
+  assert.ok(out.lastSync.note);
+  process.env.FAKE_PRICES_EXIT = "0";
 });
 
-test("MERGE: a partial first feed is completed by a second feed (not masked)", async () => {
-  db.putState({
-    holdings: [
-      { id: "h1", ticker: "AAPL", shares: 1 },
-      { id: "h2", ticker: "MSFT", shares: 1 },
-    ],
-  });
-  delete process.env.TSUMIKI_FINNHUB_KEY;
-  // feed A only knows AAPL; feed B only knows MSFT — together they're complete
-  setFeed(`${base}/a?s={SYMBOLS}, ${base}/b?s={SYMBOLS}`);
-  feedResponder = (req) =>
-    req.url.startsWith("/a")
-      ? { status: 200, body: stooqCsv([{ s: "AAPL", d: "2026-06-24", c: 230 }]) }
-      : { status: 200, body: stooqCsv([{ s: "MSFT", d: "2026-06-24", c: 430 }]) };
+test("MISSING PYTHON: friendly note telling the user what to install", async () => {
+  const orig = process.env.TSUMIKI_PYTHON;
+  process.env.TSUMIKI_PYTHON = "/nonexistent/python3";
   await prices.refreshPrices();
   const out = await prices.getPrices();
-  assert.equal(out.lastSync.status, "ok"); // both filled despite each feed being partial
-  assert.deepEqual(out.lastSync.missing, []);
-  assert.equal(out.lastSync.source, "feed,feed-2"); // both providers contributed
-  assert.equal(out.prices.AAPL.price, 230);
-  assert.equal(out.prices.MSFT.price, 430);
+  assert.equal(out.lastSync.status, "error");
+  assert.match(out.lastSync.note, /needs Python/);
+  assert.match(out.lastSync.note, /pip install yfinance/);
+  if (orig) {
+    process.env.TSUMIKI_PYTHON = orig;
+  } else {
+    delete process.env.TSUMIKI_PYTHON;
+  }
 });
 
-test("ERROR vs EMPTY: Finnhub unreachable while feed is empty → 'error'", async () => {
+test("BREAKER: three clean misses flip a symbol to 'manual'; a later success resets it", async () => {
+  db.putState({ holdings: [{ id: "h1", ticker: "GONE", shares: 1 }] });
+  feed([]); // clean runs, GONE never prices
+  for (let i = 0; i < 3; i++) {
+    await prices.refreshPrices();
+  }
+  let out = await prices.getPrices();
+  assert.deepEqual(out.lastSync.manual, ["GONE"]);
+  // probe round eventually re-asks; when it prices, the breaker resets
+  feed([row("GONE", 12)]);
+  for (let i = 0; i < 8; i++) {
+    await prices.refreshPrices(); // covers the every-7th probe round
+  }
+  out = await prices.getPrices();
+  assert.deepEqual(out.lastSync.manual, []);
+  assert.equal(out.prices.GONE.price, 12);
+});
+
+test("rows with garbage entries are filtered by the Node-side validation", async () => {
   db.putState({ holdings: [{ id: "h1", ticker: "AAPL", shares: 1 }] });
-  setFeed(`${base}/empty?s={SYMBOLS}`); // reachable, returns no rows
-  feedResponder = () => ({ status: 200, body: "Symbol,Date,Close\n" });
-  process.env.TSUMIKI_FINNHUB_KEY = "k";
-  process.env.TSUMIKI_FINNHUB_URL = "http://127.0.0.1:1/finnhub"; // nothing listens → throws
-  await prices.refreshPrices();
-  const out = await prices.getPrices();
-  assert.equal(out.lastSync.status, "error"); // not "empty": a provider genuinely failed
-  delete process.env.TSUMIKI_FINNHUB_KEY;
+  feed([
+    { symbol: "AAPL", close: 210.5, date: "2026-06-22" },
+    { symbol: "BAD", close: -5, date: "2026-06-22" }, // non-positive → dropped
+    { symbol: "", close: 10, date: "" }, // no symbol → dropped
+    { close: 10 }, // malformed → dropped
+  ]);
+  const res = await prices.refreshPrices();
+  assert.equal(res.prices.AAPL.price, 210.5);
+  assert.equal(res.prices.BAD, undefined);
 });

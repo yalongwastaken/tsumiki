@@ -55,13 +55,12 @@ the app lock in place — see v1.5.0).
 
 **Optional feature flags** (all off by default — set them on the `make start` line):
 
-| Flag                                     | Turns on                                       |
-| ---------------------------------------- | ---------------------------------------------- |
-| `TSUMIKI_PRICES=1`                       | nightly + manual stock-price sync (see v2.0.0) |
-| `TSUMIKI_PRICE_URL='…{SYMBOLS}…'`        | override / list price feeds (comma-separated)  |
-| `TSUMIKI_FINNHUB_KEY=…`                  | Finnhub fallback provider (see v2.0.0)         |
-| `TSUMIKI_NEWS_FEED='https://…/feed.xml'` | money-headlines card                           |
-| `TSUMIKI_TRUST_PROXY=1`                  | trust `x-forwarded-proto` behind a TLS proxy   |
+| Flag                                     | Turns on                                                                                |
+| ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| `TSUMIKI_PRICES=1`                       | nightly + manual stock-price sync via yfinance (needs python3 + `pip install yfinance`) |
+| `TSUMIKI_PYTHON=…`                       | which Python interpreter runs the price script (default `python3`)                      |
+| `TSUMIKI_NEWS_FEED='https://…/feed.xml'` | money-headlines card                                                                    |
+| `TSUMIKI_TRUST_PROXY=1`                  | trust `x-forwarded-proto` behind a TLS proxy                                            |
 
 ---
 
@@ -185,37 +184,36 @@ sync). Also: honest error-vs-empty, a ≥5-calendar-day week-over-week baseline,
 ("Where your stocks sit") that separates the total into account-type buckets (Taxable /
 401(k) / IRA / Roth) and then into individual tickers.
 
-**Test it deterministically with the bundled sample CSV as a local feed:**
+**Test it** (prices now come from a single source: the yfinance sidecar at
+`server/scripts/prices.py` — automated coverage drives it through
+`server/test/fixtures/fake_prices.py`, so `make test` exercises every outcome without
+touching the network):
 
 ```bash
-# terminal 1 — serve the sample prices as a feed
-cd /path/to/tsumiki && python3 -m http.server 7799
-
-# terminal 2 — run Tsumiki pointed at it, prices enabled
-cd /path/to/tsumiki
-TSUMIKI_PRICES=1 \
-TSUMIKI_PRICE_URL='http://localhost:7799/samples/sample-prices.csv?s={SYMBOLS}' \
-make start
+pip install yfinance          # one-time, on the box that runs the server
+TSUMIKI_PRICES=1 make start
 ```
 
 Import `samples/sample-portfolio.json`, open the **Portfolio** card, and:
 
-1. **OK path:** hit **Sync now** → all holdings priced, total + allocation donut show, the
-   **"Where your stocks sit" Sankey** appears (Portfolio → Taxable / 401(k) / IRA / Roth →
-   tickers), and the footer reads "Prices synced just now."
+1. **OK path:** hit **Sync now** → all holdings priced — including mutual funds — the
+   total + allocation donut show, the **"Where your stocks sit" Sankey** appears
+   (Portfolio → Taxable / 401(k) / IRA / Roth → tickers), and the footer reads "Prices
+   synced just now."
+2. **Missing dependency (error):** `pip uninstall yfinance` (or run with
+   `TSUMIKI_PYTHON=/nonexistent`), **Sync now** → the sync note says exactly what to
+   install; prior prices keep showing.
+3. **Offline (error):** disconnect the network, **Sync now** → "showing the last saved
+   prices," and the footer stops claiming a fresh sync.
+4. **Unpriceable symbol:** add a holding with a junk ticker (e.g. `ZZZZZZ`) → after a
+   few syncs it's flagged "update manually" instead of erroring forever.
 
 **Blur money (privacy mode).** Click the **eye icon in the header** (top-right, next to net
 worth) — every dollar amount blurs: balances, the plan, ledger, budgets, charts, and both
 Sankeys. Non-money text (categories, tickers, dates, percentages) stays sharp. Hover any
 blurred amount to peek; click the eye again (or toggle Settings → Privacy) to unblur. It
 persists across tabs and is off by default. Note it's visual-only (a screen reader still
-reads the amounts). 2. **Unreachable (error):** stop the python server, **Sync now** → amber note "couldn't
-reach the feed — showing the last saved prices," and the footer stops claiming a fresh
-sync. 3. **Partial:** delete one row (e.g. NVDA) from `samples/sample-prices.csv`, restart the server,
-**Sync now** → "No fresh price for NVDA — showing the last saved value"; NVDA keeps its
-prior value. 4. **Real feed (optional):** drop `TSUMIKI_PRICE_URL` and just run `TSUMIKI_PRICES=1 make
-start` → it defaults to the live Stooq feed (works from a normal home network). 5. **Finnhub fallback (optional):** add `TSUMIKI_FINNHUB_KEY=<your key>` so it's tried for
-any symbols the keyless feed couldn't price.
+reads the amounts).
 
 ---
 
@@ -225,5 +223,5 @@ any symbols the keyless feed couldn't price.
   isolated and lets you re-trigger onboarding.
 - **Everything is one file:** the SQLite database is a single file, so a copy is a full
   backup (`make backup`).
-- **Nothing leaves the device** unless you set a feed/price/Finnhub flag — the default
-  run makes zero outbound calls.
+- **Nothing leaves the device** unless you enable prices or news — the default run
+  makes zero outbound calls (and price sync sends only ticker symbols, via yfinance).

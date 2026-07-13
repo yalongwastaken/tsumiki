@@ -114,7 +114,11 @@ export function syncProblem(ls) {
   }
   if (ls.status === "error") {
     return {
-      text: "Last price sync couldn't reach the feed — showing the last saved prices.",
+      // the server's note says WHAT failed (e.g. "price sync needs Python — …
+      // pip install yfinance") — surface it verbatim when present
+      text: ls.note
+        ? `Last price sync failed: ${ls.note} Showing the last saved prices.`
+        : "Last price sync failed — showing the last saved prices.",
       tone: "error",
     };
   }
@@ -138,7 +142,7 @@ export function syncProblem(ls) {
 }
 
 /** A calm reminder for symbols the feed has given up on (the circuit breaker's "manual"
- * list — e.g. mutual funds Finnhub can't price). Returns text or null. Exported for tests. */
+ * list — symbols yfinance can't price, e.g. delisted tickers). Returns text or null. Exported for tests. */
 export function manualNote(ls) {
   const m = (ls && ls.manual) || [];
   if (!m.length) {

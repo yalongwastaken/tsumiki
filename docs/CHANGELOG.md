@@ -8,12 +8,23 @@ All notable changes to Tsumiki are documented here. The format follows
 
 ### Changed
 
-- **Yahoo is now the default primary price feed; Finnhub is an optional backstop.**
-  Provider order is custom CSV feed(s) → Yahoo → Finnhub. Yahoo is keyless and covers
-  stocks, ETFs, and mutual funds, so a zero-config install syncs everything; a
-  configured `TSUMIKI_FINNHUB_KEY` now only fills in if Yahoo misses or is down.
-  Finnhub support is deliberately kept (not removed): Yahoo's endpoint is unofficial,
-  and the old Stooq default getting bot-walled is exactly why a keyed backstop stays.
+- **Prices now come from ONE source: a Python/yfinance sidecar.** The Node server
+  spawns `server/scripts/prices.py` (built on
+  [yfinance](https://github.com/ranaroussi/yfinance), the community-maintained
+  library that tracks Yahoo Finance) for the held tickers and reads back JSON. No API
+  keys, no provider chain, no config — and it covers stocks, ETFs, and mutual funds,
+  so every held symbol syncs. Requires python3 + `pip install yfinance` on the box
+  (`TSUMIKI_PYTHON` overrides the interpreter); when either is missing, the Portfolio
+  sync status says exactly what to install.
+
+### Removed
+
+- **All Finnhub, Stooq/CSV-feed, and hand-rolled Yahoo HTTP logic.**
+  `TSUMIKI_FINNHUB_KEY`, `TSUMIKI_FINNHUB_URL`, `TSUMIKI_PRICE_URL`, `TSUMIKI_YAHOO`,
+  and `TSUMIKI_YAHOO_URL` are gone, along with the CSV/quote parsers and the
+  multi-provider merge loop. The sync-outcome statuses, circuit breaker, caching,
+  week-over-week history, and manual-holdings behavior are unchanged (now exercised
+  end-to-end against a fake sidecar in tests, spawning real python3).
 
 ## [2.6.0] — 2026-07-13
 

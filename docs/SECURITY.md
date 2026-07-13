@@ -28,10 +28,10 @@ Tailscale/TLS**, and **encrypt the DB file and its backups**.
   (`server/data/tsumiki.db`, override with `TSUMIKI_DB`). No cloud, ever. The file is
   git-ignored so it's never committed.
 - **No telemetry / analytics / third-party calls.** The only outbound traffic is the
-  opt-in news and price sync. Both are **off by default**; when enabled, only your held
-  **ticker symbols**, the operator-configured **feed URL**, and (if you set one) your own
-  **Finnhub API key** leave the device — never your balances, transactions, or profile.
-  Outbound fetches are time- and size-capped.
+  opt-in news and price sync. Both are **off by default**; when enabled, only the
+  operator-configured **news feed URL** and your held **ticker symbols** (sent to
+  Yahoo Finance via the yfinance sidecar) leave the device — never your balances,
+  transactions, or profile. Outbound fetches are time- and size-capped.
 - **App lock (optional, but strong when on).** scrypt-hashed password, an HMAC-signed
   session token in an HttpOnly/SameSite=Strict cookie (Secure over HTTPS), a 7-day
   trusted-device window, and a session secret that **rotates on every password change**

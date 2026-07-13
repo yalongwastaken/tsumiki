@@ -275,6 +275,15 @@ test("syncProblem: error/empty are assertive (alert tone), partial is a warning"
   assert.equal(syncProblem({ status: "partial", missing: ["MSFT"] }).tone, "warn");
 });
 
+test("syncProblem: an error surfaces the server's note verbatim (e.g. install yfinance)", () => {
+  const p = syncProblem({
+    status: "error",
+    note: 'price sync needs Python — "python3" was not found (install python3 + pip install yfinance)',
+  });
+  assert.match(p.text, /pip install yfinance/);
+  assert.equal(p.tone, "error");
+});
+
 test("syncProblem: partial names the missing tickers, caps a long list, pluralizes", () => {
   const one = syncProblem({ status: "partial", missing: ["MSFT"] });
   assert.match(one.text, /No fresh price for MSFT/);
@@ -304,7 +313,7 @@ test("Portfolio shows a failure note + 'last good sync' wording, not a fresh-syn
       },
     }),
   );
-  assert.match(out, /couldn&#x27;t reach the feed/); // the amber note
+  assert.match(out, /Last price sync failed/); // the amber note
   assert.match(out, /role="alert"/); // error is announced assertively
   assert.match(out, /last good sync/); // footer doesn't claim a fresh sync
   assert.doesNotMatch(out, /Prices synced 2h ago/); // ...the contradictory wording is gone

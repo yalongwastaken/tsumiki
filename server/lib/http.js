@@ -1,6 +1,6 @@
-// http.js — outbound fetch with a timeout AND a response-size cap. The price/news
-// feed URLs are operator-configured, but a buggy or hostile feed returning a
-// multi-GB body shouldn't be able to OOM the mini-PC.
+// http.js — outbound fetch with a timeout AND a response-size cap. The news feed
+// URL is operator-configured, but a buggy or hostile feed returning a multi-GB
+// body shouldn't be able to OOM the mini-PC.
 //
 // Returns { status, ok, text }: `text` is the body on success, or null when the
 // response was non-OK or over the size cap. Surfacing the status (instead of a bare
@@ -47,6 +47,3 @@ export async function fetchTextCapped(
   }
   return { ...meta, text: Buffer.concat(chunks).toString("utf8") };
 }
-
-/** True for a response worth retrying later: rate-limited or a server-side failure. */
-export const isRetryableStatus = (status) => status === 429 || (status >= 500 && status < 600);

@@ -1,21 +1,23 @@
 // prices.js — OPT-IN nightly stock-price sync. Off unless TSUMIKI_PRICES is set, so a
 // stock install makes zero outbound calls. When on, it fetches daily closes for ONLY
-// the tickers you hold (symbols aren't personal), tries each configured provider in
-// order until one returns data, caches the result, keeps a short per-symbol history for
-// week-over-week moves, and records the outcome of the last sync so the UI can show
-// "synced / nothing came back / failed" instead of silently serving stale prices.
+// the tickers you hold (symbols aren't personal) via ONE source: a small Python
+// sidecar (scripts/prices.py) built on yfinance — the community-maintained library
+// that tracks Yahoo's endpoints, covering stocks, ETFs, and mutual funds with zero
+// keys and zero config. Requires python3 + `pip install yfinance` on the machine;
+// the sync status says so plainly when either is missing.
 //
-// Providers, tried in order:
-//   1. keyless CSV feed(s) — only if you set TSUMIKI_PRICE_URL ({SYMBOLS} → lowercased
-//      ".us" tickers); tried first so a private, keyless feed is preferred when present.
-//   2. Yahoo v8 chart — the DEFAULT PRIMARY: keyless, zero-config, covers stocks, ETFs,
-//      and mutual funds. TSUMIKI_YAHOO=0 disables it.
-//   3. Finnhub JSON quotes — optional keyed backstop; dormant unless TSUMIKI_FINNHUB_KEY
-//      is set. Kept because Yahoo's endpoint is unofficial (see the Stooq bot-wall story).
+// Results are cached, a short per-symbol history drives week-over-week moves, and the
+// outcome of the last sync is recorded so the UI shows "synced / nothing came back /
+// failed" instead of silently serving stale prices.
 //
-// Circuit breaker: a symbol the feed can't price (e.g. a mutual fund Finnhub doesn't
-// cover) is retried only MANUAL_AFTER times, then marked "manual" — we stop requesting
-// it and the UI reminds you to update that holding by hand, instead of erroring forever.
+// Circuit breaker: a symbol the feed can't price (e.g. a delisted ticker) is retried
+// only MANUAL_AFTER times, then marked "manual" — we stop requesting it and the UI
+// reminds you to update that holding by hand, instead of erroring forever. A script
+// ERROR (network down, rate limit, yfinance missing) never punishes symbols: they
+// were not genuinely answered.
+import { execFile } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import {
   getState,
   appendPortfolioPoint,
@@ -25,277 +27,79 @@ import {
   getPriceFailures,
   setPriceFailures,
 } from "./db.js";
-import { fetchTextCapped, isRetryableStatus } from "./http.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const TTL = 20 * 60 * 60 * 1000; // refetch at most ~daily
 const RETRY_FLOOR = 5 * 60 * 1000; // after a failed sync, wait this long before a lazy retry
 const HIST_MAX = 40;
 const MANUAL_AFTER = 3; // consecutive misses before a symbol is given up on → "update manually"
 const PROBE_EVERY = 7; // re-attempt given-up symbols every Nth refresh so a transient gap can recover
+const SCRIPT_TIMEOUT_MS = 90_000; // yfinance fetches serially; give a big portfolio room
 
 // env read live (not cached at import) so tests can vary it between cases
 const enabled = () =>
   ["1", "true", "yes"].includes((process.env.TSUMIKI_PRICES || "").toLowerCase());
-// optional custom keyless CSV feed(s); empty by default (no Stooq fallback anymore)
-const feedUrls = () =>
-  (process.env.TSUMIKI_PRICE_URL || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-const finnhubKey = () => process.env.TSUMIKI_FINNHUB_KEY || "";
-const finnhubUrl = () => process.env.TSUMIKI_FINNHUB_URL || "https://finnhub.io/api/v1/quote";
-// Yahoo chart — the default primary feed: keyless and covers what Finnhub's free tier
-// can't (mutual funds like VTSAX, many ETFs). ON by default whenever price sync itself
-// is enabled (it's the same opt-in: only your ticker symbols are sent); set
-// TSUMIKI_YAHOO=0 to turn it off.
-const yahooEnabled = () =>
-  !["0", "false", "no"].includes((process.env.TSUMIKI_YAHOO || "").toLowerCase());
-const yahooUrl = () =>
-  process.env.TSUMIKI_YAHOO_URL || "https://query1.finance.yahoo.com/v8/finance/chart";
+const pythonBin = () => process.env.TSUMIKI_PYTHON || "python3";
+const priceScript = () =>
+  process.env.TSUMIKI_PRICES_SCRIPT || join(__dirname, "..", "scripts", "prices.py");
 
 let cache = { prices: {}, fetchedAt: 0 };
 // outcome of the most recent refresh attempt (surfaced via getPrices). `manual` lists
-// symbols given up on (price them by hand); `missing` is symbols still being retried.
-let lastSync = { status: "idle", at: 0, source: null, missing: [], manual: [] };
-
-// split one CSV line, honoring "quoted, fields" and "" escapes. Stooq's own feed is
-// plain, but a custom TSUMIKI_PRICE_URL might not be — be tolerant either way.
-function splitCsvLine(line) {
-  const out = [];
-  let cur = "",
-    q = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (q) {
-      if (c === '"') {
-        if (line[i + 1] === '"') {
-          cur += '"';
-          i++;
-        } else {
-          q = false;
-        }
-      } else {
-        cur += c;
-      }
-    } else if (c === '"') {
-      q = true;
-    } else if (c === ",") {
-      out.push(cur);
-      cur = "";
-    } else {
-      cur += c;
-    }
-  }
-  out.push(cur);
-  return out.map((s) => s.trim());
-}
+// symbols given up on (price them by hand); `missing` is symbols still being retried;
+// `note` is the human-readable problem when something real failed.
+let lastSync = { status: "idle", at: 0, source: null, missing: [], manual: [], note: null };
 
 /**
- * Parse a Stooq CSV (header + rows) into latest closes. Pure — no network.
- * Tolerant of a BOM, quoted fields, blank lines, and Stooq's "N/D" no-data marker
- * (which yields NaN and is skipped rather than cached as a price).
- * @returns {Array<{symbol, close, date}>}
+ * Run the yfinance sidecar for `symbols` → {rows, errored, note}.
+ * `errored` means a REAL failure (network, rate limit, python/yfinance missing) —
+ * as opposed to "answered fine but had no data for these symbols". Never throws.
+ * @returns {Promise<{rows: Array<{symbol, close, date}>, errored: boolean, note: string|null}>}
  */
-export function parseStooqCsv(csv = "") {
-  const lines = String(csv)
-    .replace(/^\uFEFF/, "") // strip a leading byte-order mark
-    .trim()
-    .split(/\r?\n/)
-    .filter((l) => l.trim());
-  if (lines.length < 2) {
-    return [];
-  }
-  const header = splitCsvLine(lines[0]).map((h) => h.toLowerCase());
-  const ci = header.indexOf("close");
-  const si = header.indexOf("symbol");
-  const di = header.indexOf("date");
-  // without a symbol+close column there's nothing reliable to read
-  if (ci === -1 || si === -1) {
-    return [];
-  }
-  const out = [];
-  for (const line of lines.slice(1)) {
-    const cells = splitCsvLine(line);
-    const close = parseFloat(cells[ci]);
-    // strip the exchange suffix (.US/.UK/.DE …) but NOT a 1-letter class share (BRK.B)
-    const symbol = (cells[si] || "").replace(/\.[A-Z]{2,}$/i, "").toUpperCase();
-    if (!symbol || !isFinite(close) || close <= 0) {
-      continue;
-    }
-    out.push({ symbol, close, date: di === -1 ? "" : cells[di] || "" });
-  }
-  return out;
-}
-
-/** Parse a Finnhub /quote JSON for one symbol → a row, or null when there's no price. */
-export function parseFinnhubQuote(symbol, json) {
-  let j;
-  try {
-    j = typeof json === "string" ? JSON.parse(json) : json;
-  } catch {
-    return null;
-  }
-  const close = Number(j?.c);
-  if (!isFinite(close) || close <= 0) {
-    return null;
-  }
-  // guard the timestamp: a garbage/out-of-range `t` (e.g. 9e15 or Infinity) makes
-  // new Date(...).toISOString() throw, which would discard an otherwise-valid close.
-  // Fall back to today's date instead of dropping the price.
-  const stamped = j?.t ? new Date(j.t * 1000) : null;
-  const date = (stamped && !isNaN(stamped.getTime()) ? stamped : new Date())
-    .toISOString()
-    .slice(0, 10);
-  return { symbol: String(symbol).toUpperCase(), close, date };
-}
-
-/** Parse a Yahoo v8 chart JSON for one symbol → a row, or null when there's no price.
- * Prefers meta.regularMarketPrice; falls back to the last finite close in the
- * indicators series (covers mutual funds, whose meta sometimes lags a session). */
-export function parseYahooChart(symbol, json) {
-  let j;
-  try {
-    j = typeof json === "string" ? JSON.parse(json) : json;
-  } catch {
-    return null;
-  }
-  const r = j?.chart?.result?.[0];
-  let close = Number(r?.meta?.regularMarketPrice);
-  if (!isFinite(close) || close <= 0) {
-    const closes = r?.indicators?.quote?.[0]?.close;
-    if (Array.isArray(closes)) {
-      for (let i = closes.length - 1; i >= 0; i--) {
-        const c = Number(closes[i]);
-        if (isFinite(c) && c > 0) {
-          close = c;
-          break;
+export function runPriceScript(symbols) {
+  return new Promise((resolve) => {
+    execFile(
+      pythonBin(),
+      [priceScript(), ...symbols],
+      { timeout: SCRIPT_TIMEOUT_MS, maxBuffer: 2_000_000 },
+      (err, stdout) => {
+        if (err && !String(stdout || "").trim()) {
+          // spawn-level failure: python missing, script missing, timeout, crash
+          const note =
+            err.code === "ENOENT"
+              ? `price sync needs Python — "${pythonBin()}" was not found (install python3 + pip install yfinance)`
+              : err.killed
+                ? "price script timed out"
+                : `price script failed: ${err.message || err.code}`;
+          return resolve({ rows: [], errored: true, note });
         }
-      }
-    }
-  }
-  if (!isFinite(close) || close <= 0) {
-    return null;
-  }
-  // guard the timestamp like parseFinnhubQuote: garbage `regularMarketTime` must not
-  // discard an otherwise-valid close
-  const t = Number(r?.meta?.regularMarketTime);
-  const stamped = t > 0 ? new Date(t * 1000) : null;
-  const date = (stamped && !isNaN(stamped.getTime()) ? stamped : new Date())
-    .toISOString()
-    .slice(0, 10);
-  return { symbol: String(symbol).toUpperCase(), close, date };
-}
-
-// ── providers (each returns {rows, errored}) ────────────────────────────────────
-// `errored` means a REAL failure happened (network error, 429 rate limit, 5xx) — as
-// opposed to "the feed answered fine but had no data for these symbols". The refresh
-// loop maps errored → anyError, which both reports status:"error" and stops the
-// circuit breaker from punishing symbols that were never actually answered (three
-// rate-limited syncs used to flip perfectly good holdings to "manual").
-const INTER_REQUEST_DELAY_MS = 250; // polite gap between serial per-symbol requests
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function fetchStooq(url, symbols) {
-  const full = url.replace("{SYMBOLS}", symbols.map((s) => `${s.toLowerCase()}.us`).join(","));
-  const res = await fetchTextCapped(full, { maxBytes: 2_000_000 });
-  if (res.text == null) {
-    // rate-limited / server error → a provider failure, not "no data"
-    return { rows: [], errored: isRetryableStatus(res.status) };
-  }
-  return { rows: parseStooqCsv(res.text), errored: false };
-}
-async function fetchFinnhub(symbols) {
-  const base = finnhubUrl();
-  const key = finnhubKey();
-  const rows = [];
-  let errors = 0;
-  for (let i = 0; i < symbols.length; i++) {
-    const s = symbols[i];
-    // small delay between serial quote calls — the free tier is 60 req/min, and a
-    // burst of holdings shouldn't trip the limiter on our own sync
-    if (i > 0) {
-      await sleep(INTER_REQUEST_DELAY_MS);
-    }
-    try {
-      const u = `${base}?symbol=${encodeURIComponent(s)}&token=${encodeURIComponent(key)}`;
-      const res = await fetchTextCapped(u, { maxBytes: 100_000 });
-      if (res.text == null) {
-        if (isRetryableStatus(res.status)) {
-          errors++; // 429/5xx: a real failure — and if rate-limited, stop hammering
-          if (res.status === 429) {
-            break;
-          }
+        try {
+          const parsed = JSON.parse(String(stdout));
+          const rows = (Array.isArray(parsed.rows) ? parsed.rows : []).filter(
+            (r) =>
+              r &&
+              typeof r.symbol === "string" &&
+              r.symbol &&
+              typeof r.close === "number" &&
+              isFinite(r.close) &&
+              r.close > 0,
+          );
+          const note = parsed.error ? String(parsed.error) : null;
+          resolve({
+            rows: rows.map((r) => ({
+              symbol: r.symbol.toUpperCase(),
+              close: r.close,
+              date: typeof r.date === "string" ? r.date : "",
+            })),
+            errored: !!note,
+            note,
+          });
+        } catch {
+          resolve({ rows: [], errored: true, note: "price script returned unreadable output" });
         }
-        continue; // other non-OK (e.g. 404 unknown symbol) → a plain per-symbol miss
-      }
-      const row = parseFinnhubQuote(s, res.text);
-      if (row) {
-        rows.push(row);
-      }
-    } catch {
-      errors++; // network error/timeout: skip this symbol, remember it failed
-    }
-  }
-  return { rows, errored: errors > 0 };
-}
-// some endpoints (Yahoo included) reject the default undici UA with 429/403 — send a
-// plain browser-ish one. No cookies, no auth; only the ticker symbol goes out.
-const YAHOO_HEADERS = {
-  "user-agent": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0",
-  accept: "application/json",
-};
-
-async function fetchYahoo(symbols) {
-  const base = yahooUrl();
-  const rows = [];
-  let errors = 0;
-  for (let i = 0; i < symbols.length; i++) {
-    const s = symbols[i];
-    if (i > 0) {
-      await sleep(INTER_REQUEST_DELAY_MS);
-    }
-    try {
-      const u = `${base}/${encodeURIComponent(s)}?interval=1d&range=5d`;
-      const res = await fetchTextCapped(u, { maxBytes: 500_000, headers: YAHOO_HEADERS });
-      if (res.text == null) {
-        if (isRetryableStatus(res.status)) {
-          errors++; // 429/5xx: a real failure — and if rate-limited, stop hammering
-          if (res.status === 429) {
-            break;
-          }
-        }
-        continue; // other non-OK (e.g. 404 unknown symbol) → a plain per-symbol miss
-      }
-      const row = parseYahooChart(s, res.text);
-      if (row) {
-        rows.push(row);
-      }
-    } catch {
-      errors++; // network error/timeout: skip this symbol, remember it failed
-    }
-  }
-  return { rows, errored: errors > 0 };
-}
-
-function providers() {
-  // Order: custom keyless CSV feed(s) (operator-configured → most trusted) → Yahoo →
-  // Finnhub. Yahoo is the DEFAULT PRIMARY: keyless, zero-config, and it covers what
-  // Finnhub's free tier can't (mutual funds, many ETFs), so every held symbol
-  // normally syncs. Finnhub stays as an optional keyed BACKSTOP — it's dormant
-  // without TSUMIKI_FINNHUB_KEY, and kept because Yahoo's endpoint is unofficial:
-  // the old Stooq default got bot-walled overnight, and if Yahoo ever does the same,
-  // a configured key keeps prices flowing while it's sorted out.
-  const list = feedUrls().map((url, i) => ({
-    name: i === 0 ? "feed" : `feed-${i + 1}`,
-    fetch: (syms) => fetchStooq(url, syms),
-  }));
-  if (yahooEnabled()) {
-    list.push({ name: "yahoo", fetch: fetchYahoo });
-  }
-  if (finnhubKey()) {
-    list.push({ name: "finnhub", fetch: fetchFinnhub });
-  }
-  return list;
+      },
+    );
+  });
 }
 
 // append a close to a symbol's persisted history and return its week-over-week change
@@ -345,11 +149,18 @@ export function refreshPrices() {
 
 async function doRefresh() {
   if (!enabled()) {
-    lastSync = { status: "disabled", at: Date.now(), source: null, missing: [], manual: [] };
+    lastSync = {
+      status: "disabled",
+      at: Date.now(),
+      source: null,
+      missing: [],
+      manual: [],
+      note: null,
+    };
     return cache;
   }
   // only fetch tickers that have at least one AUTO-sync holding; a ticker held only as a
-  // user-marked "manual" holding (e.g. a mutual fund you price by hand) is never requested
+  // user-marked "manual" holding (e.g. one you price by hand) is never requested
   const held = [
     ...new Set(
       (getState().holdings || [])
@@ -357,14 +168,6 @@ async function doRefresh() {
         .map((h) => String(h.ticker).toUpperCase()),
     ),
   ];
-
-  // no price source configured at all (no TSUMIKI_PRICE_URL, no Finnhub key): report a
-  // plain "empty" without penalizing any symbol — a missing config isn't a per-symbol
-  // failure, so don't let the breaker mark holdings "manual" because of it.
-  if (!providers().length) {
-    lastSync = { status: "empty", at: Date.now(), source: null, missing: held, manual: [] };
-    return cache;
-  }
 
   // circuit breaker: keep per-symbol failure counts, drop entries for symbols no longer
   // held, and treat any at/over the threshold as "manual" — we don't request those every
@@ -389,49 +192,26 @@ async function doRefresh() {
       source: null,
       missing: [],
       manual: held.filter(isManual),
+      note: null,
     };
     return cache;
   }
 
-  // try providers in order, each asked only for the symbols still missing, merging
-  // their results. This way a provider that prices *some* symbols doesn't mask a
-  // later provider that could fill the rest; we stop as soon as everything is covered.
-  const collected = {}; // SYMBOL → {symbol, close, date}
-  const sources = [];
-  let anyError = false;
-  for (const p of providers()) {
-    const need = toFetch.filter((s) => !(s in collected));
-    if (!need.length) {
-      break;
-    }
-    try {
-      const { rows: got = [], errored = false } = (await p.fetch(need)) || {};
-      if (errored) {
-        anyError = true; // 429/5xx/network — a provider failure, not "no data"
-      }
-      const fresh = got.filter((r) => need.includes(r.symbol) && !(r.symbol in collected));
-      if (fresh.length) {
-        for (const r of fresh) {
-          collected[r.symbol] = r;
-        }
-        sources.push(p.name);
-      }
-    } catch {
-      anyError = true;
-    }
+  const { rows, errored, note } = await runPriceScript(toFetch);
+  if (note) {
+    console.warn("prices:", note);
   }
-  const rows = Object.values(collected);
-  const source = sources.length ? sources.join(",") : null;
 
   // update the breaker: reset a symbol that priced; increment one that missed (capped at
   // the threshold so re-probing a permanently-unpriceable symbol can't grow it unbounded).
-  // When ANY provider errored (rate limit, outage), don't penalize the un-priced symbols
-  // at all — they were never genuinely answered, and a few rate-limited syncs in a row
-  // must not flip real holdings to "manual".
+  // When the script ERRORED (outage, rate limit, missing yfinance), don't penalize the
+  // un-priced symbols at all — they were never genuinely answered, and a few failed
+  // syncs in a row must not flip real holdings to "manual".
+  const collected = new Set(rows.map((r) => r.symbol));
   for (const s of toFetch) {
-    if (s in collected) {
+    if (collected.has(s)) {
       failures[s] = 0;
-    } else if (!anyError) {
+    } else if (!errored) {
       failures[s] = Math.min((failures[s] || 0) + 1, MANUAL_AFTER);
     }
   }
@@ -473,18 +253,24 @@ async function doRefresh() {
   // classify the outcome. manual = held symbols now past the give-up threshold; missing =
   // symbols we tried but didn't get and haven't given up on yet (still being retried).
   const manual = held.filter(isManual);
-  const have = new Set(rows.map((r) => r.symbol));
-  const missing = toFetch.filter((s) => !have.has(s) && !isManual(s));
+  const missing = toFetch.filter((s) => !collected.has(s) && !isManual(s));
   const status = rows.length
     ? missing.length
       ? "partial"
       : "ok"
     : missing.length
-      ? anyError
+      ? errored
         ? "error"
         : "empty"
       : "ok"; // nothing priced but nothing left to retry (all manual) → calm, not an error
-  lastSync = { status, at: Date.now(), source, missing, manual };
+  lastSync = {
+    status,
+    at: Date.now(),
+    source: rows.length ? "yfinance" : null,
+    missing,
+    manual,
+    note,
+  };
   return cache;
 }
 
