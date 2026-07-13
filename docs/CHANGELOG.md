@@ -10,6 +10,12 @@ All notable changes to Tsumiki are documented here. The format follows
 
 - **Undo for ledger deletes.** Deleting a transaction was one tap and permanent; the
   toast now shows "Deleted — Undo" for a few seconds and restores the entry in place.
+- **Backdate a log in Quick Add.** Forgot to log something? Today / Yesterday chips and
+  a date picker stamp the entry on that calendar day (at local noon, so the day sticks
+  in every timezone) — streaks, month totals, and budgets stay honest.
+- **"Last month in review" card on Home.** A report card for the month that just ended:
+  earned / spent / savings rate, what went to savings and investments, the biggest
+  spending category, and whether spending rose or fell vs the month before.
 
 ### Internal
 
@@ -74,6 +80,20 @@ All notable changes to Tsumiki are documented here. The format follows
   permanent offline fallback, and hashed assets the current index.html doesn't
   reference are pruned from the cache after each successful navigation, so old
   deploys' bundles stop accumulating forever.
+- **Deleting an account now always asks first.** It erases that account's whole balance
+  history (and retroactively changes net-worth history) but only confirmed when
+  holdings existed — and via `window.confirm`, which renders poorly in an installed
+  PWA. Now an in-app two-tap confirm, always.
+- **Backup import confirms in-app** instead of `window.confirm`/`window.alert`, shows
+  what the file contains before replacing anything, and surfaces failures inline.
+- **The Plan "what-if" income field is no longer clobbered mid-typing** when a
+  background save recomputes the typical income; it follows the recomputed value only
+  until you type your own figure.
+- **Home's plan fetch ignores stale responses** (same guard Plan already had), so a
+  slow earlier request can't overwrite a newer plan.
+- **The profile form re-syncs after a 409 reload** instead of holding a stale draft,
+  and saving rebases on the latest profile so it can't resurrect overwritten fields.
+  CSV import commits likewise rebase on the latest ledger instead of a render closure.
 - **Weekly/biweekly paydays no longer drift a day early after DST fall-back.** Payday
   projection stepped by fixed 7/14-day millisecond strides from a local-midnight anchor,
   so the 25-hour fall-back day shifted every subsequent payday Nov–Mar to the previous

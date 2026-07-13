@@ -1,5 +1,5 @@
 // Plan.jsx — the living monthly plan: targets vs actuals, recurring transfers, chart.
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Money from "../components/Money.jsx";
 import { Check } from "lucide-react";
 import { getPlan } from "../lib/core/api.js";
@@ -83,8 +83,14 @@ export default function Plan({
   const quarterlyDue = selfEmployed ? nextQuarterlyDue() : null;
 
   const [amount, setAmount] = useState(planIncome);
+  // follow the recomputed typical income ONLY until the user types their own what-if
+  // figure — a background save used to recompute planIncome and clobber the field
+  // mid-typing (AUDIT L9)
+  const amountTouched = useRef(false);
   useEffect(() => {
-    setAmount(planIncome);
+    if (!amountTouched.current) {
+      setAmount(planIncome);
+    }
   }, [planIncome]);
 
   // saved strategy stays put; an optional one-month override applies this month;
@@ -229,6 +235,7 @@ export default function Plan({
               value={amount}
               onChange={(e) => {
                 const v = e.target.value;
+                amountTouched.current = true;
                 setAmount(v === "" || Number.isNaN(Number(v)) ? "" : Number(v));
               }}
               className="w-full pl-7 pr-2 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700"

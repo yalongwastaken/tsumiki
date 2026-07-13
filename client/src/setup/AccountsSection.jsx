@@ -124,21 +124,24 @@ export default function AccountsSection({ data, onSave, prices = null }) {
       toggleOpen(id); // jump straight into adding shares
     }
   }
+  // deleting an account erases its whole balance history (and retroactively changes
+  // net-worth history), so ALWAYS confirm — in-app two-tap, not window.confirm, which
+  // renders poorly in an iOS standalone PWA (AUDIT M10/L12)
+  const [confirmRemove, setConfirmRemove] = useState(null);
   function removeAccount(id) {
-    const n = holdingsFor(id).length;
-    const name = accounts.find((a) => a.id === id)?.name || "this account";
-    if (
-      n > 0 &&
-      !window.confirm(`Remove ${name} and its ${n} ${n === 1 ? "holding" : "holdings"}?`)
-    ) {
+    if (confirmRemove !== id) {
+      setConfirmRemove(id);
+      setTimeout(() => setConfirmRemove((c) => (c === id ? null : c)), 4000); // disarm
       return;
     }
-    onSave({
-      ...data,
-      accounts: accounts.filter((a) => a.id !== id),
-      snapshots: snapshots.filter((s) => s.accountId !== id),
-      holdings: holdings.filter((h) => h.accountId !== id), // drop the account's shares too
-    });
+    setConfirmRemove(null);
+    // functional updater: rebase on the latest state, not this render's closure
+    onSave((d) => ({
+      ...d,
+      accounts: d.accounts.filter((a) => a.id !== id),
+      snapshots: d.snapshots.filter((s) => s.accountId !== id),
+      holdings: (d.holdings || []).filter((h) => h.accountId !== id), // drop its shares too
+    }));
   }
   function updateBalance(id) {
     const v = Number(balEdit.value);
@@ -337,10 +340,18 @@ export default function AccountsSection({ data, onSave, prices = null }) {
                     )}
                     <button
                       onClick={() => removeAccount(a.id)}
-                      className={`${iconBtn} text-slate-400 hover:text-rose-500`}
-                      aria-label={`Remove ${a.name}${accHoldings.length ? " and its holdings" : ""}`}
+                      className={
+                        confirmRemove === a.id
+                          ? "-m-1.5 flex h-11 items-center px-2 text-xs font-semibold text-rose-600"
+                          : `${iconBtn} text-slate-400 hover:text-rose-500`
+                      }
+                      aria-label={
+                        confirmRemove === a.id
+                          ? `Confirm: remove ${a.name} and its balance history`
+                          : `Remove ${a.name}${accHoldings.length ? " and its holdings" : ""}`
+                      }
                     >
-                      <X size={15} />
+                      {confirmRemove === a.id ? "Remove?" : <X size={15} />}
                     </button>
                   </div>
                 </div>

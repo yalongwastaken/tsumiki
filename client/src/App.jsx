@@ -387,12 +387,13 @@ export default function App() {
     fromId = null,
     toId = null,
     accountId = null,
+    date = null, // optional backdate (QuickAdd's Today/Yesterday/date picker)
   }) {
     const tx = {
       id: uid(),
       type,
       amount,
-      date: new Date().toISOString(),
+      date: date || new Date().toISOString(),
       cat,
       goalId,
       sourceId,

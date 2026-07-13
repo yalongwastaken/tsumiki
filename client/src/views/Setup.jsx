@@ -111,24 +111,29 @@ export default function Setup({
     ? accounts.reduce((s, a) => s + (acctValue(a) || 0), 0)
     : null;
 
-  // backup: export (download) + import (replace)
+  // backup: export (download) + import (replace). In-app confirm instead of
+  // window.confirm/alert, which render poorly in an iOS standalone PWA (AUDIT L12).
   const fileRef = useRef(null);
+  const [importReq, setImportReq] = useState(null); // {pending, name} | {error}
   async function onImportFile(e) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) {
       return;
     }
-    if (!window.confirm("Import will REPLACE all current data. Continue?")) {
-      e.target.value = "";
-      return;
-    }
     try {
-      await importData(JSON.parse(await file.text()));
+      setImportReq({ pending: JSON.parse(await file.text()), name: file.name });
+    } catch {
+      setImportReq({ error: "That file isn't valid JSON — export a fresh backup and retry." });
+    }
+  }
+  async function confirmImport() {
+    try {
+      await importData(importReq.pending);
       location.reload();
     } catch (err) {
-      window.alert("Import failed: " + (err.message || err));
+      setImportReq({ error: "Import failed: " + (err.error || err.message || err) });
     }
-    e.target.value = "";
   }
   // human/spreadsheet-friendly export of just the ledger (alongside the full JSON backup)
   function exportCsv() {
@@ -321,7 +326,11 @@ export default function Setup({
             <div className={label + " mb-3"}>Import transactions (CSV)</div>
             <CsvImport
               existing={transactions}
-              onImport={(txs) => onSave({ ...data, transactions: [...transactions, ...txs] })}
+              // functional updater: rebase on the LATEST ledger, not this render's
+              // closure — a save queued ahead of the commit can't be dropped (AUDIT L13)
+              onImport={(txs) =>
+                onSave((d) => ({ ...d, transactions: [...d.transactions, ...txs] }))
+              }
             />
           </div>
 
@@ -370,6 +379,42 @@ export default function Setup({
                 className="hidden"
               />
             </div>
+            {importReq?.pending && (
+              <div className="mt-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800">
+                <div className="mb-2">
+                  Importing <span className="font-semibold">{importReq.name}</span> will{" "}
+                  <span className="font-semibold">replace all current data</span>
+                  {Array.isArray(importReq.pending.transactions) &&
+                    ` (file holds ${importReq.pending.transactions.length} transactions)`}
+                  . A snapshot of today's data is saved on the server first.
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={confirmImport}
+                    className="flex-1 rounded-lg bg-amber-600 py-1.5 font-semibold text-white hover:bg-amber-700"
+                  >
+                    Replace everything
+                  </button>
+                  <button
+                    onClick={() => setImportReq(null)}
+                    className="flex-1 rounded-lg border border-amber-300 py-1.5 font-semibold hover:bg-amber-100"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+            {importReq?.error && (
+              <div
+                role="alert"
+                className="mt-2 flex items-start justify-between gap-2 rounded-lg bg-rose-50 p-2.5 text-xs text-rose-700"
+              >
+                <span>{importReq.error}</span>
+                <button onClick={() => setImportReq(null)} className="font-semibold">
+                  ✕
+                </button>
+              </div>
+            )}
             <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-500">
               <span>Export downloads everything as JSON. Import replaces all current data.</span>
               {transactions.length > 0 && (

@@ -1,6 +1,6 @@
 // ProfileSection.jsx — the profile/strategy/tax form. Self-contained: holds a local
 // draft committed with a Save button, with emergency/floor suggestions from spending.
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Money from "../components/Money.jsx";
 import { annualSpend } from "../lib/core/selectors.js";
 import { FILING_STATUSES } from "../lib/finance/tax.js";
@@ -25,30 +25,46 @@ export default function ProfileSection({ data, onSave }) {
   const suggestEmergency = Math.round(avgMonthlySpend * 3);
   const suggestFloor = Math.round(avgMonthlySpend);
 
-  const [form, setForm] = useState({
-    name: profile.name ?? "",
-    birthYear: profile.birthYear ?? "",
-    retireAge: profile.retireAge ?? "",
-    strategy: profile.strategy ?? "balanced",
-    debtStrategy: profile.debtStrategy ?? "avalanche",
-    checkingFloor: profile.checkingFloor ?? "",
-    emergencyTarget: profile.emergencyTarget ?? "",
-    employerMatchPct: profile.employerMatch?.pct ?? "",
-    highApr: profile.highApr ?? "",
-    iraLimit: profile.retirementLimits?.ira ?? profile.iraLimit ?? "",
-    filingStatus: profile.filingStatus ?? "single",
-    state: profile.state ?? "",
-    stateTaxRate: profile.stateTaxRate != null ? profile.stateTaxRate * 100 : "",
-    spouseBirthYear: profile.spouseBirthYear ?? "",
+  const initForm = (p) => ({
+    name: p.name ?? "",
+    birthYear: p.birthYear ?? "",
+    retireAge: p.retireAge ?? "",
+    strategy: p.strategy ?? "balanced",
+    debtStrategy: p.debtStrategy ?? "avalanche",
+    checkingFloor: p.checkingFloor ?? "",
+    emergencyTarget: p.emergencyTarget ?? "",
+    employerMatchPct: p.employerMatch?.pct ?? "",
+    highApr: p.highApr ?? "",
+    iraLimit: p.retirementLimits?.ira ?? p.iraLimit ?? "",
+    filingStatus: p.filingStatus ?? "single",
+    state: p.state ?? "",
+    stateTaxRate: p.stateTaxRate != null ? p.stateTaxRate * 100 : "",
+    spouseBirthYear: p.spouseBirthYear ?? "",
   });
-  const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
+  const [form, setForm] = useState(() => initForm(profile));
+  // re-sync the draft when the profile changes underneath us (409 reload, another
+  // device's save) — but never while the user has un-saved edits in the form (AUDIT L14).
+  // Keyed on data.profile (the stable slice), not the `|| {}` fallback object.
+  const touched = useRef(false);
+  useEffect(() => {
+    if (!touched.current) {
+      setForm(initForm(data.profile || {}));
+    }
+  }, [data.profile]);
+  const set = (k) => (v) => {
+    touched.current = true;
+    setForm((f) => ({ ...f, [k]: v }));
+  };
   const num = (v) => (v === "" || v == null ? null : Number(v));
 
   function saveProfile() {
-    onSave({
-      ...data,
+    touched.current = false; // after a save the server copy is the draft again
+    // functional updater: rebase on the LATEST profile so this save can't resurrect
+    // stale fields if another save landed while the form was open
+    onSave((d) => ({
+      ...d,
       profile: {
-        ...profile,
+        ...d.profile,
         name: form.name.trim(),
         birthYear: num(form.birthYear),
         retireAge: num(form.retireAge),
@@ -64,7 +80,7 @@ export default function ProfileSection({ data, onSave }) {
         stateTaxRate: form.stateTaxRate === "" ? null : Number(form.stateTaxRate) / 100,
         spouseBirthYear: form.filingStatus === "married" ? num(form.spouseBirthYear) : null,
       },
-    });
+    }));
   }
 
   return (

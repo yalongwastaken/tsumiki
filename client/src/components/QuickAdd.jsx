@@ -3,6 +3,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import Money, { BlurAmounts } from "./Money.jsx";
 import { Ban } from "lucide-react";
 import { bucketLabel } from "../lib/plan/buckets.js";
+import { dayKey, localNoonIso } from "../lib/core/selectors.js";
 import { useFocusTrap } from "../useFocusTrap.js";
 
 export const NO_SPEND_CAT = "No-spend day";
@@ -44,6 +45,14 @@ export default function QuickAdd({
   const [toId, setToId] = useState(null);
   const [acctId, setAcctId] = useState(null); // charge a spend to / deposit income to
   const [note, setNote] = useState("");
+  const [day, setDay] = useState(""); // "" = now; else a YYYY-MM-DD to backdate to
+  // local calendar keys (dayKey, not a UTC slice) so "yesterday" is the user's yesterday
+  const todayKey = dayKey(new Date());
+  const yesterdayKey = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1); // calendar math — DST-safe
+    return dayKey(d);
+  })();
   const chargeAccts = chargeable(accounts);
   const amountRef = useRef(null);
   const panelRef = useFocusTrap(open, onClose); // trap Tab + Escape; restore focus on close
@@ -110,6 +119,7 @@ export default function QuickAdd({
       // default the charge/deposit account to the first cash-like account (remembered-ish)
       setAcctId(chargeable(accounts)[0]?.id || null);
       setNote("");
+      setDay("");
       setTimeout(() => amountRef.current?.focus(), 50);
     }
   }, [open]); // eslint-disable-line
@@ -152,12 +162,20 @@ export default function QuickAdd({
       toId: type === "transfer" ? toId : null,
       // which account this spend was charged to / income deposited to (moves its balance)
       accountId: (type === "spending" || type === "income") && acctId ? acctId : null,
+      // backdate: stamp the chosen day at local noon (keeps the calendar day in every TZ)
+      date: day ? localNoonIso(day) : null,
     });
     onClose();
   }
   // log a day with no spending — keeps your logging streak without an amount
   function logNoSpend() {
-    onLog({ type: "spending", amount: 0, cat: NO_SPEND_CAT, note: note || null });
+    onLog({
+      type: "spending",
+      amount: 0,
+      cat: NO_SPEND_CAT,
+      note: note || null,
+      date: day ? localNoonIso(day) : null,
+    });
     onClose();
   }
 
@@ -348,6 +366,34 @@ export default function QuickAdd({
             Add at least two accounts in Accounts to record a transfer between them.
           </div>
         )}
+
+        {/* when — forgot to log something? backdate it (streaks and month totals stay honest) */}
+        <div className="mb-4 flex items-center gap-2">
+          {[
+            ["", "Today"],
+            [yesterdayKey, "Yesterday"],
+          ].map(([v, l]) => (
+            <button
+              key={l}
+              onClick={() => setDay(v)}
+              aria-pressed={day === v}
+              className={`px-3 py-2 text-sm rounded-full border transition-colors ${day === v ? "border-slate-500 bg-slate-100 text-slate-800" : "border-slate-200 text-slate-600"}`}
+            >
+              {l}
+            </button>
+          ))}
+          <input
+            type="date"
+            aria-label="Date"
+            value={day || todayKey}
+            max={todayKey}
+            onChange={(e) => {
+              const v = e.target.value;
+              setDay(!v || v === todayKey ? "" : v);
+            }}
+            className="ml-auto px-2 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-600"
+          />
+        </div>
 
         <input
           type="text"

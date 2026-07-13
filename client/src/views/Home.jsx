@@ -92,6 +92,43 @@ export default function Home({
 
   const annualExpenses = useMemo(() => annualSpend(transactions), [transactions]);
 
+  // ── last month in review — a "report card" from the pure month selectors ─────
+  const monthShift = (yymm, delta) => {
+    const [y, m] = yymm.split("-").map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+  const prevYm = monthShift(ym, -1);
+  const lastMonth = useMemo(() => monthTotals(transactions, prevYm), [transactions, prevYm]);
+  const monthBefore = useMemo(
+    () => monthTotals(transactions, monthShift(ym, -2)),
+    [transactions, ym],
+  );
+  const lastCats = useMemo(() => {
+    const m = {};
+    for (const t of transactions) {
+      if (t.type === "spending" && t.amount > 0 && monthKey(t.date) === prevYm) {
+        m[t.cat || "Other"] = (m[t.cat || "Other"] || 0) + t.amount;
+      }
+    }
+    return Object.entries(m)
+      .map(([cat, amount]) => ({ cat, amount }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [transactions, prevYm]);
+  const lastRate =
+    lastMonth.income > 0
+      ? Math.max(0, (lastMonth.income - lastMonth.spending) / lastMonth.income)
+      : null;
+  const spendShift =
+    monthBefore.spending > 0 && lastMonth.spending > 0
+      ? (lastMonth.spending - monthBefore.spending) / monthBefore.spending
+      : null;
+  const prevMonthName = (() => {
+    const [y, m] = prevYm.split("-").map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: "long" });
+  })();
+  const hasReview = lastMonth.income > 0 || lastMonth.spending > 0;
+
   const savingsRate =
     incomeThisMonth > 0 ? Math.max(0, (incomeThisMonth - spendThisMonth) / incomeThisMonth) : null;
   const firePct = annualExpenses > 0 ? Math.max(0, realNetWorth / (annualExpenses * 25)) : null;
@@ -99,9 +136,19 @@ export default function Home({
   const planIncome = incomeThisMonth > 0 ? incomeThisMonth : income;
   const [plan, setPlan] = useState(null);
   useEffect(() => {
+    // ignore stale responses so a slow earlier request can't clobber a newer one
+    // (same guard Plan.jsx uses)
+    let stale = false;
     getPlan(planIncome)
-      .then(setPlan)
+      .then((p) => {
+        if (!stale) {
+          setPlan(p);
+        }
+      })
       .catch(() => {});
+    return () => {
+      stale = true;
+    };
   }, [planIncome]);
 
   // opt-in money-news headlines (empty unless the server has TSUMIKI_NEWS_FEED set)
@@ -360,6 +407,55 @@ export default function Home({
           tone="blue"
         />
       </div>
+
+      {/* last month in review — a coach-style report card */}
+      {hasReview && (
+        <Card title={`${prevMonthName} in review`} onGo={() => onGo?.("activity")}>
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            <div>
+              <div className="text-xs text-slate-500">Earned</div>
+              <div className="font-mono font-semibold text-slate-800">
+                {lastMonth.income > 0 ? <Money n={lastMonth.income} /> : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">Spent</div>
+              <div className="font-mono font-semibold text-slate-800">
+                {lastMonth.spending > 0 ? <Money n={lastMonth.spending} /> : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">Saved</div>
+              <div
+                className={`font-mono font-semibold ${lastRate == null ? "text-slate-800" : lastRate >= 0.2 ? "text-emerald-600" : "text-slate-800"}`}
+              >
+                {lastRate == null ? "—" : `${Math.round(lastRate * 100)}%`}
+              </div>
+            </div>
+          </div>
+          {lastMonth.contribution > 0 && (
+            <div className="text-sm text-slate-600">
+              <Money n={lastMonth.contribution} /> put toward savings and investments.
+            </div>
+          )}
+          {lastCats.length > 0 && (
+            <div className="text-sm text-slate-600">
+              Biggest category: {lastCats[0].cat} (<Money n={lastCats[0].amount} />
+              {lastMonth.spending > 0 &&
+                ` · ${Math.round((lastCats[0].amount / lastMonth.spending) * 100)}%`}
+              ).
+            </div>
+          )}
+          {spendShift != null && Math.abs(spendShift) >= 0.05 && (
+            <div
+              className={`text-sm mt-0.5 ${spendShift > 0 ? "text-amber-700" : "text-emerald-600"}`}
+            >
+              Spending {spendShift > 0 ? "up" : "down"} {Math.round(Math.abs(spendShift) * 100)}% vs
+              the month before.
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* plan snapshot */}
       <Card
