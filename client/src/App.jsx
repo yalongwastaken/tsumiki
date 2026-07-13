@@ -749,6 +749,23 @@ export default function App() {
                     return { ...d, profile: rest };
                   })
                 }
+                onLogContributions={(gaps) =>
+                  // "I moved it": record the plan's remaining transfers as contributions
+                  save((d) => ({
+                    ...d,
+                    transactions: [
+                      ...d.transactions,
+                      ...gaps.map((g) => ({
+                        id: uid(),
+                        type: "contribution",
+                        amount: g.amount,
+                        bucket: g.bucket,
+                        date: new Date().toISOString(),
+                        note: "Logged from plan",
+                      })),
+                    ],
+                  }))
+                }
               />
             )}
 

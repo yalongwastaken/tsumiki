@@ -7,8 +7,10 @@ import { typicalIncome } from "../lib/finance/income.js";
 import { nonTaxableMonthly, taxableShare } from "../lib/finance/finance.js";
 import { BUCKETS, bucketOf } from "../lib/plan/buckets.js";
 import { thisMonth, monthKey, sumLatestByType, monthTotals } from "../lib/core/selectors.js";
+import { fmt } from "../lib/core/format.js";
 import { estimateTax, nextQuarterlyDue, TAX_YEAR } from "../lib/finance/tax.js";
 import { payoffPlan } from "../lib/finance/debt.js";
+import { contributionGaps, gapsTotal } from "../lib/plan/apply.js";
 import PlanSplitChart from "../charts/PlanSplitChart.jsx";
 import Recurring from "../components/Recurring.jsx";
 
@@ -32,6 +34,7 @@ export default function Plan({
   onGoSetup,
   onApplyMonth,
   onClearMonth,
+  onLogContributions, // (gaps: [{bucket, amount}]) → logs them as contribution entries
 }) {
   const ym = thisMonth();
   const monthTx = useMemo(
@@ -192,6 +195,18 @@ export default function Plan({
 
   const assigned = actual.debt + actual.emergency + actual.retirement + actual.invest;
   const leftToAllocate = incomeThisMonth - assigned - spendThisMonth;
+
+  // "I moved it": the plan's still-unlogged per-bucket amounts, loggable in one tap
+  const gaps = useMemo(() => contributionGaps(target, actual), [target, actual]);
+  const [justLogged, setJustLogged] = useState(false);
+  function logPlanMoves() {
+    if (!gaps.length || !onLogContributions) {
+      return;
+    }
+    onLogContributions(gaps);
+    setJustLogged(true);
+    setTimeout(() => setJustLogged(false), 2500);
+  }
 
   const rows = BUCKET_META.filter(([k]) => target[k] > 0 || actual[k] > 0);
 
@@ -505,6 +520,35 @@ export default function Plan({
               </div>
             );
           })}
+          {/* close the plan→action gap: one tap records the remaining transfers as
+              contributions (amounts are target − already-logged, so no double count) */}
+          {onLogContributions &&
+            (justLogged ? (
+              <div className="text-sm text-emerald-600 inline-flex items-center gap-1.5">
+                <Check size={15} /> Logged — nice. The bars above now reflect it.
+              </div>
+            ) : (
+              gaps.length > 0 && (
+                <div>
+                  <button
+                    onClick={logPlanMoves}
+                    className="press w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl transition-colors"
+                  >
+                    I moved it — log <Money n={gapsTotal(gaps)} /> to plan
+                  </button>
+                  <div className="text-xs text-slate-500 mt-1.5">
+                    Records{" "}
+                    {gaps
+                      .map(
+                        (g) =>
+                          `${(BUCKET_META.find(([k]) => k === g.bucket) || [g.bucket, g.bucket])[1]} ${fmt(g.amount)}`,
+                      )
+                      .join(" · ")}{" "}
+                    as contributions. Tap after you make the transfers at your bank.
+                  </div>
+                </div>
+              )
+            ))}
         </div>
       )}
 
