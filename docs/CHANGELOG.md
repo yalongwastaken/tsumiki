@@ -8,6 +8,24 @@ All notable changes to Tsumiki are documented here. The format follows
 
 ### Added
 
+- **Undo for ledger deletes.** Deleting a transaction was one tap and permanent; the
+  toast now shows "Deleted — Undo" for a few seconds and restores the entry in place.
+
+### Internal
+
+- **The client's persistence machinery is extracted and unit-tested.** The optimistic
+  save chain, rev handling, and 409 rebase/re-sync moved from App.jsx into
+  `lib/core/persist.js` (dependency-injected, pure) with a dedicated test suite —
+  previously the riskiest untested code in the client.
+- **FIRE/projection math moved into the lib suite.** `yearsToTarget` and
+  `projectSeries` now live in `lib/finance/fire.js` with unit tests instead of inside
+  the Fire/Projection view files.
+- **db.js split by concern.** The SQLite connection, schema, and migrations now live in
+  `lib/schema.js` and the pure input validation in `lib/validate.js`; `lib/db.js` keeps
+  the accessors and re-exports both, so import sites are unchanged.
+- README refreshed to v2.4.0 with the complete current API table; AUDIT.md findings
+  reconciled against shipped fixes.
+
 - **Per-entity write endpoints.** `PATCH /api/{accounts,debts,goals}/:id` upserts one
   item and `DELETE /api/{accounts,debts,goals}/:id` removes one — rev-checked and
   rev-bumping like every other write — so a single-row change no longer needs a
@@ -44,6 +62,18 @@ All notable changes to Tsumiki are documented here. The format follows
 
 ### Fixed
 
+- **The "Starting point" net-worth card no longer corrupts real accounts.** It was
+  rendered even with accounts present, and setting a whole-net-worth figure appended
+  that number as a balance snapshot to the first account (typically Checking) — skewing
+  the checking buffer, cashflow forecast, and net worth. The card now appears only
+  before any accounts exist.
+- **The app-lock form validates the same 8-character minimum as the server** — a 6-7
+  character password used to pass client validation and then fail with a server error.
+- **The service worker no longer caches a broken shell or hoards old bundles.** A
+  non-2xx navigation response (e.g. a transient 502) is no longer stored as the
+  permanent offline fallback, and hashed assets the current index.html doesn't
+  reference are pruned from the cache after each successful navigation, so old
+  deploys' bundles stop accumulating forever.
 - **Weekly/biweekly paydays no longer drift a day early after DST fall-back.** Payday
   projection stepped by fixed 7/14-day millisecond strides from a local-midnight anchor,
   so the 25-hour fall-back day shifted every subsequent payday Nov–Mar to the previous

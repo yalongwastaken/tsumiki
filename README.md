@@ -1,6 +1,6 @@
 # Tsumiki — personal money coach
 
-**v2.1.0** · self-hosted · single-user · no cloud, no AI in the product
+**v2.4.0** · self-hosted · single-user · no cloud, no AI in the product
 
 A self-hosted money **coach**, not just a tracker. Given the money you have, it tells
 you where it should go — essentials, debt, a checking buffer, savings, retirement, and
@@ -190,18 +190,31 @@ make test-smoke   # headless render walk-through of the whole UI
 
 ## API
 
-| Method | Path                | Purpose                                                  |
-| ------ | ------------------- | -------------------------------------------------------- |
-| GET    | `/api/health`       | liveness check                                           |
-| GET    | `/api/state`        | full unified model                                       |
-| PUT    | `/api/state`        | replace the full model (the client's "save")             |
-| POST   | `/api/transactions` | append a single transaction (lean write)                 |
-| GET    | `/api/plan`         | allocation plan (`?income=`, `?strategy=`, `?windfall=`) |
-| GET    | `/api/news`         | cached money headlines (empty unless a feed is set)      |
-| GET    | `/api/prices`       | cached prices for held tickers (empty unless enabled)    |
-| GET    | `/api/export`       | download the full model as JSON                          |
-| POST   | `/api/import`       | replace the model from an exported JSON                  |
-| POST   | `/api/migrate`      | import old `window.storage` JSON → unified model         |
+All mutating writes are rev-checked (optimistic concurrency): send the `rev` your
+state was based on; a stale or missing rev gets a `409` with the fresh state so the
+client can rebase and retry.
+
+| Method | Path                             | Purpose                                                                     |
+| ------ | -------------------------------- | --------------------------------------------------------------------------- |
+| GET    | `/api/health`                    | liveness check                                                              |
+| GET    | `/api/state`                     | full unified model                                                          |
+| PUT    | `/api/state`                     | replace the full model (the client's "save"; rev-checked)                   |
+| PATCH  | `/api/state`                     | granular write of profile/settings/holdings blobs only (rev-checked)        |
+| POST   | `/api/transactions`              | append a single transaction (lean write, no rev clash)                      |
+| PATCH  | `/api/{account\|debt\|goal}/:id` | upsert one entity without a full-state PUT (rev-checked)                    |
+| DELETE | `/api/{account\|debt\|goal}/:id` | delete one entity (`?rev=` or JSON body; account delete cascades snapshots) |
+| GET    | `/api/plan`                      | allocation plan (`?date=`, `?income=`, `?strategy=`, `?windfall=`)          |
+| GET    | `/api/news`                      | cached money headlines (empty unless a feed is set)                         |
+| GET    | `/api/prices`                    | cached prices for held tickers (empty unless enabled)                       |
+| POST   | `/api/prices/refresh`            | force a price sync now (the "sync now" button)                              |
+| GET    | `/api/export`                    | download the full model as JSON (includes price-history blobs)              |
+| POST   | `/api/import`                    | replace the model from an exported JSON (snapshots current data first)      |
+| POST   | `/api/migrate`                   | import old `window.storage` JSON (refuses to overwrite unless `force:true`) |
+| POST   | `/api/reset`                     | wipe everything (snapshots current data to a local file first)              |
+| GET    | `/api/auth/status`               | app-lock status (enabled? authenticated?)                                   |
+| POST   | `/api/auth/login`                | sign in when the app lock is enabled (sets a 7-day session cookie)          |
+| POST   | `/api/auth/logout`               | clear the session                                                           |
+| POST   | `/api/auth/set`                  | set / change / remove the app-lock password (secure origins only)           |
 
 ## Make targets
 
@@ -211,7 +224,7 @@ Run `make help` for the full list: `install`, `dev`, `server`, `client`, `build`
 ## Releases
 
 See [`CHANGELOG.md`](./docs/CHANGELOG.md). Releases follow [SemVer](https://semver.org);
-the current release is **v2.1.0**.
+the current release is **v2.4.0**.
 
 ## License
 
