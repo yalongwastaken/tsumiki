@@ -8,9 +8,10 @@
 // Providers, tried in order:
 //   1. keyless CSV feed(s) — only if you set TSUMIKI_PRICE_URL ({SYMBOLS} → lowercased
 //      ".us" tickers); tried first so a private, keyless feed is preferred when present.
-//      There is NO default: the old Stooq default is gone because Stooq now sits behind a
-//      JavaScript bot-wall a server can't pass — so with nothing configured, (2) is primary.
-//   2. Finnhub JSON quotes — the default/primary feed; on when TSUMIKI_FINNHUB_KEY is set.
+//   2. Yahoo v8 chart — the DEFAULT PRIMARY: keyless, zero-config, covers stocks, ETFs,
+//      and mutual funds. TSUMIKI_YAHOO=0 disables it.
+//   3. Finnhub JSON quotes — optional keyed backstop; dormant unless TSUMIKI_FINNHUB_KEY
+//      is set. Kept because Yahoo's endpoint is unofficial (see the Stooq bot-wall story).
 //
 // Circuit breaker: a symbol the feed can't price (e.g. a mutual fund Finnhub doesn't
 // cover) is retried only MANUAL_AFTER times, then marked "manual" — we stop requesting
@@ -43,10 +44,10 @@ const feedUrls = () =>
     .filter(Boolean);
 const finnhubKey = () => process.env.TSUMIKI_FINNHUB_KEY || "";
 const finnhubUrl = () => process.env.TSUMIKI_FINNHUB_URL || "https://finnhub.io/api/v1/quote";
-// Yahoo chart fallback — keyless and covers what Finnhub's free tier can't (mutual
-// funds like VTSAX, many ETFs). ON by default whenever price sync itself is enabled
-// (it's the same opt-in: only your ticker symbols are sent); set TSUMIKI_YAHOO=0 to
-// turn it off. Note it's the LAST provider, so it only ever fills what the others miss.
+// Yahoo chart — the default primary feed: keyless and covers what Finnhub's free tier
+// can't (mutual funds like VTSAX, many ETFs). ON by default whenever price sync itself
+// is enabled (it's the same opt-in: only your ticker symbols are sent); set
+// TSUMIKI_YAHOO=0 to turn it off.
 const yahooEnabled = () =>
   !["0", "false", "no"].includes((process.env.TSUMIKI_YAHOO || "").toLowerCase());
 const yahooUrl = () =>
@@ -277,21 +278,22 @@ async function fetchYahoo(symbols) {
 }
 
 function providers() {
-  // a custom keyless CSV feed (if configured) is tried first; Finnhub next; the keyless
-  // Yahoo chart endpoint runs LAST as a gap-filler — it covers the symbols Finnhub's
-  // free tier can't price (mutual funds, some ETFs), so with it on, every held symbol
-  // normally syncs and the circuit breaker's "manual" state becomes rare. With neither
-  // a feed URL nor a Finnhub key configured, Yahoo alone makes sync work zero-config
-  // (still gated by the TSUMIKI_PRICES opt-in).
+  // Order: custom keyless CSV feed(s) (operator-configured → most trusted) → Yahoo →
+  // Finnhub. Yahoo is the DEFAULT PRIMARY: keyless, zero-config, and it covers what
+  // Finnhub's free tier can't (mutual funds, many ETFs), so every held symbol
+  // normally syncs. Finnhub stays as an optional keyed BACKSTOP — it's dormant
+  // without TSUMIKI_FINNHUB_KEY, and kept because Yahoo's endpoint is unofficial:
+  // the old Stooq default got bot-walled overnight, and if Yahoo ever does the same,
+  // a configured key keeps prices flowing while it's sorted out.
   const list = feedUrls().map((url, i) => ({
     name: i === 0 ? "feed" : `feed-${i + 1}`,
     fetch: (syms) => fetchStooq(url, syms),
   }));
-  if (finnhubKey()) {
-    list.push({ name: "finnhub", fetch: fetchFinnhub });
-  }
   if (yahooEnabled()) {
     list.push({ name: "yahoo", fetch: fetchYahoo });
+  }
+  if (finnhubKey()) {
+    list.push({ name: "finnhub", fetch: fetchFinnhub });
   }
   return list;
 }

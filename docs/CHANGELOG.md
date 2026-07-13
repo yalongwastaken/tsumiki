@@ -4,6 +4,17 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Yahoo is now the default primary price feed; Finnhub is an optional backstop.**
+  Provider order is custom CSV feed(s) → Yahoo → Finnhub. Yahoo is keyless and covers
+  stocks, ETFs, and mutual funds, so a zero-config install syncs everything; a
+  configured `TSUMIKI_FINNHUB_KEY` now only fills in if Yahoo misses or is down.
+  Finnhub support is deliberately kept (not removed): Yahoo's endpoint is unofficial,
+  and the old Stooq default getting bot-walled is exactly why a keyed backstop stays.
+
 ## [2.6.0] — 2026-07-13
 
 Every stock syncs, the coach reaches your phone, and the app survives being offline.

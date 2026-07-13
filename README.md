@@ -86,34 +86,35 @@ make start        # builds the client, then serves everything from :4000
 
 Open `http://<mini-pc-ip>:4000`. Configuration via environment variables:
 
-| Variable                | Default                  | Purpose                                                                                                                               |
-| ----------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`                  | `4000`                   | port to listen on                                                                                                                     |
-| `HOST`                  | `0.0.0.0`                | bind address; set to `127.0.0.1` to expose only locally and front with a TLS reverse proxy                                            |
-| `TSUMIKI_DB`            | `server/data/tsumiki.db` | SQLite database file path                                                                                                             |
-| `TSUMIKI_NEWS_FEED`     | _(unset → off)_          | optional public RSS/Atom URL for money headlines                                                                                      |
-| `TSUMIKI_PRICES`        | _(unset → off)_          | set to `1` to sync prices for your stock holdings                                                                                     |
-| `TSUMIKI_FINNHUB_KEY`   | _(unset → off)_          | a [Finnhub](https://finnhub.io) API key — the primary price feed (free tier; only your ticker symbols + the key are sent)             |
-| `TSUMIKI_PRICE_URL`     | _(none)_                 | optional custom keyless CSV feed(s) (`{SYMBOLS}` placeholder), tried before Finnhub; no default (the old Stooq default is bot-walled) |
-| `TSUMIKI_FINNHUB_URL`   | _(Finnhub quote API)_    | override the Finnhub quote endpoint (only sends a ticker + your key)                                                                  |
-| `TSUMIKI_YAHOO`         | _(on when prices are)_   | set to `0` to disable the keyless Yahoo chart fallback (the gap-filler that prices what Finnhub can't, e.g. mutual funds)             |
-| `TSUMIKI_YAHOO_URL`     | _(Yahoo v8 chart API)_   | override the Yahoo chart endpoint (only sends a ticker; no key, no cookies)                                                           |
-| `TSUMIKI_TRUST_PROXY`   | _(unset → off)_          | set to `1` only when behind a TLS-terminating proxy (Tailscale serve / nginx) so `x-forwarded-proto` is trusted for the app lock      |
-| `TSUMIKI_AUTO_BACKUP`   | _(unset → off)_          | set to `1` for a daily local JSON backup (keeps the newest 30); off by default, never leaves the device                               |
-| `TSUMIKI_BACKUP_DIR`    | _(`backups/` by the DB)_ | where pre-import snapshots and auto-backups are written                                                                               |
-| `TSUMIKI_ALLOWED_HOSTS` | _(unset → off)_          | comma-separated `host[:port]` allowlist for mutating requests (defense-in-depth vs DNS rebinding); leave unset on a plain LAN/tailnet |
+| Variable                | Default                  | Purpose                                                                                                                                 |
+| ----------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                  | `4000`                   | port to listen on                                                                                                                       |
+| `HOST`                  | `0.0.0.0`                | bind address; set to `127.0.0.1` to expose only locally and front with a TLS reverse proxy                                              |
+| `TSUMIKI_DB`            | `server/data/tsumiki.db` | SQLite database file path                                                                                                               |
+| `TSUMIKI_NEWS_FEED`     | _(unset → off)_          | optional public RSS/Atom URL for money headlines                                                                                        |
+| `TSUMIKI_PRICES`        | _(unset → off)_          | set to `1` to sync prices for your stock holdings                                                                                       |
+| `TSUMIKI_FINNHUB_KEY`   | _(unset → off)_          | optional [Finnhub](https://finnhub.io) API key — a keyed BACKSTOP behind Yahoo (free tier; only your ticker symbols + the key are sent) |
+| `TSUMIKI_PRICE_URL`     | _(none)_                 | optional custom keyless CSV feed(s) (`{SYMBOLS}` placeholder), always tried first; no default (the old Stooq default is bot-walled)     |
+| `TSUMIKI_FINNHUB_URL`   | _(Finnhub quote API)_    | override the Finnhub quote endpoint (only sends a ticker + your key)                                                                    |
+| `TSUMIKI_YAHOO`         | _(on when prices are)_   | set to `0` to disable the keyless Yahoo chart feed — the default primary (stocks, ETFs, and mutual funds; zero-config)                  |
+| `TSUMIKI_YAHOO_URL`     | _(Yahoo v8 chart API)_   | override the Yahoo chart endpoint (only sends a ticker; no key, no cookies)                                                             |
+| `TSUMIKI_TRUST_PROXY`   | _(unset → off)_          | set to `1` only when behind a TLS-terminating proxy (Tailscale serve / nginx) so `x-forwarded-proto` is trusted for the app lock        |
+| `TSUMIKI_AUTO_BACKUP`   | _(unset → off)_          | set to `1` for a daily local JSON backup (keeps the newest 30); off by default, never leaves the device                                 |
+| `TSUMIKI_BACKUP_DIR`    | _(`backups/` by the DB)_ | where pre-import snapshots and auto-backups are written                                                                                 |
+| `TSUMIKI_ALLOWED_HOSTS` | _(unset → off)_          | comma-separated `host[:port]` allowlist for mutating requests (defense-in-depth vs DNS rebinding); leave unset on a plain LAN/tailnet   |
 
 The money-news card and price sync are both **off by default** — the server makes
 no outbound calls unless you opt in. With `TSUMIKI_NEWS_FEED` set it fetches that
 feed nightly and serves headlines only. With `TSUMIKI_PRICES=1` it fetches daily
 closing prices **for only the tickers you hold** (symbols aren't personal), caches
-them, and falls back to the last good prices when offline. The primary feed is
-[Finnhub](https://finnhub.io) (set `TSUMIKI_FINNHUB_KEY` — free tier; only your ticker
-symbols and your own key are sent); you can optionally set a custom keyless CSV feed in
-`TSUMIKI_PRICE_URL` to try first. A keyless **Yahoo chart fallback** then fills whatever
-the earlier feeds missed — mutual funds and ETFs Finnhub's free tier doesn't cover — so
-every held symbol normally syncs (it also makes price sync work with zero keys
-configured). Set `TSUMIKI_YAHOO=0` to turn it off. The Portfolio card shows the outcome of the last sync
+them, and falls back to the last good prices when offline. The default primary feed
+is the keyless **Yahoo chart API** — zero-config, and it covers stocks, ETFs, and
+mutual funds, so every held symbol normally syncs (`TSUMIKI_YAHOO=0` disables it).
+Because that endpoint is unofficial, you can optionally keep a
+[Finnhub](https://finnhub.io) key as a backstop (`TSUMIKI_FINNHUB_KEY`, free tier;
+only your ticker symbols and your own key are sent — dormant without a key), and/or
+set a custom keyless CSV feed in `TSUMIKI_PRICE_URL`, which is always tried first.
+The Portfolio card shows the outcome of the last sync
 — synced, partial, nothing returned, or unreachable — so a stale feed is never silently
 passed off as fresh. A symbol the feed can't price (e.g. a mutual fund Finnhub doesn't
 cover) is retried a few times, then flagged for you to update by hand instead of

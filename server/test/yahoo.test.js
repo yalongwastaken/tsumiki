@@ -119,6 +119,47 @@ test("a yahoo 429 counts as a provider error — unpriced symbols aren't punishe
   assert.deepEqual(lastSync.missing, ["VTSAX"]);
 });
 
+test("yahoo is the default PRIMARY: finnhub isn't called when yahoo prices everything", async () => {
+  process.env.TSUMIKI_FINNHUB_KEY = "test-key";
+  delete process.env.TSUMIKI_PRICE_URL;
+  db.putState({ holdings: [{ id: "h1", ticker: "AAPL", shares: 1 }] });
+  let finnhubCalled = false;
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("finnhub")) {
+      finnhubCalled = true;
+      return ok('{"c": 1}');
+    }
+    return ok(yahooBody("AAPL", 210.5, 1783977000));
+  };
+  const res = await prices.refreshPrices();
+  assert.equal(res.prices.AAPL.price, 210.5);
+  assert.equal(finnhubCalled, false); // backstop stayed dormant
+  const { lastSync } = await prices.getPrices();
+  assert.equal(lastSync.source, "yahoo");
+  delete process.env.TSUMIKI_FINNHUB_KEY;
+  process.env.TSUMIKI_PRICE_URL = "https://feed.test/q?s={SYMBOLS}&e=csv";
+});
+
+test("finnhub (when keyed) backstops a yahoo outage", async () => {
+  process.env.TSUMIKI_FINNHUB_KEY = "test-key";
+  delete process.env.TSUMIKI_PRICE_URL;
+  db.putState({ holdings: [{ id: "h1", ticker: "AAPL", shares: 1 }] });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("finance/chart")) {
+      return { ok: false, status: 500, headers: { get: () => null }, body: null }; // yahoo down
+    }
+    return ok(JSON.stringify({ c: 209.9, t: 1783977000 })); // finnhub answers
+  };
+  const res = await prices.refreshPrices();
+  assert.equal(res.prices.AAPL.price, 209.9);
+  const { lastSync } = await prices.getPrices();
+  assert.equal(lastSync.source, "finnhub");
+  delete process.env.TSUMIKI_FINNHUB_KEY;
+  process.env.TSUMIKI_PRICE_URL = "https://feed.test/q?s={SYMBOLS}&e=csv";
+});
+
 test("TSUMIKI_YAHOO=0 disables the fallback", async () => {
   process.env.TSUMIKI_YAHOO = "0";
   db.putState({ holdings: [{ id: "h1", ticker: "VTSAX", shares: 2 }] });
