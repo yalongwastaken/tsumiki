@@ -68,6 +68,36 @@ const EMPTY = {
   settings: { returnRate: 0.07, monthlyInvest: null },
 };
 
+// ── offline read cache (AUDIT M8) ────────────────────────────────────────────────
+// The installed PWA used to show an error and $0 everywhere when the mini-PC was
+// unreachable (routine for a Tailscale-reached home server). Keep the last
+// server-acked state in localStorage so an offline boot can render it — but ONLY
+// while the app lock is off: with a lock enabled, a plaintext local copy would let
+// anyone with the browser bypass the lock, so the cache is cleared instead.
+const LAST_GOOD_KEY = "tsumiki-last-good";
+const readLastGood = () => {
+  try {
+    const raw = localStorage.getItem(LAST_GOOD_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+const writeLastGood = (state) => {
+  try {
+    localStorage.setItem(LAST_GOOD_KEY, JSON.stringify(state));
+  } catch {
+    /* quota/private mode — the cache is best-effort */
+  }
+};
+const clearLastGood = () => {
+  try {
+    localStorage.removeItem(LAST_GOOD_KEY);
+  } catch {
+    /* ignore */
+  }
+};
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 /** Root component: loads state, serializes saves, owns the nav rail + tab routing. */
 export default function App() {
@@ -108,6 +138,9 @@ export default function App() {
   const [prices, setPrices] = useState(null); // opt-in synced stock prices (null until fetched)
   const [locked, setLocked] = useState(false); // app lock engaged + this device unauthed
   const [authSecure, setAuthSecure] = useState(true); // served over a secure origin?
+  const [offline, setOffline] = useState(false); // showing cached data / writes pending
+  const cacheAllowedRef = useRef(false); // last-good cache only while the app lock is OFF
+  const dirtyRef = useRef(false); // a write failed to persist → push local state on reconnect
 
   const flashToast = (msg, ms) => {
     setToast(msg);
@@ -124,12 +157,26 @@ export default function App() {
       api: { putState, patchState, patchEntity, deleteEntity, addTransaction, getState },
       empty: EMPTY,
       onChange: setData,
-      onSaved: () => flashToast("Saved", 1200),
+      onSaved: () => {
+        flashToast("Saved", 1200);
+        setOffline(false);
+        dirtyRef.current = false;
+        if (cacheAllowedRef.current) {
+          // refresh the offline cache with the just-acked state
+          writeLastGood({ ...storeRef.current.snapshot(), rev: storeRef.current.getRev() });
+        }
+      },
       onResync: ({ conflict, message }) => {
         setError(conflict ? "" : message);
         flashToast(conflict ? "Reloaded — changed elsewhere" : "Couldn't save — reloaded", 1800);
       },
-      onError: (message) => setError(message),
+      onError: (message) => {
+        // write + re-sync both failed → almost certainly offline. The optimistic state
+        // is still on screen; mark it dirty so reconnecting pushes it (AUDIT M9).
+        dirtyRef.current = true;
+        setOffline(true);
+        setError(message);
+      },
     });
   }
   const store = storeRef.current;
@@ -140,6 +187,11 @@ export default function App() {
     try {
       const fresh = await getState();
       storeRef.current.setCommitted(fresh); // via the ref: keeps this fn dep-stable for the boot effect
+      setOffline(false);
+      setError("");
+      if (cacheAllowedRef.current) {
+        writeLastGood(fresh); // keep the offline copy current
+      }
       if (!fresh.settings?.onboarded) {
         setShowOnboard(true);
       } // first run
@@ -150,7 +202,15 @@ export default function App() {
         .then(setPrices)
         .catch(() => {});
     } catch (e) {
-      setError(String(e.message || e));
+      // server unreachable — fall back to the last synced copy so the installed PWA
+      // still shows your money instead of an error and $0 everywhere (AUDIT M8)
+      const cached = cacheAllowedRef.current ? readLastGood() : null;
+      if (cached) {
+        storeRef.current.setCommitted(cached);
+        setOffline(true);
+      } else {
+        setError(String(e.message || e));
+      }
     }
     setLoading(false);
   }
@@ -161,16 +221,44 @@ export default function App() {
       try {
         const st = await authStatus();
         setAuthSecure(st.secure);
-        if (st.enabled && !st.authed) {
-          setLocked(true);
-          setLoading(false);
-          return; // hold at the login screen; don't fetch gated data yet
+        // the offline cache is a plaintext local copy — only keep one while the app
+        // lock is off (otherwise it would let anyone with the browser bypass the lock)
+        cacheAllowedRef.current = !st.enabled;
+        if (st.enabled) {
+          clearLastGood();
+          if (!st.authed) {
+            setLocked(true);
+            setLoading(false);
+            return; // hold at the login screen; don't fetch gated data yet
+          }
         }
       } catch (_) {
-        // status should always answer; if it doesn't, fall through and try loading
+        // status unreachable (offline boot) — allow the cache fallback in loadData;
+        // a cache only ever exists if the lock was off when it was written
+        cacheAllowedRef.current = true;
       }
       await loadData();
     })();
+  }, []);
+
+  // reconnect: if a write failed while offline, PUSH the local state (it rebases via
+  // the normal rev check — a 409 re-syncs instead of clobbering); otherwise just
+  // re-pull fresh data. Also lets the banner clear without a manual reload.
+  useEffect(() => {
+    const goOnline = () => {
+      if (dirtyRef.current) {
+        storeRef.current.save((d) => d); // re-sends everything the failed writes changed
+      } else {
+        loadData();
+      }
+    };
+    const goOffline = () => setOffline(true);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
   }, []);
 
   function onUnlock() {
@@ -548,7 +636,18 @@ export default function App() {
             <span className="opacity-70 font-normal">— tap to dismiss</span>
           </button>
         )}
-        {error && (
+        {offline && (
+          <div
+            role="status"
+            className="bg-amber-50 border-b border-amber-200 text-amber-800 text-xs px-5 py-2"
+          >
+            Offline — showing your last synced data.{" "}
+            {dirtyRef.current
+              ? "Unsaved changes will sync when the server is reachable again."
+              : "Changes may not save until the server is reachable."}
+          </div>
+        )}
+        {error && !offline && (
           <div
             role="alert"
             className="bg-rose-50 border-b border-rose-200 text-rose-600 text-xs px-5 py-2"
