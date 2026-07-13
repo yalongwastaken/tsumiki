@@ -4,7 +4,11 @@ All notable changes to Tsumiki are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.5.0] — 2026-07-13
+
+Audit clean-up release: the remaining v2.4-audit findings fixed, the riskiest client
+code extracted into tested libs, granular write endpoints, and two coach features
+(backdated logging + a month-in-review card).
 
 ### Added
 
