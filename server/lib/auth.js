@@ -204,13 +204,29 @@ export function authLogout(_req, res) {
   res.json({ ok: true });
 }
 /** Set / change / clear the password. Changing or clearing needs the current
- * password; enabling needs a secure origin. Rotates the session secret on every
- * change so other devices' sessions are invalidated. */
+ * password; ANY use requires a secure origin (a password transits every call).
+ * Rotates the session secret on every change so other devices' sessions die.
+ * The `current` check shares the login throttle — otherwise this endpoint would
+ * be an unthrottled password oracle that defeats the lockout entirely. */
 export function authSet(req, res) {
   const { password, current } = req.body || {};
   const existing = getAuth();
-  if (existing && !verifyPassword(current, existing)) {
-    return res.status(401).json({ error: "wrong current password" });
+  // secure origin FIRST: `current` is a credential too, and verifying it over
+  // sniffable plain-LAN http (or burning scrypt CPU for such a caller) is wrong
+  if (existing && !isSecureReq(req)) {
+    return res.status(400).json({ error: "open over HTTPS or Tailscale to change the app lock" });
+  }
+  if (existing) {
+    if (Date.now() < lockUntil) {
+      const wait = Math.max(1, Math.ceil((lockUntil - Date.now()) / 60000));
+      return res
+        .status(429)
+        .json({ error: `too many attempts — wait ${wait} minute${wait > 1 ? "s" : ""} and retry` });
+    }
+    if (!verifyPassword(current, existing)) {
+      recordFailedLogin(); // same throttle as login — no free guesses here
+      return res.status(401).json({ error: "wrong current password" });
+    }
   }
   // a successful set/change/clear clears any active login lockout
   clearThrottle();

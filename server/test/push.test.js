@@ -29,6 +29,44 @@ test("subscriptions add idempotently by endpoint and remove cleanly", () => {
   assert.match(push.addSubscription({}).error, /endpoint/); // malformed rejected
 });
 
+test("subscription endpoints are validated hard (stored-SSRF guard)", () => {
+  const keys = { p256dh: "BPub", auth: "authsecret" };
+  // the endpoint is a URL the server will POST to forever — no http, no localhost APIs
+  assert.match(
+    push.addSubscription({ endpoint: "http://localhost:4000/api/reset", keys }).error,
+    /https/,
+  );
+  assert.match(push.addSubscription({ endpoint: "not a url", keys }).error, /valid URL/);
+  assert.match(
+    push.addSubscription({ endpoint: `https://p.example/${"x".repeat(3000)}`, keys }).error,
+    /endpoint/,
+  );
+  // keys must be bounded strings
+  assert.ok(
+    push.addSubscription({ endpoint: "https://p.example/ok", keys: { p256dh: 5, auth: "a" } })
+      .error,
+  );
+  assert.ok(
+    push.addSubscription({
+      endpoint: "https://p.example/ok",
+      keys: { p256dh: "x".repeat(3000), auth: "a" },
+    }).error,
+  );
+  // bounded count: fill to the cap, the next one is refused
+  for (let i = 0; push.subscriptionCount() < 20 && i < 25; i++) {
+    push.addSubscription({ endpoint: `https://p.example/dev-${i}`, keys });
+  }
+  assert.match(
+    push.addSubscription({ endpoint: "https://p.example/one-too-many", keys }).error,
+    /too many/,
+  );
+  // clean up: keep only the original device for the later tests
+  for (let i = 0; i < 25; i++) {
+    push.removeSubscription(`https://p.example/dev-${i}`);
+  }
+  assert.equal(push.subscriptionCount(), 1);
+});
+
 test("todayDigest counts bills due + paydays today — no names, no amounts", () => {
   const state = {
     profile: {

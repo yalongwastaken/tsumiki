@@ -37,13 +37,43 @@ export function vapidKeys() {
   return keys;
 }
 
-/** Register a device subscription (idempotent by endpoint). */
+const MAX_SUBS = 20; // a single user's devices — anything more is abuse
+const MAX_FIELD = 2048; // endpoints/keys are well under this in every browser
+
+/** Register a device subscription (idempotent by endpoint).
+ * The endpoint is a URL the server will POST to on a schedule, forever — so it is
+ * validated hard: HTTPS only, length-capped, string keys, bounded count. Without
+ * this, a subscribed client could point the server at arbitrary URLs (stored SSRF —
+ * including its own localhost API). */
 export function addSubscription(sub) {
-  if (!sub?.endpoint || typeof sub.endpoint !== "string" || !sub.keys?.p256dh || !sub.keys?.auth) {
-    return { error: "subscription needs an endpoint and keys" };
+  const { endpoint, keys } = sub || {};
+  if (
+    typeof endpoint !== "string" ||
+    !endpoint ||
+    endpoint.length > MAX_FIELD ||
+    typeof keys?.p256dh !== "string" ||
+    !keys.p256dh ||
+    keys.p256dh.length > MAX_FIELD ||
+    typeof keys?.auth !== "string" ||
+    !keys.auth ||
+    keys.auth.length > MAX_FIELD
+  ) {
+    return { error: "subscription needs an endpoint and string keys" };
   }
-  const subs = getPushSubs().filter((s) => s.endpoint !== sub.endpoint);
-  subs.push({ endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } });
+  let url;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return { error: "endpoint must be a valid URL" };
+  }
+  if (url.protocol !== "https:") {
+    return { error: "endpoint must be https" }; // every real push service is
+  }
+  const subs = getPushSubs().filter((s) => s.endpoint !== endpoint);
+  if (subs.length >= MAX_SUBS) {
+    return { error: `too many subscriptions (max ${MAX_SUBS}) — unsubscribe a device first` };
+  }
+  subs.push({ endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } });
   setPushSubs(subs);
   return { ok: true, count: subs.length };
 }
@@ -118,8 +148,11 @@ export async function sendToAll(payload) {
       await webpush.sendNotification(sub, body, { TTL: 12 * 60 * 60 });
       sent++;
     } catch (e) {
-      if (e?.statusCode === 404 || e?.statusCode === 410) {
-        dead.add(sub.endpoint); // expired/revoked — clean it up
+      // 404/410 = expired/revoked; 403 = key mismatch (e.g. the VAPID pair was
+      // regenerated) — none of these will EVER succeed again, so prune all three
+      // instead of warn-logging daily forever
+      if (e?.statusCode === 404 || e?.statusCode === 410 || e?.statusCode === 403) {
+        dead.add(sub.endpoint);
       } else {
         console.warn("push: send failed:", e?.statusCode || e?.message || e);
       }
@@ -141,11 +174,15 @@ export async function pushTick(now = new Date()) {
     return null;
   }
   const digest = todayDigest(getState(), now);
-  setPushState({ lastSentDay: dayKey }); // checked today — quiet days send nothing
   if (!digest) {
+    setPushState({ lastSentDay: dayKey }); // checked today — a quiet day sends nothing
     return null;
   }
+  // send FIRST, mark the day only after it resolves: a systemic throw (e.g. a corrupt
+  // VAPID blob) must not burn the whole day's digest. sendToAll catches per-device
+  // failures internally, so this can't double-send to healthy devices on retry.
   const out = await sendToAll(digest);
+  setPushState({ lastSentDay: dayKey });
   console.log(`push: sent morning digest to ${out.sent} device(s)`);
   return out;
 }

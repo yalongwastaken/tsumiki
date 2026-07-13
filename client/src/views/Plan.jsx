@@ -521,8 +521,11 @@ export default function Plan({
             );
           })}
           {/* close the plan→action gap: one tap records the remaining transfers as
-              contributions (amounts are target − already-logged, so no double count) */}
+              contributions (amounts are target − already-logged, so no double count).
+              Hidden while previewing another strategy — logging against targets you
+              haven't saved would record moves the real plan never asked for. */}
           {onLogContributions &&
+            !previewing &&
             (justLogged ? (
               <div className="text-sm text-emerald-600 inline-flex items-center gap-1.5">
                 <Check size={15} /> Logged — nice. The bars above now reflect it.

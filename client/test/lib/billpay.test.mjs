@@ -57,6 +57,23 @@ test("due vs overdue pivots on today vs the due day", () => {
   assert.equal(billPayments(bills, [], Y, M + 1, new Date(Y, M, 16))[0].status, "upcoming");
 });
 
+test("weak (reverse) name evidence never matches without an amount match", () => {
+  // tx note "gym" is a substring of the bill name, but the amount is way off —
+  // marking the bill paid here would suppress a real overdue alert
+  const bills = [{ id: "b1", name: "Gym Membership Platinum", amount: 89, dayOfMonth: 5 }];
+  const out = billPayments(
+    bills,
+    [spend("t1", 5, 12.5, null, "gym snacks")],
+    Y,
+    M,
+    new Date(Y, M, 20),
+  );
+  assert.equal(out[0].status, "overdue");
+  // same weak evidence WITH the right amount → that's the bill
+  const paid = billPayments(bills, [spend("t2", 5, 89, null, "gym snacks")], Y, M);
+  assert.equal(paid[0].status, "paid");
+});
+
 test("a bill with no schedule is 'none' unless a spend matches it", () => {
   const bills = [{ id: "b1", name: "Gym", amount: 40 }];
   assert.equal(billPayments(bills, [], Y, M)[0].status, "none");

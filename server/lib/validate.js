@@ -112,8 +112,8 @@ export function validateState(s) {
     if (typeof h.ticker !== "string") {
       return "holding.ticker must be a string";
     }
-    // a ticker is interpolated into the (opt-in) price-feed URL, so keep it to a
-    // plain symbol charset — no query-param/URL injection via a crafted ticker
+    // a ticker is passed as an argv to the (opt-in) yfinance price script, so keep
+    // it to a plain symbol charset — no flag/argument smuggling via a crafted ticker
     if (!/^[A-Za-z0-9.\-^]{1,15}$/.test(h.ticker)) {
       return "holding.ticker has invalid characters";
     }

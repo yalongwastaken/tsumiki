@@ -168,13 +168,14 @@ export default function AccountsSection({
     if (Number.isNaN(v) || balEdit.value === "") {
       return;
     }
-    onSave({
-      ...data,
+    // functional updater: rebase on the LATEST state, not this render's closure
+    onSave((d) => ({
+      ...d,
       snapshots: [
-        ...snapshots,
+        ...(d.snapshots || []),
         { id: uid(), accountId: id, date: new Date().toISOString(), balance: v },
       ],
-    });
+    }));
     setBalEdit({ id: null, value: "" });
   }
   // log money against a credit card: delta>0 charges it (owe more), delta<0 pays it down
@@ -185,13 +186,13 @@ export default function AccountsSection({
     }
     const owed = -(latestBalance(id) || 0);
     const newOwed = Math.max(0, owed + delta);
-    onSave({
-      ...data,
+    onSave((d) => ({
+      ...d,
       snapshots: [
-        ...snapshots,
+        ...(d.snapshots || []),
         { id: uid(), accountId: id, date: new Date().toISOString(), balance: -newOwed },
       ],
-    });
+    }));
     setBalEdit({ id: null, value: "" });
   }
   function setCash(a, value) {
@@ -199,17 +200,20 @@ export default function AccountsSection({
     if (Number.isNaN(cash)) {
       return;
     }
-    onSave({ ...data, accounts: accounts.map((x) => (x.id === a.id ? { ...x, cash } : x)) });
+    onSave((d) => ({
+      ...d,
+      accounts: (d.accounts || []).map((x) => (x.id === a.id ? { ...x, cash } : x)),
+    }));
   }
   function addHolding(a) {
     const ticker = hold.ticker.trim().toUpperCase();
     if (!ticker || !(Number(hold.shares) > 0)) {
       return;
     }
-    onSave({
-      ...data,
+    onSave((d) => ({
+      ...d,
       holdings: [
-        ...holdings,
+        ...(d.holdings || []),
         {
           id: uid(),
           ticker,
@@ -219,11 +223,11 @@ export default function AccountsSection({
           account: TAX_TAG_FOR_TYPE[a.type] || "taxable", // tax treatment from the account
         },
       ],
-    });
+    }));
     setHold({ ticker: "", shares: "", costBasis: "" });
   }
   function removeHolding(id) {
-    onSave({ ...data, holdings: holdings.filter((h) => h.id !== id) });
+    onSave((d) => ({ ...d, holdings: (d.holdings || []).filter((h) => h.id !== id) }));
   }
   function startEditHold(h) {
     setEditHold({
@@ -242,9 +246,9 @@ export default function AccountsSection({
       return; // need a ticker and a positive share count
     }
     const mp = editHold.manualPrice === "" ? null : Math.max(0, Number(editHold.manualPrice));
-    onSave({
-      ...data,
-      holdings: holdings.map((h) =>
+    onSave((d) => ({
+      ...d,
+      holdings: (d.holdings || []).map((h) =>
         h.id === editHold.id
           ? {
               ...h,
@@ -256,7 +260,7 @@ export default function AccountsSection({
             }
           : h,
       ),
-    });
+    }));
     setEditHold({
       id: null,
       ticker: "",
@@ -271,9 +275,9 @@ export default function AccountsSection({
       return;
     }
     const acc = accounts.find((a) => a.id === accId);
-    onSave({
-      ...data,
-      holdings: holdings.map((h) =>
+    onSave((d) => ({
+      ...d,
+      holdings: (d.holdings || []).map((h) =>
         h.id === hid
           ? {
               ...h,
@@ -282,7 +286,7 @@ export default function AccountsSection({
             }
           : h,
       ),
-    });
+    }));
   }
 
   return (

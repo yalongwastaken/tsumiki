@@ -6,6 +6,38 @@ All notable changes to Tsumiki are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **`/api/auth/set` shares the login throttle.** It verified the current password with
+  no lockout check and no failure recording — an unthrottled password oracle that
+  defeated the lockout (and worked over plain http). Now: secure origin required,
+  lockouts apply, wrong guesses count. See AUDIT.md (2026-07-13).
+- **Push subscriptions are validated hard** (HTTPS-only endpoint, length-capped string
+  keys, max 20 devices) — the endpoint is a URL the server POSTs to on a schedule, so
+  it can no longer be pointed at arbitrary/internal URLs.
+- **The offline cache can no longer outlive an enabled app lock**: permission is only
+  granted when the server confirms the lock is off (never latched from a failed
+  check), and enabling the lock clears the cache immediately.
+
+### Fixed
+
+- **Conflict-safety across the save chain** (full audit, see AUDIT.md): queued writes
+  now persist the resynced truth after a mid-chain 409 instead of resurrecting
+  conflicted data; a failed account delete can no longer strip that account's
+  holdings; undo-after-conflict can't duplicate a transaction; a rejected-but-online
+  write no longer shows a false "Offline" banner; six account-editor saves now rebase
+  on the latest state.
+- **Bill matching is stricter**: weak name evidence (a short note contained in a
+  bill's name) only counts alongside an amount match — a false "paid" would suppress
+  the overdue alert. Bill statuses also refresh on day rollover.
+- **Price sync tolerates chatty Python output** (parses the last stdout line), treats
+  a crash-after-output as a provider error (breaker never punishes symbols for it),
+  and the fast-path price fallback stamps today's date so history accrues.
+- Push: a systemic send failure no longer burns the day's digest; permanently-dead
+  (403) subscriptions self-prune; Notifications "enable" errors clearly instead of
+  hanging when no service worker is registered; future-dated backdates are rejected
+  at submit; "I moved it" hides while previewing an unsaved strategy.
+
 ### Changed
 
 - **Prices now come from ONE source: a Python/yfinance sidecar.** The Node server

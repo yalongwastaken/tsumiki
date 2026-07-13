@@ -15,6 +15,7 @@ import {
   setOnLocked,
 } from "./lib/core/api.js";
 import { createPersistence } from "./lib/core/persist.js";
+import { readLastGood, writeLastGood, clearLastGood } from "./lib/core/lastgood.js";
 import { fmt } from "./lib/core/format.js";
 import { typicalIncome } from "./lib/finance/income.js";
 import {
@@ -68,35 +69,24 @@ const EMPTY = {
   settings: { returnRate: 0.07, monthlyInvest: null },
 };
 
-// ── offline read cache (AUDIT M8) ────────────────────────────────────────────────
-// The installed PWA used to show an error and $0 everywhere when the mini-PC was
-// unreachable (routine for a Tailscale-reached home server). Keep the last
-// server-acked state in localStorage so an offline boot can render it — but ONLY
-// while the app lock is off: with a lock enabled, a plaintext local copy would let
-// anyone with the browser bypass the lock, so the cache is cleared instead.
-const LAST_GOOD_KEY = "tsumiki-last-good";
-const readLastGood = () => {
+// offline read cache (AUDIT M8) — helpers live in lib/core/lastgood.js so AppLock
+// can clear the cache the moment a lock is enabled. Writes here are gated on
+// cacheAllowedRef (CONFIRMED lock-off); reads are always safe (see lastgood.js).
+
+// re-confirm whether the offline cache may exist: allowed ONLY when the server
+// positively says the app lock is off. Unknown (unreachable) leaves the current
+// (conservative) permission untouched. Module-level so loadData stays dep-stable.
+async function confirmCachePermission(cacheAllowedRef) {
   try {
-    const raw = localStorage.getItem(LAST_GOOD_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const st = await authStatus();
+    cacheAllowedRef.current = !st.enabled;
+    if (st.enabled) {
+      clearLastGood();
+    }
   } catch {
-    return null;
+    /* status unreachable — keep the current permission */
   }
-};
-const writeLastGood = (state) => {
-  try {
-    localStorage.setItem(LAST_GOOD_KEY, JSON.stringify(state));
-  } catch {
-    /* quota/private mode — the cache is best-effort */
-  }
-};
-const clearLastGood = () => {
-  try {
-    localStorage.removeItem(LAST_GOOD_KEY);
-  } catch {
-    /* ignore */
-  }
-};
+}
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 /** Root component: loads state, serializes saves, owns the nav rail + tab routing. */
@@ -189,6 +179,9 @@ export default function App() {
       storeRef.current.setCommitted(fresh); // via the ref: keeps this fn dep-stable for the boot effect
       setOffline(false);
       setError("");
+      // an offline boot couldn't confirm the lock state — confirm it now that the
+      // server is answering, THEN cache (never latch "allowed" from a failed check)
+      await confirmCachePermission(cacheAllowedRef);
       if (cacheAllowedRef.current) {
         writeLastGood(fresh); // keep the offline copy current
       }
@@ -203,8 +196,11 @@ export default function App() {
         .catch(() => {});
     } catch (e) {
       // server unreachable — fall back to the last synced copy so the installed PWA
-      // still shows your money instead of an error and $0 everywhere (AUDIT M8)
-      const cached = cacheAllowedRef.current ? readLastGood() : null;
+      // still shows your money instead of an error and $0 everywhere (AUDIT M8).
+      // READING is safe regardless of the (unknown) lock state: a cache can only
+      // have been written while the lock was confirmed off, and enabling the lock
+      // clears it — so an existing cache is lock-off data by construction.
+      const cached = readLastGood();
       if (cached) {
         storeRef.current.setCommitted(cached);
         setOffline(true);
@@ -233,9 +229,10 @@ export default function App() {
           }
         }
       } catch (_) {
-        // status unreachable (offline boot) — allow the cache fallback in loadData;
-        // a cache only ever exists if the lock was off when it was written
-        cacheAllowedRef.current = true;
+        // status unreachable (offline boot): leave cacheAllowedRef FALSE — never
+        // latch "allowed" from a failed check (a lock could be enabled server-side).
+        // loadData still falls back to READING an existing cache, which is safe by
+        // construction; caching resumes only once the lock is confirmed off.
       }
       await loadData();
     })();
@@ -462,8 +459,14 @@ export default function App() {
   function undoDelete() {
     const tx = undoTx;
     setUndoTx(null);
+    // guard: if the delete 409-resynced, the tx may already be back — re-adding
+    // it would duplicate the id (double-counted totals, duplicate React keys)
     if (tx) {
-      save((d) => ({ ...d, transactions: [...d.transactions, tx] }));
+      save((d) =>
+        d.transactions.some((t) => t.id === tx.id)
+          ? d
+          : { ...d, transactions: [...d.transactions, tx] },
+      );
     }
   }
   function logTx({

@@ -48,7 +48,14 @@ export default function Notifications() {
       if ((await Notification.requestPermission()) !== "granted") {
         throw new Error("Notifications were blocked — allow them in your browser settings.");
       }
-      const reg = await navigator.serviceWorker.ready;
+      // getRegistration (not .ready): .ready never resolves when no SW is registered
+      // (dev mode, or a failed registration) and would hang this button on "…" forever
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) {
+        throw new Error(
+          "No service worker here — use the installed app (production build) to enable this.",
+        );
+      }
       const { key } = await getPushKey();
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,

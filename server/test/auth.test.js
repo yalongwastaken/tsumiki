@@ -135,11 +135,30 @@ test("login throttles after repeated wrong passwords", () => {
   const locked = mockRes();
   auth.authLogin(req({ headers: SECURE, body: { password: "correct horse" } }), locked);
   assert.equal(locked.statusCode, 429);
-  // clear the lock so later tests aren't affected
+  // authSet shares the throttle: during a lockout it refuses too — even with the
+  // correct current password. Otherwise it would be an unthrottled password oracle
+  // (guess `current` at full speed) that defeats the lockout entirely.
+  const alsoLocked = mockRes();
+  auth.authSet(
+    req({ headers: SECURE, body: { current: "correct horse", password: "" } }),
+    alsoLocked,
+  );
+  assert.equal(alsoLocked.statusCode, 429);
+  assert.equal(auth.authEnabled(), true); // nothing changed while locked
+  // ...and a wrong `current` via authSet counts as a failed attempt (test seam:
+  // clear the lockout first so the attempt isn't rejected by the 429 path)
+  I.clearThrottle();
+  const wrongCurrent = mockRes();
+  auth.authSet(req({ headers: SECURE, body: { current: "nope", password: "" } }), wrongCurrent);
+  assert.equal(wrongCurrent.statusCode, 401);
+  assert.equal(I.throttleState().loginFails, 1); // recorded against the same throttle
+  // clean up: clear throttle + disable the lock so later tests start unlocked
+  I.clearThrottle();
   auth.authSet(
     req({ headers: SECURE, body: { current: "correct horse", password: "" } }),
     mockRes(),
   );
+  assert.equal(auth.authEnabled(), false);
 });
 
 test("repeated lockouts back off exponentially (and cap)", () => {

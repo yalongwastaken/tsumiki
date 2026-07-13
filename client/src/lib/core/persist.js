@@ -63,13 +63,17 @@ export function createPersistence({
 
   // queue a rev-checked write; on failure re-sync from the server. The rev is read at
   // EXECUTION time (not enqueue time) so a write queued behind another uses the rev
-  // its predecessor just advanced to.
+  // its predecessor just advanced to. A write may return null to VOID itself (used
+  // when a mid-chain conflict resync made the queued operation moot) — a voided
+  // write advances nothing and shows no "Saved".
   function enqueue(write) {
     chain = chain.then(async () => {
       try {
         const saved = await write(rev);
-        rev = saved.rev ?? rev;
-        onSaved();
+        if (saved) {
+          rev = saved.rev ?? rev;
+          onSaved();
+        }
       } catch (e) {
         // 409 = changed elsewhere; any other failure means the write didn't persist.
         // Either way, re-sync rather than leave stale optimistic UI.
@@ -87,10 +91,13 @@ export function createPersistence({
   /**
    * Full-state save (rewrites the normalized tables) — account/snapshot/debt edits.
    * Accepts a functional updater `(d) => next` (preferred) or a constant next state.
+   * The payload is read from the LIVE mirror at execution time: if an earlier queued
+   * write 409-resynced, this write persists the resynced truth (what the UI shows)
+   * instead of resurrecting its pre-conflict snapshot.
    */
   function save(produce) {
-    const next = apply(produce);
-    return enqueue((r) => api.putState({ ...next, rev: r }));
+    apply(produce);
+    return enqueue((r) => api.putState({ ...current, rev: r }));
   }
 
   /**
@@ -121,7 +128,12 @@ export function createPersistence({
           i === -1 ? [...list, item] : list.map((x) => (x.id === item.id ? { ...x, ...item } : x)),
       };
     });
-    return enqueue((r) => api.patchEntity(kind, { ...item, rev: r }));
+    return enqueue((r) => {
+      // send the LIVE version of the item; if a mid-chain conflict resync removed it,
+      // the upsert is void (don't resurrect data the server said was superseded)
+      const live = (current[kind] || []).find((x) => x.id === item.id);
+      return live ? api.patchEntity(kind, { ...live, rev: r }) : null;
+    });
   }
 
   /**
@@ -132,7 +144,7 @@ export function createPersistence({
    * Requires `api.deleteEntity` (and, for accounts, `api.patchState`) to be injected.
    */
   function deleteEntity(kind, id) {
-    let keptHoldings = null;
+    let droppedHoldings = false;
     apply((d) => {
       const next = { ...d, [kind]: (d[kind] || []).filter((x) => x.id !== id) };
       if (kind === "accounts") {
@@ -140,26 +152,41 @@ export function createPersistence({
         const kept = (d.holdings || []).filter((h) => h.accountId !== id);
         if (kept.length !== (d.holdings || []).length) {
           next.holdings = kept;
-          keptHoldings = kept;
+          droppedHoldings = true;
         }
       }
       return next;
     });
-    let p = enqueue((r) => api.deleteEntity(kind, id, r));
-    if (keptHoldings) {
-      p = enqueue((r) => api.patchState({ holdings: keptHoldings, rev: r }));
-    }
-    return p;
+    // ONE chain step: the holdings patch runs only AFTER the delete persisted — a
+    // failed/conflicted delete must never strip a still-existing account's holdings
+    return enqueue(async (r) => {
+      if ((current[kind] || []).some((x) => x.id === id)) {
+        return null; // a mid-chain conflict resync restored it — the delete is void
+      }
+      const saved = await api.deleteEntity(kind, id, r);
+      if (droppedHoldings) {
+        // holdings live in the meta blob (the server doesn't cascade them); payload
+        // from the live mirror so it reflects any later optimistic edits too
+        return api.patchState({ holdings: current.holdings || [], rev: saved.rev ?? r });
+      }
+      return saved;
+    });
   }
 
   /**
    * Lean transaction append — the common no-balance-move log. Optimistic append,
-   * then POST /api/transactions (no rev clash by design). On failure: re-sync
-   * (so the UI is truthful) and report via onError — the entry did not persist.
+   * then POST /api/transactions (no rev clash by design). On failure with the server
+   * reachable: re-sync + onResync (the entry didn't persist, UI is made truthful).
+   * On failure with the server UNREACHABLE: onError (the caller may treat this as
+   * offline — the optimistic entry stays visible for a later reconnect push).
    */
   function appendTx(tx) {
     apply((d) => ({ ...d, transactions: [...d.transactions, tx] }));
     chain = chain.then(async () => {
+      // voided if a mid-chain conflict resync already dropped this optimistic entry
+      if (!current.transactions.some((t) => t.id === tx.id)) {
+        return;
+      }
       try {
         const saved = await api.addTransaction(tx);
         rev = saved.rev ?? rev;
@@ -167,10 +194,12 @@ export function createPersistence({
       } catch (e) {
         try {
           setCommitted(await api.getState());
+          // server reachable, entry rejected → a real (non-offline) failure
+          onResync({ conflict: e.status === 409, message: String(e.message || e) });
         } catch {
-          /* keep optimistic UI if even the re-sync failed; the error below still shows */
+          // server unreachable too — keep optimistic UI; caller decides (offline)
+          onError(String(e.message || e));
         }
-        onError(String(e.message || e));
       }
     });
     return chain;

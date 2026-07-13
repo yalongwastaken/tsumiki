@@ -74,7 +74,13 @@ export function runPriceScript(symbols) {
           return resolve({ rows: [], errored: true, note });
         }
         try {
-          const parsed = JSON.parse(String(stdout));
+          // the contract is ONE line of JSON, but be tolerant of stray stdout above it
+          // (a chatty yfinance/pandas warning must not fail every sync as "unreadable"):
+          // parse the LAST non-empty line
+          const lines = String(stdout)
+            .split(/\r?\n/)
+            .filter((l) => l.trim());
+          const parsed = JSON.parse(lines[lines.length - 1] || "");
           const rows = (Array.isArray(parsed.rows) ? parsed.rows : []).filter(
             (r) =>
               r &&
@@ -91,7 +97,9 @@ export function runPriceScript(symbols) {
               close: r.close,
               date: typeof r.date === "string" ? r.date : "",
             })),
-            errored: !!note,
+            // a spawn-level error WITH parseable stdout (killed after printing, stderr
+            // overflow) is still a real failure — the breaker must not punish symbols
+            errored: !!note || !!err,
             note,
           });
         } catch {

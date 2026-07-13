@@ -146,6 +146,10 @@ export default function QuickAdd({
     if (!Number.isFinite(n) || n <= 0) {
       return;
     }
+    // the picker's max only constrains the UI — a typed future date must not pass
+    if (day && day > todayKey) {
+      return;
+    }
     // a transfer needs two distinct accounts to move between
     if (type === "transfer" && (!fromId || !toId || fromId === toId)) {
       return;
@@ -169,6 +173,9 @@ export default function QuickAdd({
   }
   // log a day with no spending — keeps your logging streak without an amount
   function logNoSpend() {
+    if (day && day > todayKey) {
+      return; // no future backdates here either
+    }
     onLog({
       type: "spending",
       amount: 0,

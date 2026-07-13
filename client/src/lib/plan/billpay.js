@@ -12,15 +12,17 @@ const norm = (s) =>
     .replace(/\s+/g, " ")
     .trim();
 
-// bill name appears in the tx's cat/note (or the tx text inside the bill name —
-// only when it's long enough to not false-positive on tiny fragments)
-function nameMatches(bill, t) {
+// name evidence, two strengths: `forward` (the bill's name appears in the tx's
+// cat/note — strong) and `reverse` (the tx text appears inside the bill name —
+// weak: any short generic note could hit, so it only ever counts WITH an amount
+// match; see the scoring below)
+function nameEvidence(bill, t) {
   const bn = norm(bill.name);
   const hay = norm(`${t.cat || ""} ${t.note || ""}`);
   if (!bn || !hay) {
-    return false;
+    return { forward: false, reverse: false };
   }
-  return hay.includes(bn) || (hay.length >= 4 && bn.includes(hay));
+  return { forward: hay.includes(bn), reverse: hay.length >= 4 && bn.includes(hay) };
 }
 
 // amount within 2% (or $1) of the bill amount — utilities wobble a little
@@ -55,19 +57,21 @@ export function billPayments(bills = [], transactions = [], year, month, today =
 
   return bills.map((bill) => {
     const dueDay = billDueDay(bill, year, month);
-    // best unused match: name+amount beats name beats amount-near-the-due-date
+    // best unused match: name+amount beats forward-name beats amount-near-the-due-date.
+    // Weak (reverse) name evidence never matches alone — a false "paid" suppresses the
+    // overdue alert, which is the failure mode that actually costs money.
     let match = null;
     let best = 0;
     for (const t of inMonth) {
       if (used.has(t.id)) {
         continue;
       }
-      const nm = nameMatches(bill, t);
+      const { forward, reverse } = nameEvidence(bill, t);
       const am = amountMatches(bill, t);
       let score = 0;
-      if (nm && am) {
+      if (am && (forward || reverse)) {
         score = 3;
-      } else if (nm) {
+      } else if (forward) {
         score = 2;
       } else if (am && dueDay != null && Math.abs(new Date(t.date).getDate() - dueDay) <= 7) {
         score = 1; // amount alone only counts within a week of the due date

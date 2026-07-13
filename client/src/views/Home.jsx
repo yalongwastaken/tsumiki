@@ -211,11 +211,20 @@ export default function Home({
     [transactions, profile.budgets, profile.budgetOpts],
   );
   const budgetWarn = budgetAlert(budgetRows);
-  // bills matched against logged spends: paid X of N, $ left, overdue names
+  // bills matched against logged spends: paid X of N, $ left, overdue names.
+  // dayStamp keys the memo to the calendar day, so an app left open overnight
+  // doesn't keep showing yesterday's due/overdue statuses
+  const dayStamp = new Date().toDateString();
   const billStatuses = useMemo(() => {
-    const now = new Date();
-    return billPayments(profile.bills || [], transactions, now.getFullYear(), now.getMonth());
-  }, [profile.bills, transactions]);
+    const now = new Date(dayStamp);
+    return billPayments(
+      profile.bills || [],
+      transactions,
+      now.getFullYear(),
+      now.getMonth(),
+      new Date(),
+    );
+  }, [profile.bills, transactions, dayStamp]);
   const billSum = useMemo(() => billsSummary(billStatuses), [billStatuses]);
   // this month's spending split by category (for the "where it went" breakdown)
   const catSpend = useMemo(() => {

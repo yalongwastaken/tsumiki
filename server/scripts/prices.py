@@ -18,6 +18,7 @@ Only your ticker symbols are sent to Yahoo (via yfinance). Nothing personal leav
 the machine. Requires:  pip install yfinance
 """
 
+import datetime as _dt
 import json
 import sys
 
@@ -58,11 +59,14 @@ def main(argv):
                     price = float(closes.iloc[-1])
                     date = str(closes.index[-1].date())
             if price is None:
-                # fallback: last traded price (works for most live symbols)
+                # fallback: last traded price (works for most live symbols). Stamp
+                # today's date — an empty date would freeze the symbol's history at
+                # one entry and keep week-over-week change null forever.
                 try:
                     last = ticker.fast_info["last_price"]
                     if last is not None and float(last) > 0:
                         price = float(last)
+                        date = str(_dt.date.today())
                 except Exception:
                     pass
             if price is not None and price > 0:

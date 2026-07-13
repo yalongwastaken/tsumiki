@@ -3,6 +3,7 @@
 // a password over a secure origin — over plain-LAN http it explains why it's disabled.
 import { useState, useEffect, useCallback } from "react";
 import { authStatus, authSetPassword, authLogout } from "../lib/core/api.js";
+import { clearLastGood } from "../lib/core/lastgood.js";
 import { card, label, field } from "./ui.jsx";
 
 export default function AppLock() {
@@ -45,6 +46,11 @@ export default function AppLock() {
         current: status?.enabled ? form.current : undefined,
         password: clearing ? "" : form.password,
       });
+      if (!clearing) {
+        // the plaintext offline cache must not outlive an enabled lock — clear it
+        // NOW, not on the next boot (see lib/core/lastgood.js invariant)
+        clearLastGood();
+      }
       reset();
       setMsg(clearing ? "App lock removed." : "Password saved — this device is trusted.");
       refresh();

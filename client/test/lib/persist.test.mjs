@@ -150,10 +150,12 @@ test("saveMeta merges the partial into local state but sends ONLY the partial + 
   assert.equal(sent.rev, 7);
 });
 
-test("appendTx appends optimistically; a failure re-syncs and reports an error", async () => {
+test("appendTx failure with the server REACHABLE re-syncs and reports via onResync", async () => {
+  // a 400-class rejection while online is a real failure, not "offline" — the
+  // caller must not show an offline banner for it (audit C-M5)
   const { api, calls } = makeApi({
     addTransaction: async () => {
-      throw new Error("offline");
+      throw Object.assign(new Error("bad tx"), { status: 400 });
     },
   });
   const { store, changes, events } = makeStore(api);
@@ -163,7 +165,27 @@ test("appendTx appends optimistically; a failure re-syncs and reports an error",
 
   assert.equal(calls.getState.length, 1); // re-synced (entry didn't persist)
   assert.equal(changes.at(-1).transactions[0].id, "server");
-  assert.deepEqual(events.at(-1), ["error", "offline"]);
+  const [tag, info] = events.at(-1);
+  assert.equal(tag, "resync"); // NOT "error" — the server answered
+  assert.equal(info.conflict, false);
+});
+
+test("appendTx failure with the server UNREACHABLE keeps optimistic UI + onError", async () => {
+  const { api } = makeApi({
+    addTransaction: async () => {
+      throw new Error("offline");
+    },
+    getState: async () => {
+      throw new Error("offline");
+    },
+  });
+  const { store, changes, events } = makeStore(api);
+  store.setCommitted({ rev: 1, transactions: [] });
+
+  await store.appendTx({ id: "t1", type: "spending", amount: 5 });
+
+  assert.equal(changes.at(-1).transactions[0].id, "t1"); // optimistic entry survives
+  assert.deepEqual(events.at(-1), ["error", "offline"]); // caller may go offline-mode
 });
 
 test("appendTx success advances the rev and a queued full save composes on the new tx", async () => {
@@ -251,6 +273,101 @@ test("deleteEntity('accounts') drops snapshots locally and patches orphaned hold
     ["h2"],
   );
   assert.equal(patched[0].rev, 2); // used the rev the DELETE advanced to
+});
+
+test("mid-chain 409: later queued saves persist the RESYNCED truth, not stale payloads", async () => {
+  // first save conflicts; the resync brings server state. The second queued save
+  // must then send what the UI shows (resynced state) instead of resurrecting the
+  // conflicted content — otherwise UI and server silently diverge.
+  let putCount = 0;
+  const puts = [];
+  const { api } = makeApi({
+    putState: async (body) => {
+      puts.push(body);
+      putCount++;
+      if (putCount === 1) {
+        throw Object.assign(new Error("rev mismatch"), { status: 409 });
+      }
+      return { rev: (body.rev ?? 0) + 1 };
+    },
+    getState: async () => ({ rev: 42, transactions: [{ id: "server" }], accounts: [] }),
+  });
+  const { store, changes } = makeStore(api);
+  store.setCommitted({ rev: 1, transactions: [], accounts: [] });
+
+  store.save((d) => ({ ...d, accounts: [{ id: "a" }] })); // will 409
+  store.save((d) => ({ ...d, accounts: [...d.accounts, { id: "b" }] })); // queued behind it
+  await store.flush();
+
+  // the second PUT carried the post-resync ledger, not the pre-conflict accounts
+  const second = puts[1];
+  assert.equal(second.rev, 42);
+  assert.deepEqual(
+    second.transactions.map((t) => t.id),
+    ["server"],
+  );
+  // and the UI mirror matches what was persisted (no divergence)
+  assert.deepEqual(
+    changes.at(-1).transactions.map((t) => t.id),
+    ["server"],
+  );
+});
+
+test("saveEntity voids itself when a mid-chain resync removed the item", async () => {
+  let patched = 0;
+  const { api } = makeApi({
+    putState: async () => {
+      throw Object.assign(new Error("rev mismatch"), { status: 409 });
+    },
+    patchEntity: async () => {
+      patched++;
+      return { rev: 43 };
+    },
+    getState: async () => ({ rev: 42, debts: [] }), // resync: the debt is GONE server-side
+  });
+  const { store } = makeStore(api);
+  store.setCommitted({ rev: 1, debts: [] });
+
+  store.save((d) => d); // 409s → resync wipes the optimistic debt below
+  store.saveEntity("debts", { id: "d1", name: "Card", balance: 100 });
+  await store.flush();
+
+  assert.equal(patched, 0); // the upsert was voided, not resurrected
+  assert.equal(store.getRev(), 42);
+});
+
+test("a failed/conflicted account DELETE never fires the holdings patch", async () => {
+  let patchStateCalls = 0;
+  const { api } = makeApi({
+    deleteEntity: async () => {
+      throw Object.assign(new Error("rev mismatch"), { status: 409 });
+    },
+    patchState: async () => {
+      patchStateCalls++;
+      return { rev: 99 };
+    },
+    getState: async () => ({
+      rev: 42,
+      accounts: [{ id: "a1" }],
+      snapshots: [{ id: "s1", accountId: "a1" }],
+      holdings: [{ id: "h1", accountId: "a1", ticker: "VTSAX", shares: 1 }],
+    }),
+  });
+  const { store, changes } = makeStore(api);
+  store.setCommitted({
+    rev: 1,
+    accounts: [{ id: "a1" }],
+    snapshots: [{ id: "s1", accountId: "a1" }],
+    holdings: [{ id: "h1", accountId: "a1", ticker: "VTSAX", shares: 1 }],
+  });
+
+  await store.deleteEntity("accounts", "a1"); // DELETE 409s → resync restores it
+
+  assert.equal(patchStateCalls, 0); // the still-existing account keeps its holdings
+  assert.deepEqual(
+    changes.at(-1).holdings.map((h) => h.id),
+    ["h1"],
+  ); // UI restored too
 });
 
 test("setCommitted merges the empty shape so missing keys get safe defaults", () => {
