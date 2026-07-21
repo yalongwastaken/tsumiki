@@ -2,7 +2,7 @@
 # Requires Node >= 22.12 and npm. Run `make` or `make help` for the list.
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev server client build start test test-client test-server test-components test-smoke format lint clean distclean backup backup-enc
+.PHONY: help install prices-setup dev server client build start test test-client test-server test-components test-smoke format lint clean distclean backup backup-enc
 
 ## help: list the available targets
 help:
@@ -14,6 +14,17 @@ install:
 	npm install
 	cd server && npm install
 	cd client && npm install
+
+## prices-setup: set up the uv venv for stock-price sync (needs uv; installs yfinance)
+# Price sync is ON by default; this installs the Python dep it needs to actually fetch.
+# Creates ./.venv, then run with the sidecar interpreter:
+#   TSUMIKI_PYTHON="$(pwd)/.venv/bin/python" make start
+prices-setup:
+	@command -v uv >/dev/null || { echo "uv not found — install it from https://docs.astral.sh/uv/"; exit 1; }
+	uv venv
+	uv pip install -r server/scripts/requirements.txt
+	@echo "price sync ready — start the server with:"
+	@echo "  TSUMIKI_PYTHON=\"$$(pwd)/.venv/bin/python\" make start"
 
 ## dev: run backend (:4000) and frontend (:5173) together, hot-reloading
 dev:

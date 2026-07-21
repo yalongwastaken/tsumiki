@@ -57,8 +57,8 @@ the app lock in place — see v1.5.0).
 
 | Flag                                     | Turns on                                                                                |
 | ---------------------------------------- | --------------------------------------------------------------------------------------- |
-| `TSUMIKI_PRICES=1`                       | nightly + manual stock-price sync via yfinance (needs python3 + `pip install yfinance`) |
-| `TSUMIKI_PYTHON=…`                       | which Python interpreter runs the price script (default `python3`)                      |
+| `TSUMIKI_PRICES=0`                       | turns OFF stock-price sync (it's ON by default; needs `make prices-setup` to fetch)      |
+| `TSUMIKI_PYTHON=…`                       | Python interpreter for price sync — point at the uv venv, e.g. `./.venv/bin/python`     |
 | `TSUMIKI_NEWS_FEED='https://…/feed.xml'` | money-headlines card                                                                    |
 | `TSUMIKI_TRUST_PROXY=1`                  | trust `x-forwarded-proto` behind a TLS proxy                                            |
 
@@ -190,8 +190,8 @@ sync). Also: honest error-vs-empty, a ≥5-calendar-day week-over-week baseline,
 touching the network):
 
 ```bash
-pip install yfinance          # one-time, on the box that runs the server
-TSUMIKI_PRICES=1 make start
+make prices-setup             # one-time: uv venv + yfinance (sync is on by default)
+TSUMIKI_PYTHON="$(pwd)/.venv/bin/python" make start
 ```
 
 Import `samples/sample-portfolio.json`, open the **Portfolio** card, and:
@@ -200,9 +200,9 @@ Import `samples/sample-portfolio.json`, open the **Portfolio** card, and:
    total + allocation donut show, the **"Where your stocks sit" Sankey** appears
    (Portfolio → Taxable / 401(k) / IRA / Roth → tickers), and the footer reads "Prices
    synced just now."
-2. **Missing dependency (error):** `pip uninstall yfinance` (or run with
-   `TSUMIKI_PYTHON=/nonexistent`), **Sync now** → the sync note says exactly what to
-   install; prior prices keep showing.
+2. **Missing dependency (error):** run with `TSUMIKI_PYTHON=/nonexistent` (or without
+   `make prices-setup`), **Sync now** → the sync note says exactly what to install
+   (`make prices-setup`); prior prices keep showing.
 3. **Offline (error):** disconnect the network, **Sync now** → "showing the last saved
    prices," and the footer stops claiming a fresh sync.
 4. **Unpriceable symbol:** add a holding with a junk ticker (e.g. `ZZZZZZ`) → after a
@@ -223,5 +223,6 @@ reads the amounts).
   isolated and lets you re-trigger onboarding.
 - **Everything is one file:** the SQLite database is a single file, so a copy is a full
   backup (`make backup`).
-- **Nothing leaves the device** unless you enable prices or news — the default run
-  makes zero outbound calls (and price sync sends only ticker symbols, via yfinance).
+- **The only outbound call in a default run is price sync** (on by default) — and only
+  if you hold tickers; it sends just those symbols, via yfinance. Set `TSUMIKI_PRICES=0`
+  for a fully offline run. The money-news card stays off until you configure a feed.

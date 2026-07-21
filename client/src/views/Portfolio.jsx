@@ -235,7 +235,7 @@ export default function Portfolio({ holdings = [], prices = null, onGoSetup, onS
         <div className="text-sm text-slate-500 mb-1">
           {prices?.enabled
             ? "Prices are enabled but haven't synced yet — tap Sync now."
-            : "Prices sync nightly when enabled on the server (off by default)."}
+            : "Price sync is turned off on the server (TSUMIKI_PRICES=0)."}
         </div>
       )}
       {totals.priced && retire > 0 && (

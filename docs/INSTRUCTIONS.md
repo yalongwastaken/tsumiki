@@ -27,6 +27,27 @@ make install      # installs dependencies for the root tooling, client, and serv
 That's it for setup. Nothing to compile, no database to configure — the database is
 a single SQLite file created automatically on first run.
 
+### Stock-price sync (Python via uv)
+
+Price sync is **on by default** — the Portfolio card syncs daily closing prices for the
+tickers you hold. To actually fetch them it uses a tiny Python sidecar
+(`server/scripts/prices.py`) built on `yfinance`, so install that one dependency. (If you
+don't hold stocks, or skip this step, nothing breaks — the card just shows a friendly
+"install yfinance" note and everything else runs fine. To turn sync off entirely, set
+`TSUMIKI_PRICES=0`.)
+
+Install the dependency into a self-contained virtualenv with
+[uv](https://docs.astral.sh/uv/) (a fast Python package manager — install it once from
+<https://docs.astral.sh/uv/getting-started/installation/>):
+
+```bash
+make prices-setup      # creates ./.venv and installs yfinance into it
+```
+
+This never touches your system Python — everything lands in `./.venv`. You then tell
+the server to use that interpreter by setting `TSUMIKI_PYTHON` (the command above prints
+the exact line to use); see the run/service sections below.
+
 ---
 
 ## 2. Run it
@@ -65,6 +86,10 @@ Environment=HOST=127.0.0.1
 Environment=TSUMIKI_TRUST_PROXY=1
 # Optional: a rolling daily local backup (keeps the newest 30; never leaves the box).
 Environment=TSUMIKI_AUTO_BACKUP=1
+# Stock-price sync is ON by default. Run `make prices-setup` first (see §1), then point
+# TSUMIKI_PYTHON at that venv's interpreter (absolute path) so it finds yfinance.
+# (Add Environment=TSUMIKI_PRICES=0 here instead if you want to turn sync off.)
+Environment=TSUMIKI_PYTHON=/home/youruser/tsumiki/.venv/bin/python
 
 [Install]
 WantedBy=multi-user.target
@@ -100,6 +125,8 @@ sudo systemctl status tsumiki       # check it's running
 | `TSUMIKI_AUTO_BACKUP`   | _(unset → off)_          | `1` = daily local JSON backup (keeps newest 30); off by default                                                           |
 | `TSUMIKI_ALLOWED_HOSTS` | _(unset → off)_          | optional comma-separated `host[:port]` allowlist for writes (anti-DNS-rebinding)                                          |
 | `TSUMIKI_NEWS_FEED`     | _(unset → off)_          | optional public RSS/Atom URL for the money-news card                                                                      |
+| `TSUMIKI_PRICES`        | _(on by default)_        | stock-price sync for held tickers. Set to `0` to turn it off. Needs `make prices-setup` + `TSUMIKI_PYTHON` to actually fetch |
+| `TSUMIKI_PYTHON`        | `python3`                | Python interpreter for price sync — point at the uv venv (e.g. `/abs/path/tsumiki/.venv/bin/python`) so it finds yfinance |
 
 Set them in the systemd file (`Environment=...`) or before `make start`
 (`PORT=8080 make start`).
@@ -296,6 +323,7 @@ For the full threat model and the reasoning behind all of this, see
 | I want to…               | Command                                        |
 | ------------------------ | ---------------------------------------------- |
 | Install dependencies     | `make install`                                 |
+| Set up stock-price sync  | `make prices-setup` (needs `uv`)               |
 | Develop with hot-reload  | `make dev` (backend :4000 + frontend :5173)    |
 | Build + run for real     | `make start`                                   |
 | Just rebuild the web app | `make build`                                   |

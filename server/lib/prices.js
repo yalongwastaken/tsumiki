@@ -1,10 +1,11 @@
-// prices.js — OPT-IN nightly stock-price sync. Off unless TSUMIKI_PRICES is set, so a
-// stock install makes zero outbound calls. When on, it fetches daily closes for ONLY
-// the tickers you hold (symbols aren't personal) via ONE source: a small Python
-// sidecar (scripts/prices.py) built on yfinance — the community-maintained library
-// that tracks Yahoo's endpoints, covering stocks, ETFs, and mutual funds with zero
-// keys and zero config. Requires python3 + `pip install yfinance` on the machine;
-// the sync status says so plainly when either is missing.
+// prices.js — nightly stock-price sync, ON by default (set TSUMIKI_PRICES=0 to turn
+// it off). When on, it fetches daily closes for ONLY the tickers you hold (symbols
+// aren't personal) via ONE source: a small Python sidecar (scripts/prices.py) built
+// on yfinance — the community-maintained library that tracks Yahoo's endpoints,
+// covering stocks, ETFs, and mutual funds with zero keys and zero config. Needs
+// python3 + yfinance on the machine (set up with `make prices-setup`, which uses uv,
+// then point TSUMIKI_PYTHON at the venv); the sync status says so plainly when either
+// is missing — nothing else breaks if it isn't installed.
 //
 // Results are cached, a short per-symbol history drives week-over-week moves, and the
 // outcome of the last sync is recorded so the UI shows "synced / nothing came back /
@@ -37,9 +38,10 @@ const MANUAL_AFTER = 3; // consecutive misses before a symbol is given up on →
 const PROBE_EVERY = 7; // re-attempt given-up symbols every Nth refresh so a transient gap can recover
 const SCRIPT_TIMEOUT_MS = 90_000; // yfinance fetches serially; give a big portfolio room
 
-// env read live (not cached at import) so tests can vary it between cases
+// Price sync is ON by default; set TSUMIKI_PRICES to a falsey value (0/false/no/off)
+// to turn it off. Read live (not cached at import) so tests can vary it between cases.
 const enabled = () =>
-  ["1", "true", "yes"].includes((process.env.TSUMIKI_PRICES || "").toLowerCase());
+  !["0", "false", "no", "off"].includes((process.env.TSUMIKI_PRICES || "").toLowerCase());
 const pythonBin = () => process.env.TSUMIKI_PYTHON || "python3";
 const priceScript = () =>
   process.env.TSUMIKI_PRICES_SCRIPT || join(__dirname, "..", "scripts", "prices.py");
@@ -67,7 +69,7 @@ export function runPriceScript(symbols) {
           // spawn-level failure: python missing, script missing, timeout, crash
           const note =
             err.code === "ENOENT"
-              ? `price sync needs Python — "${pythonBin()}" was not found (install python3 + pip install yfinance)`
+              ? `price sync needs Python — "${pythonBin()}" was not found (run: make prices-setup, then set TSUMIKI_PYTHON to the venv's python)`
               : err.killed
                 ? "price script timed out"
                 : `price script failed: ${err.message || err.code}`;

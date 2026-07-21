@@ -40,14 +40,23 @@ All notable changes to Tsumiki are documented here. The format follows
 
 ### Changed
 
-- **Prices now come from ONE source: a Python/yfinance sidecar.** The Node server
+- **Stock-price sync is now ON by default** (previously opt-in via `TSUMIKI_PRICES=1`).
+  Set `TSUMIKI_PRICES=0` to turn it off. This means a default run makes one outbound
+  call — the daily price fetch — but only when you hold tickers, and it sends just those
+  symbols; it stays silent until `yfinance` is installed. The money-news card remains
+  off until you configure a feed.
+- **Python setup for price sync now uses [uv](https://docs.astral.sh/uv/).** A new
+  `make prices-setup` creates a `./.venv` and installs `yfinance` (declared in
+  `server/scripts/requirements.txt`); point `TSUMIKI_PYTHON` at `./.venv/bin/python` so
+  the sidecar finds it. The old `pip install yfinance` instruction is gone from the docs
+  and the runtime "what to install" note.
+- **Prices come from ONE source: a Python/yfinance sidecar.** The Node server
   spawns `server/scripts/prices.py` (built on
   [yfinance](https://github.com/ranaroussi/yfinance), the community-maintained
   library that tracks Yahoo Finance) for the held tickers and reads back JSON. No API
   keys, no provider chain, no config — and it covers stocks, ETFs, and mutual funds,
-  so every held symbol syncs. Requires python3 + `pip install yfinance` on the box
-  (`TSUMIKI_PYTHON` overrides the interpreter); when either is missing, the Portfolio
-  sync status says exactly what to install.
+  so every held symbol syncs. When Python or `yfinance` is missing, the Portfolio
+  sync status says exactly what to install (`make prices-setup`).
 
 ### Removed
 

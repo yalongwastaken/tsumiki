@@ -1,0 +1,4 @@
+# Python dependencies for the OPTIONAL stock-price sync sidecar (scripts/prices.py).
+# Only needed when you run with TSUMIKI_PRICES=1 — everything else runs without Python.
+# Install into a uv-managed venv:  make prices-setup   (or: uv pip install -r this-file)
+yfinance>=0.2.40

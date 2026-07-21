@@ -24,6 +24,9 @@ npm-debug.log*
 .env
 .env.*
 
+# ── python venv for the optional price-sync sidecar ──────────
+.venv/
+
 # ── editor / OS / FUSE cruft ─────────────────────────────────
 .vscode/
 .idea/

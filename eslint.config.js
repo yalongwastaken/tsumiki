@@ -19,6 +19,7 @@ export default [
     ignores: [
       "**/dist/**",
       "**/node_modules/**",
+      ".venv/**",
       "client/test/.tmp/**",
       "server/data/**",
       "**/*.timestamp-*.mjs",

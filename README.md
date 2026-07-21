@@ -49,8 +49,11 @@ game layer.
 - **Node ≥ 22.12** and npm. The server uses the built-in `node:sqlite`
   (run with `--experimental-sqlite`); the client uses Vite 8. No database server or
   native build step required.
-- **Python 3 + `pip install yfinance`** — only if you enable stock-price sync
-  (`TSUMIKI_PRICES=1`); everything else runs without Python.
+- **Python 3 + [`uv`](https://docs.astral.sh/uv/) + `yfinance`** — for stock-price sync,
+  which is **on by default**. One-time setup is `make prices-setup` (see
+  [Stock-price sync](#production-on-the-mini-pc) below). Without it, price sync simply
+  shows a "install yfinance" note and everything else runs fine; set `TSUMIKI_PRICES=0`
+  to turn sync off entirely.
 
 All dependencies are declared in `client/package.json` and `server/package.json`.
 
@@ -94,28 +97,41 @@ Open `http://<mini-pc-ip>:4000`. Configuration via environment variables:
 | `HOST`                  | `0.0.0.0`                | bind address; set to `127.0.0.1` to expose only locally and front with a TLS reverse proxy                                            |
 | `TSUMIKI_DB`            | `server/data/tsumiki.db` | SQLite database file path                                                                                                             |
 | `TSUMIKI_NEWS_FEED`     | _(unset → off)_          | optional public RSS/Atom URL for money headlines                                                                                      |
-| `TSUMIKI_PRICES`        | _(unset → off)_          | set to `1` to sync prices for your stock holdings                                                                                     |
-| `TSUMIKI_PYTHON`        | `python3`                | the Python interpreter used for price sync (which runs `server/scripts/prices.py` on yfinance)                                        |
+| `TSUMIKI_PRICES`        | _(on by default)_        | stock-price sync for held tickers; set to `0` to turn it off (needs `make prices-setup` + `TSUMIKI_PYTHON` to fetch)                   |
+| `TSUMIKI_PYTHON`        | `python3`                | Python interpreter for price sync — point at the uv venv, e.g. `./.venv/bin/python`, so `server/scripts/prices.py` finds `yfinance`   |
 | `TSUMIKI_TRUST_PROXY`   | _(unset → off)_          | set to `1` only when behind a TLS-terminating proxy (Tailscale serve / nginx) so `x-forwarded-proto` is trusted for the app lock      |
 | `TSUMIKI_AUTO_BACKUP`   | _(unset → off)_          | set to `1` for a daily local JSON backup (keeps the newest 30); off by default, never leaves the device                               |
 | `TSUMIKI_BACKUP_DIR`    | _(`backups/` by the DB)_ | where pre-import snapshots and auto-backups are written                                                                               |
 | `TSUMIKI_ALLOWED_HOSTS` | _(unset → off)_          | comma-separated `host[:port]` allowlist for mutating requests (defense-in-depth vs DNS rebinding); leave unset on a plain LAN/tailnet |
 
-The money-news card and price sync are both **off by default** — the server makes
-no outbound calls unless you opt in. With `TSUMIKI_NEWS_FEED` set it fetches that
-feed nightly and serves headlines only. With `TSUMIKI_PRICES=1` it fetches daily
-closing prices **for only the tickers you hold** (symbols aren't personal), caches
-them, and falls back to the last good prices when offline.
+**Price sync is on by default**; the money-news card is off until you configure it. So
+the one outbound call the server makes out of the box is the daily price fetch — and
+only when you actually hold tickers, sending **just those symbols** (which aren't
+personal). It caches the closes and falls back to the last good prices when offline. To
+make it fully silent, set `TSUMIKI_PRICES=0` (and it's silent anyway until `yfinance` is
+installed). With `TSUMIKI_NEWS_FEED` set it also fetches that feed nightly and serves
+headlines only.
 
 Prices come from **one source**: [yfinance](https://github.com/ranaroussi/yfinance),
 the community-maintained Python library that tracks Yahoo Finance — no API keys, no
 config, and it covers stocks, ETFs, **and mutual funds**, so every held symbol syncs.
 The server runs it as a small sidecar script (`server/scripts/prices.py`); it needs
-Python 3 on the machine plus:
+Python 3 plus `yfinance`, installed into a [uv](https://docs.astral.sh/uv/)-managed
+virtualenv:
 
 ```bash
-pip install yfinance
+make prices-setup     # creates ./.venv and installs yfinance (from server/scripts/requirements.txt)
 ```
+
+Then start the server pointing `TSUMIKI_PYTHON` at that venv's interpreter, so the
+sidecar finds `yfinance` (sync is already on by default):
+
+```bash
+TSUMIKI_PYTHON="$(pwd)/.venv/bin/python" make start
+```
+
+(`make prices-setup` prints this exact line when it finishes. In the systemd unit,
+set `Environment=TSUMIKI_PYTHON=/abs/path/to/tsumiki/.venv/bin/python`.)
 
 If Python or yfinance is missing, the Portfolio sync status says exactly that (and
 nothing else breaks). The card shows the outcome of every sync — synced, partial,

@@ -99,7 +99,7 @@ test("MISSING PYTHON: friendly note telling the user what to install", async () 
   const out = await prices.getPrices();
   assert.equal(out.lastSync.status, "error");
   assert.match(out.lastSync.note, /needs Python/);
-  assert.match(out.lastSync.note, /pip install yfinance/);
+  assert.match(out.lastSync.note, /make prices-setup/);
   if (orig) {
     process.env.TSUMIKI_PYTHON = orig;
   } else {

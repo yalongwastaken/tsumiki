@@ -275,12 +275,12 @@ test("syncProblem: error/empty are assertive (alert tone), partial is a warning"
   assert.equal(syncProblem({ status: "partial", missing: ["MSFT"] }).tone, "warn");
 });
 
-test("syncProblem: an error surfaces the server's note verbatim (e.g. install yfinance)", () => {
+test("syncProblem: an error surfaces the server's note verbatim (e.g. how to install)", () => {
   const p = syncProblem({
     status: "error",
-    note: 'price sync needs Python — "python3" was not found (install python3 + pip install yfinance)',
+    note: 'price sync needs Python — "python3" was not found (run: make prices-setup, then set TSUMIKI_PYTHON to the venv\'s python)',
   });
-  assert.match(p.text, /pip install yfinance/);
+  assert.match(p.text, /make prices-setup/);
   assert.equal(p.tone, "error");
 });
 

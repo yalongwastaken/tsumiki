@@ -15,7 +15,8 @@ Contract notes (mirrors what the Node side expects):
   rows with error null — that's a genuine per-symbol miss.
 
 Only your ticker symbols are sent to Yahoo (via yfinance). Nothing personal leaves
-the machine. Requires:  pip install yfinance
+the machine. Requires yfinance — set it up with `make prices-setup` (which uses uv),
+then point the server's TSUMIKI_PYTHON at that venv's interpreter.
 """
 
 import datetime as _dt
@@ -40,7 +41,7 @@ def main(argv):
     try:
         import yfinance as yf
     except ImportError:
-        emit([], "yfinance is not installed — run: pip install yfinance")
+        emit([], "yfinance is not installed — run: make prices-setup (uses uv)")
         return 0
 
     rows = []

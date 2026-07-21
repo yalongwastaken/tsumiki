@@ -262,7 +262,7 @@ app.get(
   asyncH(async (_req, res) => res.json(await getNews())),
 );
 
-// opt-in stock prices for held tickers (off unless TSUMIKI_PRICES is set)
+// stock prices for held tickers (on by default; set TSUMIKI_PRICES=0 to disable)
 app.get(
   "/api/prices",
   asyncH(async (_req, res) => res.json(await getPrices())),
@@ -373,7 +373,7 @@ if (isMain) {
   app.listen(PORT, HOST, () => console.log(`tsumiki server on http://${HOST}:${PORT}`));
 
   scheduleNews(); // no-op unless TSUMIKI_NEWS_FEED is configured
-  schedulePrices(); // no-op unless TSUMIKI_PRICES is enabled
+  schedulePrices(); // on by default; no-op only when TSUMIKI_PRICES=0
   scheduleBackup(); // no-op unless TSUMIKI_AUTO_BACKUP is enabled
   schedulePush(); // sends nothing unless a device subscribed in Settings
 }
