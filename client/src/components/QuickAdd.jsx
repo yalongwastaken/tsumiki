@@ -46,6 +46,8 @@ export default function QuickAdd({
   const [acctId, setAcctId] = useState(null); // charge a spend to / deposit income to
   const [note, setNote] = useState("");
   const [day, setDay] = useState(""); // "" = now; else a YYYY-MM-DD to backdate to
+  const [dragY, setDragY] = useState(0); // px the sheet is dragged down (0 = resting)
+  const drag = useRef({ startY: 0, active: false });
   // local calendar keys (dayKey, not a UTC slice) so "yesterday" is the user's yesterday
   const todayKey = dayKey(new Date());
   const yesterdayKey = (() => {
@@ -120,6 +122,7 @@ export default function QuickAdd({
       setAcctId(chargeable(accounts)[0]?.id || null);
       setNote("");
       setDay("");
+      setDragY(0);
       setTimeout(() => amountRef.current?.focus(), 50);
     }
   }, [open]); // eslint-disable-line
@@ -186,6 +189,34 @@ export default function QuickAdd({
     onClose();
   }
 
+  // swipe-down-to-dismiss: the grab handle is a drag zone. Pointer events cover touch +
+  // mouse; only downward movement counts, and a drag past the threshold closes the sheet
+  // (otherwise it snaps back). Attached to the handle only, so it never fights the body's
+  // scroll or the inputs below.
+  const CLOSE_AT = 110; // px dragged before a release dismisses
+  function onDragStart(e) {
+    drag.current = { startY: e.clientY, active: true };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }
+  function onDragMove(e) {
+    if (!drag.current.active) {
+      return;
+    }
+    setDragY(Math.max(0, e.clientY - drag.current.startY));
+  }
+  function onDragEnd() {
+    if (!drag.current.active) {
+      return;
+    }
+    drag.current.active = false;
+    if (dragY > CLOSE_AT) {
+      onClose();
+    } else {
+      setDragY(0); // snap back
+    }
+  }
+  const dragging = drag.current.active;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
@@ -197,10 +228,25 @@ export default function QuickAdd({
       <div
         ref={panelRef}
         className="relative w-full max-w-lg bg-white rounded-t-2xl p-4 pb-6 shadow-xl max-h-[90vh] overflow-y-auto"
-        style={{ animation: "qa-up 160ms ease-out" }}
+        style={{
+          transform: dragY ? `translateY(${dragY}px)` : undefined,
+          transition: dragging ? "none" : "transform 200ms ease",
+          animation: dragY || dragging ? "none" : "qa-up 160ms ease-out",
+        }}
       >
         <style>{`@keyframes qa-up{from{transform:translateY(16px);opacity:.6}to{transform:translateY(0);opacity:1}}`}</style>
-        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-200" />
+        {/* drag zone — swipe the sheet down to dismiss (the visible grabber) */}
+        <div
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+          className="-mt-1 mb-2 pt-1 pb-2 cursor-grab active:cursor-grabbing"
+          style={{ touchAction: "none" }}
+          aria-hidden="true"
+        >
+          <div className="mx-auto h-1 w-10 rounded-full bg-slate-300" />
+        </div>
 
         {/* type toggle */}
         <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-4">
