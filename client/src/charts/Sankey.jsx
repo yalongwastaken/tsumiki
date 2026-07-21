@@ -1,5 +1,6 @@
 // Sankey.jsx — this month's real money flow (income → spending/contributions/leftover).
 import { fmt } from "../lib/core/format.js";
+import { SvgMoney } from "../components/Money.jsx";
 import { CAT_COLORS, bucketLabel, bucketColor, bucketOf } from "../lib/plan/buckets.js";
 import { thisMonth, monthKey } from "../lib/core/selectors.js";
 
@@ -130,16 +131,15 @@ export default function SankeyFlow({ transactions = [], fallbackIncome = 0 }) {
             >
               {clip(r.label)}
             </text>
-            <text
+            <SvgMoney
               x={RX + RW + 10}
               y={m + 8}
               dominantBaseline="central"
               fontSize="13"
               fill="var(--muted)"
-              className="money"
             >
               {fmt(r.amount)}/mo
-            </text>
+            </SvgMoney>
           </g>
         );
       })}
@@ -153,7 +153,7 @@ export default function SankeyFlow({ transactions = [], fallbackIncome = 0 }) {
       >
         {usingFallback ? "Income (est.)" : "Income"}
       </text>
-      <text
+      <SvgMoney
         x={LX - 10}
         y={cY + 9}
         textAnchor="end"
@@ -161,10 +161,9 @@ export default function SankeyFlow({ transactions = [], fallbackIncome = 0 }) {
         fontSize="15"
         fill="var(--text)"
         fontWeight="bold"
-        className="money"
       >
         {fmt(income)}
-      </text>
+      </SvgMoney>
     </svg>
   );
 }

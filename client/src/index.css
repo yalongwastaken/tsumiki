@@ -273,19 +273,19 @@ body {
 .money {
   transition: filter 0.2s ease;
 }
-.blur-money .money {
+/* HTML amounts blur via CSS. SVG <text> amounts blur via an SVG <filter> instead
+   (see MoneyBlurDefs / SvgMoney in Money.jsx) — CSS `filter` on SVG text is unreliable
+   in WebKit/Safari — so exclude <text> here, else the (failing) CSS property would win
+   over the working filter attribute. */
+.blur-money .money:not(text) {
   filter: blur(7px);
   cursor: default;
   /* keep the blurred text unselectable so it can't be copied/revealed by dragging */
   user-select: none;
 }
-/* SVG chart labels are small (~9px); a tighter blur keeps the halo from bleeding */
-.blur-money text.money {
-  filter: blur(4.5px);
-}
 /* hover to peek at a single amount (mouse/trackpad); the header eye toggle is the
    keyboard/touch-accessible way to reveal everything at once */
-.blur-money .money:hover {
+.blur-money .money:not(text):hover {
   filter: none;
   user-select: auto;
 }

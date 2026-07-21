@@ -5,7 +5,7 @@ import { RefreshCw } from "lucide-react";
 import { fmt } from "../lib/core/format.js";
 import AreaChart from "../charts/Chart.jsx";
 import StocksSankey from "../charts/StocksSankey.jsx";
-import Money from "../components/Money.jsx";
+import Money, { SvgMoney } from "../components/Money.jsx";
 import {
   portfolioRows,
   portfolioTotals,
@@ -60,17 +60,16 @@ function AllocationDonut({ segs, total }) {
         <text x={cx} y={cy - 4} textAnchor="middle" fontSize="12" fill="var(--muted)">
           holdings
         </text>
-        <text
+        <SvgMoney
           x={cx}
           y={cy + 12}
           textAnchor="middle"
           fontSize="14"
           fontWeight="600"
           fill="var(--text)"
-          className="money"
         >
           {fmt(total)}
-        </text>
+        </SvgMoney>
       </svg>
       <div className="flex-1 min-w-[150px] space-y-1.5">
         {segs.map((s, i) => (

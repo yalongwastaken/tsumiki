@@ -2,6 +2,7 @@
 // (Taxable / 401(k) / IRA / Roth) → individual tickers. It separates the total so you
 // can see where your stocks actually sit. Pure render over portfolioFlow(); no network.
 import { fmt } from "../lib/core/format.js";
+import { SvgMoney } from "../components/Money.jsx";
 import { portfolioFlow } from "../lib/finance/portfolio.js";
 
 const clip = (s) => (s.length > 14 ? s.slice(0, 13) + "…" : s);
@@ -134,7 +135,7 @@ export default function StocksSankey({ rows = [] }) {
       >
         Portfolio
       </text>
-      <text
+      <SvgMoney
         x={TX - 10}
         y={cY + 9}
         textAnchor="end"
@@ -142,10 +143,9 @@ export default function StocksSankey({ rows = [] }) {
         fontSize="15"
         fill="var(--text)"
         fontWeight="bold"
-        className="money"
       >
         {fmt(total)}
-      </text>
+      </SvgMoney>
 
       {/* bucket nodes + labels (label sits to the left, over the light ribbon) */}
       {bucketNodes.map((b) => (
@@ -192,16 +192,15 @@ export default function StocksSankey({ rows = [] }) {
             >
               {clip(t.ticker)}
             </text>
-            <text
+            <SvgMoney
               x={KX + BAR + 8}
               y={m + 8}
               dominantBaseline="central"
               fontSize="12"
               fill="var(--muted)"
-              className="money"
             >
               {fmt(t.value)}
-            </text>
+            </SvgMoney>
           </g>
         );
       })}

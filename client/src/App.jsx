@@ -41,7 +41,7 @@ import Login from "./views/Login.jsx";
 import Home from "./views/Home.jsx";
 import NetWorthCard from "./components/NetWorthCard.jsx";
 import { Menu, PartyPopper, Plus, Eye, EyeOff } from "lucide-react";
-import Money, { BlurAmounts } from "./components/Money.jsx";
+import Money, { BlurAmounts, BlurContext, MoneyBlurDefs } from "./components/Money.jsx";
 import StreakPanel from "./components/StreakPanel.jsx";
 import NavRail, { NAV } from "./components/NavRail.jsx";
 import MilestoneIcon from "./components/MilestoneIcon.jsx";
@@ -603,339 +603,342 @@ export default function App() {
     saveMeta((d) => ({ settings: { ...d.settings, blurMoney: !blurMoney } }));
 
   return (
-    <div className={`min-h-screen bg-slate-50 md:flex${blurMoney ? " blur-money" : ""}`}>
-      {/* mobile overlay */}
-      {menuOpen && (
-        <div
-          className="fixed inset-0 bg-slate-900/40 z-30 md:hidden"
-          onClick={() => setMenuOpen(false)}
+    <BlurContext.Provider value={blurMoney}>
+      <MoneyBlurDefs />
+      <div className={`min-h-screen bg-slate-50 md:flex${blurMoney ? " blur-money" : ""}`}>
+        {/* mobile overlay */}
+        {menuOpen && (
+          <div
+            className="fixed inset-0 bg-slate-900/40 z-30 md:hidden"
+            onClick={() => setMenuOpen(false)}
+          />
+        )}
+
+        <NavRail
+          tab={tab}
+          setTab={setTab}
+          menuOpen={menuOpen}
+          setMenuOpen={setMenuOpen}
+          collapsed={collapsed}
+          toggleRail={toggleRail}
         />
-      )}
 
-      <NavRail
-        tab={tab}
-        setTab={setTab}
-        menuOpen={menuOpen}
-        setMenuOpen={setMenuOpen}
-        collapsed={collapsed}
-        toggleRail={toggleRail}
-      />
+        {/* main column */}
+        <div className="flex-1 min-w-0 flex flex-col min-h-screen">
+          {celebrate && (
+            <button
+              onClick={() => setCelebrate(null)}
+              className="w-full flex items-center gap-2 flex-wrap bg-gradient-to-r from-amber-400 to-orange-400 text-white px-5 py-2.5 text-sm font-semibold"
+            >
+              <PartyPopper size={16} />
+              <span>Milestone{celebrate.length > 1 ? "s" : ""}:</span>
+              {celebrate.map((m, i) => (
+                <span key={i} className="inline-flex items-center gap-1">
+                  <MilestoneIcon name={m.icon} size={14} />
+                  <BlurAmounts text={m.label} />
+                </span>
+              ))}
+              <span className="opacity-70 font-normal">— tap to dismiss</span>
+            </button>
+          )}
+          {offline && (
+            <div
+              role="status"
+              className="bg-amber-50 border-b border-amber-200 text-amber-800 text-xs px-5 py-2"
+            >
+              Offline — showing your last synced data.{" "}
+              {dirtyRef.current
+                ? "Unsaved changes will sync when the server is reachable again."
+                : "Changes may not save until the server is reachable."}
+            </div>
+          )}
+          {error && !offline && (
+            <div
+              role="alert"
+              className="bg-rose-50 border-b border-rose-200 text-rose-600 text-xs px-5 py-2"
+            >
+              {error}
+            </div>
+          )}
 
-      {/* main column */}
-      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
-        {celebrate && (
-          <button
-            onClick={() => setCelebrate(null)}
-            className="w-full flex items-center gap-2 flex-wrap bg-gradient-to-r from-amber-400 to-orange-400 text-white px-5 py-2.5 text-sm font-semibold"
-          >
-            <PartyPopper size={16} />
-            <span>Milestone{celebrate.length > 1 ? "s" : ""}:</span>
-            {celebrate.map((m, i) => (
-              <span key={i} className="inline-flex items-center gap-1">
-                <MilestoneIcon name={m.icon} size={14} />
-                <BlurAmounts text={m.label} />
+          <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-3 px-4 py-3">
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="md:hidden text-slate-600"
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
+            <div className="font-semibold text-slate-800">{sectionLabel}</div>
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-sm font-mono font-bold text-slate-700">
+                <Money n={netWorthDisplay} />{" "}
+                <span className="text-xs font-sans font-normal text-slate-500">net worth</span>
               </span>
-            ))}
-            <span className="opacity-70 font-normal">— tap to dismiss</span>
-          </button>
-        )}
-        {offline && (
-          <div
-            role="status"
-            className="bg-amber-50 border-b border-amber-200 text-amber-800 text-xs px-5 py-2"
-          >
-            Offline — showing your last synced data.{" "}
-            {dirtyRef.current
-              ? "Unsaved changes will sync when the server is reachable again."
-              : "Changes may not save until the server is reachable."}
-          </div>
-        )}
-        {error && !offline && (
-          <div
-            role="alert"
-            className="bg-rose-50 border-b border-rose-200 text-rose-600 text-xs px-5 py-2"
-          >
-            {error}
-          </div>
-        )}
+              <button
+                onClick={toggleBlur}
+                aria-pressed={blurMoney}
+                aria-label={blurMoney ? "Show amounts" : "Hide amounts"}
+                title={blurMoney ? "Show amounts" : "Hide amounts"}
+                className="press flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              >
+                {blurMoney ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </header>
 
-        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-3 px-4 py-3">
-          <button
-            onClick={() => setMenuOpen(true)}
-            className="md:hidden text-slate-600"
-            aria-label="Open menu"
-          >
-            <Menu size={22} />
-          </button>
-          <div className="font-semibold text-slate-800">{sectionLabel}</div>
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-sm font-mono font-bold text-slate-700">
-              <Money n={netWorthDisplay} />{" "}
-              <span className="text-xs font-sans font-normal text-slate-500">net worth</span>
-            </span>
-            <button
-              onClick={toggleBlur}
-              aria-pressed={blurMoney}
-              aria-label={blurMoney ? "Show amounts" : "Hide amounts"}
-              title={blurMoney ? "Show amounts" : "Hide amounts"}
-              className="press flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            >
-              {blurMoney ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
-          </div>
-        </header>
-
-        {undoTx ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="anim-fade fixed bottom-24 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-full bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-lg"
-          >
-            <span>Deleted</span>
-            <button
-              onClick={undoDelete}
-              className="font-semibold text-amber-300 hover:text-amber-200"
-            >
-              Undo
-            </button>
-          </div>
-        ) : (
-          toast && (
+          {undoTx ? (
             <div
               role="status"
               aria-live="polite"
-              className="anim-fade fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-lg"
+              className="anim-fade fixed bottom-24 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-full bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-lg"
             >
-              {toast}
+              <span>Deleted</span>
+              <button
+                onClick={undoDelete}
+                className="font-semibold text-amber-300 hover:text-amber-200"
+              >
+                Undo
+              </button>
             </div>
-          )
-        )}
+          ) : (
+            toast && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="anim-fade fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-lg"
+              >
+                {toast}
+              </div>
+            )
+          )}
 
-        <ErrorBoundary key={tab}>
-          <main className="anim-in flex-1 px-4 sm:px-6 pt-5 pb-28 space-y-4 w-full max-w-lg md:max-w-2xl lg:max-w-4xl mx-auto">
-            {tab === "home" && (
-              <Home
-                profile={profile}
-                transactions={transactions}
-                snapshots={snapshots}
-                accounts={accounts}
-                debts={debts}
-                income={income}
-                realNetWorth={realNetWorth}
-                investedTotal={investedTotal}
-                milestoneList={milestoneList}
-                freezes={freezes}
-                dailyStreak={dailyStreak}
-                reminders={reminders}
-                onGo={setTab}
-              />
-            )}
-
-            {tab === "plan" && (
-              <Plan
-                transactions={transactions}
-                accounts={accounts}
-                snapshots={snapshots}
-                debts={debts}
-                profile={profile}
-                onGoSetup={() => setTab("settings")}
-                onApplyMonth={(s) =>
-                  save((d) => ({
-                    ...d,
-                    profile: { ...d.profile, monthOverride: { ym: thisMonth(), strategy: s } },
-                  }))
-                }
-                onClearMonth={() =>
-                  save((d) => {
-                    // drop the monthOverride key, keep the rest of the profile
-                    const { monthOverride: _omit, ...rest } = d.profile;
-                    return { ...d, profile: rest };
-                  })
-                }
-                onLogContributions={(gaps) =>
-                  // "I moved it": record the plan's remaining transfers as contributions
-                  save((d) => ({
-                    ...d,
-                    transactions: [
-                      ...d.transactions,
-                      ...gaps.map((g) => ({
-                        id: uid(),
-                        type: "contribution",
-                        amount: g.amount,
-                        bucket: g.bucket,
-                        date: new Date().toISOString(),
-                        note: "Logged from plan",
-                      })),
-                    ],
-                  }))
-                }
-              />
-            )}
-
-            {tab === "activity" && (
-              <Activity
-                transactions={transactions}
-                profile={profile}
-                sources={incomeSources}
-                accounts={accounts}
-                onDelete={deleteTx}
-                onLog={(txs) =>
-                  save((d) => ({
-                    ...d,
-                    transactions: [...d.transactions, ...txs.map((t) => ({ id: uid(), ...t }))],
-                  }))
-                }
-                onUpdate={(ids, patch) => {
-                  const set = new Set(ids);
-                  save((d) => ({
-                    ...d,
-                    transactions: d.transactions.map((t) =>
-                      set.has(t.id) ? { ...t, ...patch } : t,
-                    ),
-                  }));
-                }}
-              />
-            )}
-
-            {tab === "grow" && (
-              <>
-                {snapshots.length === 0 && transactions.length === 0 && (
-                  <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 text-sm text-brand-700">
-                    Record your net worth below and log a little income/spending — then the
-                    projection, FIRE number, and trend fill in here.
-                  </div>
-                )}
-                {realityCheck && (
-                  <div className="bg-white rounded-xl border border-slate-200 p-4">
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                      Reality check
-                    </div>
-                    <div className="text-sm text-slate-600">
-                      You contributed <Money n={realityCheck.contribSince} />; net worth changed{" "}
-                      <Money n={realityCheck.deltaNW} />.
-                    </div>
-                    <div
-                      className={`text-sm mt-1 font-medium ${realityCheck.gap >= 0 ? "text-emerald-600" : "text-rose-500"}`}
-                    >
-                      <BlurAmounts
-                        text={
-                          realityCheck.gap >= 0
-                            ? `+${fmt(realityCheck.gap)} on top — markets working for you.`
-                            : `${fmt(realityCheck.gap)} — markets or unlogged spending took a bite.`
-                        }
-                      />
-                    </div>
-                  </div>
-                )}
-                <Projection
-                  start={netWorth}
-                  derivedInvest={derivedInvest}
-                  settings={settings}
-                  onChange={(s) => save((d) => ({ ...d, settings: s }))}
+          <ErrorBoundary key={tab}>
+            <main className="anim-in flex-1 px-4 sm:px-6 pt-5 pb-28 space-y-4 w-full max-w-lg md:max-w-2xl lg:max-w-4xl mx-auto">
+              {tab === "home" && (
+                <Home
+                  profile={profile}
+                  transactions={transactions}
+                  snapshots={snapshots}
+                  accounts={accounts}
+                  debts={debts}
+                  income={income}
+                  realNetWorth={realNetWorth}
+                  investedTotal={investedTotal}
+                  milestoneList={milestoneList}
+                  freezes={freezes}
+                  dailyStreak={dailyStreak}
+                  reminders={reminders}
+                  onGo={setTab}
                 />
-                <NetWorthHistory data={nwSeries} />
-                <Fire
-                  netWorth={netWorth}
-                  monthlyInvest={monthlyForFire}
-                  returnRate={settings.returnRate}
-                  annualExpenses={annualExpenses}
-                  birthYear={profile?.birthYear}
-                  retireAge={profile?.retireAge}
-                />
-                <Portfolio
-                  holdings={holdings}
-                  prices={prices}
-                  onGoSetup={() => setTab("accounts")}
-                  onSync={async () => {
-                    // surface a toast on failure instead of silently stopping the spinner
-                    try {
-                      setPrices(await refreshPrices());
-                    } catch {
-                      setToast("Price sync failed");
-                      setTimeout(() => setToast(""), 1800);
-                    }
-                  }}
-                />
-                {/* only while no accounts exist: once real accounts are set up, net worth
-                    comes from their snapshots — writing a whole-net-worth figure here would
-                    corrupt accounts[0]'s balance history (AUDIT H5) */}
-                {accounts.length === 0 && (
-                  <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
-                )}
-              </>
-            )}
+              )}
 
-            {tab === "goals" && (
-              <>
-                <StreakPanel streak={dailyStreak} transactions={transactions} freezes={freezes} />
-                <Milestones list={milestoneList} />
-                <MoneyTargets
-                  targets={profile?.moneyTargets || []}
-                  values={{
-                    net_worth: realNetWorth,
-                    contributed: investedTotal,
-                    emergency: savingsBalance,
-                  }}
-                  earmarked={earmarked}
-                  monthlyPace={monthlyPace}
-                  onChange={(list) =>
-                    saveMeta((d) => ({ profile: { ...d.profile, moneyTargets: list } }))
+              {tab === "plan" && (
+                <Plan
+                  transactions={transactions}
+                  accounts={accounts}
+                  snapshots={snapshots}
+                  debts={debts}
+                  profile={profile}
+                  onGoSetup={() => setTab("settings")}
+                  onApplyMonth={(s) =>
+                    save((d) => ({
+                      ...d,
+                      profile: { ...d.profile, monthOverride: { ym: thisMonth(), strategy: s } },
+                    }))
+                  }
+                  onClearMonth={() =>
+                    save((d) => {
+                      // drop the monthOverride key, keep the rest of the profile
+                      const { monthOverride: _omit, ...rest } = d.profile;
+                      return { ...d, profile: rest };
+                    })
+                  }
+                  onLogContributions={(gaps) =>
+                    // "I moved it": record the plan's remaining transfers as contributions
+                    save((d) => ({
+                      ...d,
+                      transactions: [
+                        ...d.transactions,
+                        ...gaps.map((g) => ({
+                          id: uid(),
+                          type: "contribution",
+                          amount: g.amount,
+                          bucket: g.bucket,
+                          date: new Date().toISOString(),
+                          note: "Logged from plan",
+                        })),
+                      ],
+                    }))
                   }
                 />
-              </>
-            )}
+              )}
 
-            {tab === "accounts" && (
-              <Setup
-                section="accounts"
-                data={data}
-                onSave={save}
-                onSaveEntity={store.saveEntity}
-                onDeleteEntity={store.deleteEntity}
-                prices={prices}
-              />
-            )}
+              {tab === "activity" && (
+                <Activity
+                  transactions={transactions}
+                  profile={profile}
+                  sources={incomeSources}
+                  accounts={accounts}
+                  onDelete={deleteTx}
+                  onLog={(txs) =>
+                    save((d) => ({
+                      ...d,
+                      transactions: [...d.transactions, ...txs.map((t) => ({ id: uid(), ...t }))],
+                    }))
+                  }
+                  onUpdate={(ids, patch) => {
+                    const set = new Set(ids);
+                    save((d) => ({
+                      ...d,
+                      transactions: d.transactions.map((t) =>
+                        set.has(t.id) ? { ...t, ...patch } : t,
+                      ),
+                    }));
+                  }}
+                />
+              )}
 
-            {tab === "settings" && (
-              <Setup
-                section="settings"
-                data={data}
-                onSave={save}
-                onReplayIntro={() => setShowOnboard(true)}
-                onReset={resetEverything}
-                theme={settings?.theme || "light"}
-                onSetTheme={(t) => saveMeta((d) => ({ settings: { ...d.settings, theme: t } }))}
-              />
-            )}
-          </main>
-        </ErrorBoundary>
+              {tab === "grow" && (
+                <>
+                  {snapshots.length === 0 && transactions.length === 0 && (
+                    <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 text-sm text-brand-700">
+                      Record your net worth below and log a little income/spending — then the
+                      projection, FIRE number, and trend fill in here.
+                    </div>
+                  )}
+                  {realityCheck && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-4">
+                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                        Reality check
+                      </div>
+                      <div className="text-sm text-slate-600">
+                        You contributed <Money n={realityCheck.contribSince} />; net worth changed{" "}
+                        <Money n={realityCheck.deltaNW} />.
+                      </div>
+                      <div
+                        className={`text-sm mt-1 font-medium ${realityCheck.gap >= 0 ? "text-emerald-600" : "text-rose-500"}`}
+                      >
+                        <BlurAmounts
+                          text={
+                            realityCheck.gap >= 0
+                              ? `+${fmt(realityCheck.gap)} on top — markets working for you.`
+                              : `${fmt(realityCheck.gap)} — markets or unlogged spending took a bite.`
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <Projection
+                    start={netWorth}
+                    derivedInvest={derivedInvest}
+                    settings={settings}
+                    onChange={(s) => save((d) => ({ ...d, settings: s }))}
+                  />
+                  <NetWorthHistory data={nwSeries} />
+                  <Fire
+                    netWorth={netWorth}
+                    monthlyInvest={monthlyForFire}
+                    returnRate={settings.returnRate}
+                    annualExpenses={annualExpenses}
+                    birthYear={profile?.birthYear}
+                    retireAge={profile?.retireAge}
+                  />
+                  <Portfolio
+                    holdings={holdings}
+                    prices={prices}
+                    onGoSetup={() => setTab("accounts")}
+                    onSync={async () => {
+                      // surface a toast on failure instead of silently stopping the spinner
+                      try {
+                        setPrices(await refreshPrices());
+                      } catch {
+                        setToast("Price sync failed");
+                        setTimeout(() => setToast(""), 1800);
+                      }
+                    }}
+                  />
+                  {/* only while no accounts exist: once real accounts are set up, net worth
+                    comes from their snapshots — writing a whole-net-worth figure here would
+                    corrupt accounts[0]'s balance history (AUDIT H5) */}
+                  {accounts.length === 0 && (
+                    <NetWorthCard realNetWorth={realNetWorth} onSet={setNetWorth} />
+                  )}
+                </>
+              )}
+
+              {tab === "goals" && (
+                <>
+                  <StreakPanel streak={dailyStreak} transactions={transactions} freezes={freezes} />
+                  <Milestones list={milestoneList} />
+                  <MoneyTargets
+                    targets={profile?.moneyTargets || []}
+                    values={{
+                      net_worth: realNetWorth,
+                      contributed: investedTotal,
+                      emergency: savingsBalance,
+                    }}
+                    earmarked={earmarked}
+                    monthlyPace={monthlyPace}
+                    onChange={(list) =>
+                      saveMeta((d) => ({ profile: { ...d.profile, moneyTargets: list } }))
+                    }
+                  />
+                </>
+              )}
+
+              {tab === "accounts" && (
+                <Setup
+                  section="accounts"
+                  data={data}
+                  onSave={save}
+                  onSaveEntity={store.saveEntity}
+                  onDeleteEntity={store.deleteEntity}
+                  prices={prices}
+                />
+              )}
+
+              {tab === "settings" && (
+                <Setup
+                  section="settings"
+                  data={data}
+                  onSave={save}
+                  onReplayIntro={() => setShowOnboard(true)}
+                  onReset={resetEverything}
+                  theme={settings?.theme || "light"}
+                  onSetTheme={(t) => saveMeta((d) => ({ settings: { ...d.settings, theme: t } }))}
+                />
+              )}
+            </main>
+          </ErrorBoundary>
+        </div>
+
+        {/* always-available fast logging */}
+        <button
+          onClick={() => setShowAdd(true)}
+          aria-label="Log a transaction"
+          className="press fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-brand-600 hover:bg-brand-700 text-white shadow-lg flex items-center justify-center"
+        >
+          <Plus size={26} />
+        </button>
+        <QuickAdd
+          open={showAdd}
+          onClose={() => setShowAdd(false)}
+          onLog={logTx}
+          cats={quickAddCats}
+          sources={incomeSources}
+          goals={(profile?.moneyTargets || []).filter((g) => g.metric === "earmarked")}
+          accounts={accounts}
+          transactions={transactions}
+        />
+        <Onboarding
+          open={showOnboard}
+          initial={profile}
+          onComplete={finishOnboarding}
+          onSkip={skipOnboarding}
+        />
       </div>
-
-      {/* always-available fast logging */}
-      <button
-        onClick={() => setShowAdd(true)}
-        aria-label="Log a transaction"
-        className="press fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-brand-600 hover:bg-brand-700 text-white shadow-lg flex items-center justify-center"
-      >
-        <Plus size={26} />
-      </button>
-      <QuickAdd
-        open={showAdd}
-        onClose={() => setShowAdd(false)}
-        onLog={logTx}
-        cats={quickAddCats}
-        sources={incomeSources}
-        goals={(profile?.moneyTargets || []).filter((g) => g.metric === "earmarked")}
-        accounts={accounts}
-        transactions={transactions}
-      />
-      <Onboarding
-        open={showOnboard}
-        initial={profile}
-        onComplete={finishOnboarding}
-        onSkip={skipOnboarding}
-      />
-    </div>
+    </BlurContext.Provider>
   );
 }
 

@@ -1,6 +1,6 @@
 // PlanSplitChart.jsx — donut of the paycheck split + alternative strategy bars.
 import { fmt } from "../lib/core/format.js";
-import Money from "../components/Money.jsx";
+import Money, { SvgMoney } from "../components/Money.jsx";
 
 // deliberately not a sankey — a different shape so the two don't get confused
 const GROUPS = [
@@ -87,17 +87,16 @@ export default function PlanSplitChart({ plan, strategy, saved, onSetStrategy })
           <text x={cx} y={cy - 4} textAnchor="middle" fontSize="12" fill="var(--muted)">
             paycheck
           </text>
-          <text
+          <SvgMoney
             x={cx}
             y={cy + 12}
             textAnchor="middle"
             fontSize="14"
             fontWeight="600"
             fill="var(--text)"
-            className="money"
           >
             {fmt(total)}
-          </text>
+          </SvgMoney>
         </svg>
         <div className="flex-1 min-w-[150px] space-y-1.5">
           {segs.map((s, i) => (

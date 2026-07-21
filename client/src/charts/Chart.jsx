@@ -2,6 +2,7 @@
 // Hand-drawn SVG: filled area + line, min/max y-labels, first/last x-labels.
 import { useId } from "react";
 import { fmtK } from "../lib/core/format.js";
+import { SvgMoney } from "../components/Money.jsx";
 
 /**
  * A single-series area chart.
@@ -69,26 +70,12 @@ export default function AreaChart({
       <path d={area} fill={`url(#${gid})`} />
       <path d={line} fill="none" stroke={color} strokeWidth="1.5" />
       {/* y-axis: max (top) + min (bottom) — money, so blurrable in privacy mode */}
-      <text
-        x={padL - 4}
-        y={padT + 3}
-        textAnchor="end"
-        fontSize="9"
-        fill="var(--muted)"
-        className="money"
-      >
+      <SvgMoney x={padL - 4} y={padT + 3} textAnchor="end" fontSize="9" fill="var(--muted)">
         {fmtK(maxY)}
-      </text>
-      <text
-        x={padL - 4}
-        y={baseY}
-        textAnchor="end"
-        fontSize="9"
-        fill="var(--muted)"
-        className="money"
-      >
+      </SvgMoney>
+      <SvgMoney x={padL - 4} y={baseY} textAnchor="end" fontSize="9" fill="var(--muted)">
         {fmtK(minY)}
-      </text>
+      </SvgMoney>
       {/* x-axis: first + last */}
       <text x={padL} y={H - 4} textAnchor="start" fontSize="9" fill="var(--muted)">
         {xFormat(data[0][xKey])}
